@@ -1,0 +1,78 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+}
+
+.colorWeak {
+  filter: invert(80%);
+}
+
+.ant-layout {
+  min-height: 100vh;
+}
+.ant-pro-sider.ant-layout-sider.ant-pro-sider-fixed {
+  left: unset;
+}
+.ant-pro-form-login-page-container {
+  background-color: white;
+  background-image: none;
+}
+// .ant-pro-form-login-page-logo {
+//   width: 200px;
+//   height: unset;
+// }
+canvas {
+  display: block;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+@media (max-width: 768px) {
+  .ant-table {
+    width: 100%;
+    overflow-x: auto;
+    &-thead > tr,
+    &-tbody > tr {
+      > th,
+      > td {
+        white-space: pre;
+        > span {
+          display: block;
+        }
+      }
+    }
+  }
+}
+
+.colortext {
+  color: #70b7bd; // 修改编辑、详情字体颜色
+  &:hover {
+    color: #70b7bd;
+    opacity: 0.7; // 设置整体透明度为 80%
+  }
+}
+
+.page-login {
+
+  .ant-pro-global-footer-list-link {
+    color: rgba(255, 255, 255, .6);
+  }
+  .ant-pro-global-footer-copyright {
+    color: rgba(255, 255, 255, .8);
+  }
+}
