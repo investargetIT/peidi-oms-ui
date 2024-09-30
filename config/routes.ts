@@ -22,68 +22,68 @@ export default [
       },
     ],
   },
-  // {
-  //   path: '/welcome',
-  //   name: 'welcome',
-  //   icon: 'smile',
-  //   component: './Welcome',
-  // },
-  // {
-  //   path: '/admin',
-  //   name: 'admin',
-  //   icon: 'crown',
-  //   access: 'canAdmin',
-  //   routes: [
-  //     {
-  //       path: '/admin',
-  //       redirect: '/admin/sub-page',
-  //     },
-  //     {
-  //       path: '/admin/sub-page',
-  //       name: 'sub-page',
-  //       component: './Admin',
-  //     },
-  //   ],
-  // },
-  // {
-  //   name: 'list.table-list',
-  //   icon: 'table',
-  //   path: '/list',
-  //   component: './TableList',
-  // },
+  {
+    path: '/welcome',
+    name: 'welcome',
+    icon: 'smile',
+    component: './Welcome',
+  },
+  {
+    path: '/admin',
+    name: 'admin',
+    icon: 'crown',
+    access: 'canAdmin',
+    routes: [
+      {
+        path: '/admin',
+        redirect: '/admin/sub-page',
+      },
+      {
+        path: '/admin/sub-page',
+        name: 'sub-page',
+        component: './Admin',
+      },
+    ],
+  },
+  {
+    name: 'list.table-list',
+    icon: 'table',
+    path: '/list',
+    component: './TableList',
+  },
   {
     name: 'supplier',
     icon: 'creditCard',
     path: '/supplier',
     component: './Supplier',
   },
-  {
-    name: 'goodsCategory',
-    icon: 'apartment',
-    path: '/goodsCategory',
-    component: './GoodsCategory',
-  },
-  {
-    name: 'goods',
-    icon: 'container',
-    path: '/goods',
-    component: './Goods',
-  },
-  {
-    name: 'customer',
-    icon: 'table',
-    path: '/customer',
-    component: './Customer',
-  },
-  {
-    name: 'orders',
-    icon: 'table',
-    path: '/orders',
-    component: './Orders',
-  },
+  // {
+  //   name: 'goodsCategory',
+  //   icon: 'apartment',
+  //   path: '/goodsCategory',
+  //   component: './GoodsCategory',
+  // },
+  // {
+  //   name: 'goods',
+  //   icon: 'container',
+  //   path: '/goods',
+  //   component: './Goods',
+  // },
+  // {
+  //   name: 'customer',
+  //   icon: 'table',
+  //   path: '/customer',
+  //   component: './Customer',
+  // },
+  // {
+  //   name: 'orders',
+  //   icon: 'table',
+  //   path: '/orders',
+  //   component: './Orders',
+  // },
   {
     path: '/',
-    redirect: '/supplier',
+    redirect: '/welcome',
   },
   {
     path: '*',

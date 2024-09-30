@@ -148,7 +148,7 @@ const Login: React.FC = () => {
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: '#70b7bd',
+          colorPrimary: '#3880d3',
         },
       }}
     >
@@ -171,15 +171,15 @@ const Login: React.FC = () => {
           }}
         >
           <LoginFormPage
-            backgroundImageUrl="https://mdn.alipayobjects.com/huamei_gcee1x/afts/img/A*y0ZTS6WLwvgAAAAAAAAAAAAADml6AQ/fmt.webp"
-            backgroundVideoUrl="https://gw.alipayobjects.com/v/huamei_gcee1x/afts/video/jXRBRK_VAwoAAAAAAAAAAAAAK4eUAQBr"
+            backgroundImageUrl="/bg.jpg"
+            // backgroundVideoUrl="https://gw.alipayobjects.com/v/huamei_gcee1x/afts/video/jXRBRK_VAwoAAAAAAAAAAAAAK4eUAQBr"
             // contentStyle={{
             //   minWidth: 280,
             //   maxWidth: '75vw',
             //   backgroundColor: 'white',
             // }}
-            logo={<img alt="logo" src="/logo.svg" />}
-            title="顺为工业科技"
+            // logo={<img alt="logo" src="/logo.svg" />}
+            title="佩蒂宠物科技"
             subTitle="订单管理系统"
             initialValues={{
               autoLogin: true,

@@ -8,11 +8,11 @@ const Footer: React.FC = () => {
       style={{
         background: 'none',
       }}
-      copyright="深圳市顺为工业科技有限公司"
+      copyright="佩蒂智创（杭州）宠物科技有限公司"
       links={[
         {
-          key: '粤ICP备2024312257号-1',
-          title: '粤ICP备2024312257号-1',
+          key: 'ICP',
+          title: '浙ICP备2024083939号-1',
           href: 'https://beian.miit.gov.cn',
           blankTarget: true,
         },
