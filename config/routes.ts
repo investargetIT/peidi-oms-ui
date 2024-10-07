@@ -32,7 +32,7 @@ export default [
     path: '/admin',
     name: 'admin',
     icon: 'crown',
-    access: 'canAdmin',
+    // access: 'canAdmin',
     routes: [
       {
         path: '/admin',
@@ -51,12 +51,12 @@ export default [
     path: '/list',
     component: './TableList',
   },
-  {
-    name: 'supplier',
-    icon: 'creditCard',
-    path: '/supplier',
-    component: './Supplier',
-  },
+  // {
+  //   name: 'supplier',
+  //   icon: 'creditCard',
+  //   path: '/supplier',
+  //   component: './Supplier',
+  // },
   // {
   //   name: 'goodsCategory',
   //   icon: 'apartment',
