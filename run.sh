@@ -1,9 +1,9 @@
 #!/bin/bash
 
 docker run -it --rm \
-  --name antd-pro-boilerplate \
+  --name peidi-oms-ui \
   -v $(pwd):/app \
   -v /app/node_modules \
   -v /app/src/.umi \
   -p 8000:8000 \
-  antd-pro-boilerplate
+  peidi-oms-ui

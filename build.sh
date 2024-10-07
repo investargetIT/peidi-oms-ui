@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker build -t antd-pro-boilerplate .
+docker build -t peidi-oms-ui .
