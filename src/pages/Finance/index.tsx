@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { InboxOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd';
-import { message, Upload, Progress } from 'antd';
+import { message, Upload, Progress, Card, Row, Col, Typography } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 
 const { Dragger } = Upload;
+const { Title } = Typography;
 
 const UploadComponent: React.FC<{
   title: string;
@@ -54,7 +56,7 @@ const UploadComponent: React.FC<{
   };
 
   return (
-    <div>
+    <div style={{ marginBottom: 32 }}>
       <Dragger {...props}>
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
@@ -114,58 +116,76 @@ const App: React.FC = () => {
   const [isJdUploading, setIsJdUploading] = useState<boolean>(false);
 
   return (
-    <div>
-      <UploadComponent
-        title="抖音仅退款"
-        action={`${process.env.BASE_URL}/finance/upload/douyinRefund`}
-        fileList={dyFileList}
-        setFileList={setDYFileList}
-        percent={dyPercent}
-        setPercent={setDYPercent}
-        isUploading={isDYUploading}
-        setIsUploading={setIsDYUploading}
-      />
-      <UploadComponent
-        title="阿里发票"
-        action={`${process.env.BASE_URL}/finance/upload/invoice`}
-        fileList={aliFileList}
-        setFileList={setAliFileList}
-        percent={aliPercent}
-        setPercent={setAliPercent}
-        isUploading={isAliUploading}
-        setIsUploading={setIsAliUploading}
-      />
-      <UploadComponent
-        title="财务手工调整的发票"
-        action={`${process.env.BASE_URL}/finance/upload/invoiceManual`}
-        fileList={manualFileList}
-        setFileList={setManualFileList}
-        percent={manualPercent}
-        setPercent={setManualPercent}
-        isUploading={isManualUploading}
-        setIsUploading={setIsManualUploading}
-      />
-      <UploadComponent
-        title="拼多多仅退款"
-        action={`${process.env.BASE_URL}/finance/upload/pddrefund`}
-        fileList={pddFileList}
-        setFileList={setPddFileList}
-        percent={pddPercent}
-        setPercent={setPddPercent}
-        isUploading={isPddUploading}
-        setIsUploading={setIsPddUploading}
-      />
-      <UploadComponent
-        title="京东仅退款"
-        action={`${process.env.BASE_URL}/finance/upload/jdRefund`}
-        fileList={jdFileList}
-        setFileList={setJdFileList}
-        percent={jdPercent}
-        setPercent={setJdPercent}
-        isUploading={isJdUploading}
-        setIsUploading={setIsJdUploading}
-      />
-    </div>
+    <PageContainer>
+      <Card>
+        <Row gutter={16}>
+          <Col span={12}>
+            <UploadComponent
+              title="财务手工调整的发票"
+              action={`${process.env.BASE_URL}/finance/upload/invoiceManual`}
+              fileList={manualFileList}
+              setFileList={setManualFileList}
+              percent={manualPercent}
+              setPercent={setManualPercent}
+              isUploading={isManualUploading}
+              setIsUploading={setIsManualUploading}
+            />
+          </Col>
+          <Col span={12}>
+            <UploadComponent
+              title="阿里发票"
+              action={`${process.env.BASE_URL}/finance/upload/invoice`}
+              fileList={aliFileList}
+              setFileList={setAliFileList}
+              percent={aliPercent}
+              setPercent={setAliPercent}
+              isUploading={isAliUploading}
+              setIsUploading={setIsAliUploading}
+            />
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col span={12}>
+            <UploadComponent
+              title="抖音仅退款"
+              action={`${process.env.BASE_URL}/finance/upload/douyinRefund`}
+              fileList={dyFileList}
+              setFileList={setDYFileList}
+              percent={dyPercent}
+              setPercent={setDYPercent}
+              isUploading={isDYUploading}
+              setIsUploading={setIsDYUploading}
+            />
+          </Col>
+          <Col span={12}>
+            <UploadComponent
+              title="拼多多仅退款"
+              action={`${process.env.BASE_URL}/finance/upload/pddrefund`}
+              fileList={pddFileList}
+              setFileList={setPddFileList}
+              percent={pddPercent}
+              setPercent={setPddPercent}
+              isUploading={isPddUploading}
+              setIsUploading={setIsPddUploading}
+            />
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col span={12}>
+            <UploadComponent
+              title="京东仅退款"
+              action={`${process.env.BASE_URL}/finance/upload/jdRefund`}
+              fileList={jdFileList}
+              setFileList={setJdFileList}
+              percent={jdPercent}
+              setPercent={setJdPercent}
+              isUploading={isJdUploading}
+              setIsUploading={setIsJdUploading}
+            />
+          </Col>
+        </Row>
+      </Card>
+    </PageContainer>
   );
 };
 
