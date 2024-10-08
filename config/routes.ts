@@ -51,12 +51,12 @@ export default [
     path: '/list',
     component: './TableList',
   },
-  // {
-  //   name: 'supplier',
-  //   icon: 'creditCard',
-  //   path: '/supplier',
-  //   component: './Supplier',
-  // },
+  {
+    name: 'finance',
+    icon: 'creditCard',
+    path: '/finance',
+    component: './Finance',
+  },
   // {
   //   name: 'goodsCategory',
   //   icon: 'apartment',
