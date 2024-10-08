@@ -5,20 +5,25 @@ import { message, Upload, Progress } from 'antd';
 
 const { Dragger } = Upload;
 
-const App: React.FC = () => {
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
-  const [percent, setPercent] = useState<number>(0); // 公用进度百分比
-  const [isUploading, setIsUploading] = useState<boolean>(false); // 上传状态
-
+const UploadComponent: React.FC<{
+  title: string;
+  action: string;
+  fileList: UploadFile[];
+  setFileList: (fileList: UploadFile[]) => void;
+  percent: number;
+  setPercent: (percent: number) => void;
+  isUploading: boolean;
+  setIsUploading: (isUploading: boolean) => void;
+}> = ({ title, action, fileList, setFileList, percent, setPercent, isUploading, setIsUploading }) => {
   const props: UploadProps = {
     name: 'file',
     multiple: false,
-    showUploadList: false, // 隐藏文件列表
+    showUploadList: false,
     maxCount: 1,
     headers: {
-      Authorization: localStorage.getItem('token'), // 自定义请求头
+      Authorization: localStorage.getItem('token'),
     },
-    action: `${process.env.BASE_URL}/finance/upload/douyinRefund`, // 上传接口
+    action,
     onChange(info) {
       const { status, response } = info.file;
 
@@ -26,14 +31,13 @@ const App: React.FC = () => {
         setIsUploading(true);
         setPercent(50); // 上传过程中设置为 50%
       }
-
       if (status === 'done') {
         setPercent(100); // 上传完成时设置为 100%
         message.success(`${info.file.name} 上传成功.`);
-        setIsUploading(false); // 重置上传状态
+        setIsUploading(false);
       } else if (status === 'error') {
         message.error(`${info.file.name} 上传失败.`);
-        setIsUploading(false); // 重置上传状态
+        setIsUploading(false);
         setPercent(0); // 上传失败时重置进度
       }
 
@@ -55,18 +59,16 @@ const App: React.FC = () => {
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
         </p>
-        <p className="ant-upload-text">抖音仅退款EXCEL文件上传</p>
+        <p className="ant-upload-text">{title}文件上传</p>
         <p className="ant-upload-hint">单击或拖动文件到此区域进行上传</p>
       </Dragger>
 
-      {/* 只显示一个进度条 */}
       {isUploading && (
         <div style={{ marginTop: 16 }}>
           <Progress percent={percent} />
         </div>
       )}
 
-      {/* 上传文件的下载链接 */}
       {fileList.length > 0 && (
         <div style={{ marginTop: 16 }}>
           <h3>上传文件：</h3>
@@ -81,6 +83,88 @@ const App: React.FC = () => {
           </ul>
         </div>
       )}
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  // 抖音仅退款
+  const [dyFileList, setDYFileList] = useState<UploadFile[]>([]);
+  const [dyPercent, setDYPercent] = useState<number>(0);
+  const [isDYUploading, setIsDYUploading] = useState<boolean>(false);
+
+  // 阿里发票
+  const [aliFileList, setAliFileList] = useState<UploadFile[]>([]);
+  const [aliPercent, setAliPercent] = useState<number>(0);
+  const [isAliUploading, setIsAliUploading] = useState<boolean>(false);
+
+  // 财务手工调整的发票
+  const [manualFileList, setManualFileList] = useState<UploadFile[]>([]);
+  const [manualPercent, setManualPercent] = useState<number>(0);
+  const [isManualUploading, setIsManualUploading] = useState<boolean>(false);
+
+  // 拼多多仅退款
+  const [pddFileList, setPddFileList] = useState<UploadFile[]>([]);
+  const [pddPercent, setPddPercent] = useState<number>(0);
+  const [isPddUploading, setIsPddUploading] = useState<boolean>(false);
+
+  // 京东仅退款
+  const [jdFileList, setJdFileList] = useState<UploadFile[]>([]);
+  const [jdPercent, setJdPercent] = useState<number>(0);
+  const [isJdUploading, setIsJdUploading] = useState<boolean>(false);
+
+  return (
+    <div>
+      <UploadComponent
+        title="抖音仅退款"
+        action={`${process.env.BASE_URL}/finance/upload/douyinRefund`}
+        fileList={dyFileList}
+        setFileList={setDYFileList}
+        percent={dyPercent}
+        setPercent={setDYPercent}
+        isUploading={isDYUploading}
+        setIsUploading={setIsDYUploading}
+      />
+      <UploadComponent
+        title="阿里发票"
+        action={`${process.env.BASE_URL}/finance/upload/invoice`}
+        fileList={aliFileList}
+        setFileList={setAliFileList}
+        percent={aliPercent}
+        setPercent={setAliPercent}
+        isUploading={isAliUploading}
+        setIsUploading={setIsAliUploading}
+      />
+      <UploadComponent
+        title="财务手工调整的发票"
+        action={`${process.env.BASE_URL}/finance/upload/invoiceManual`}
+        fileList={manualFileList}
+        setFileList={setManualFileList}
+        percent={manualPercent}
+        setPercent={setManualPercent}
+        isUploading={isManualUploading}
+        setIsUploading={setIsManualUploading}
+      />
+      <UploadComponent
+        title="拼多多仅退款"
+        action={`${process.env.BASE_URL}/finance/upload/pddrefund`}
+        fileList={pddFileList}
+        setFileList={setPddFileList}
+        percent={pddPercent}
+        setPercent={setPddPercent}
+        isUploading={isPddUploading}
+        setIsUploading={setIsPddUploading}
+      />
+      <UploadComponent
+        title="京东仅退款"
+        action={`${process.env.BASE_URL}/finance/upload/jdRefund`}
+        fileList={jdFileList}
+        setFileList={setJdFileList}
+        percent={jdPercent}
+        setPercent={setJdPercent}
+        isUploading={isJdUploading}
+        setIsUploading={setIsJdUploading}
+      />
     </div>
   );
 };
