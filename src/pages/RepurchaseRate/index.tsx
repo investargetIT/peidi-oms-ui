@@ -53,7 +53,7 @@ const App: React.FC = () => {
     const tradeTimeParams = [{
         searchName: 'tradeTime',
         searchType: 'between',
-        searchValue: dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join('#/#'),
+        searchValue: dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join(','),
     }];
     console.log(tradeTimeParams);
     const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
