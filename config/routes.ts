@@ -20,6 +20,11 @@ export default [
         path: '/user/login',
         component: './User/Login',
       },
+      {
+        name: 'DDLoginFree',
+        path: '/user/dd',
+        component: './User/DDLoginFree',
+      },
     ],
   },
   // {

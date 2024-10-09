@@ -20,6 +20,7 @@ const UploadComponent: React.FC<{
   const props: UploadProps = {
     name: 'file',
     multiple: false,
+    accept: '.xlsx',
     showUploadList: false,
     maxCount: 1,
     headers: {
@@ -62,7 +63,7 @@ const UploadComponent: React.FC<{
           <InboxOutlined />
         </p>
         <p className="ant-upload-text">{title}文件上传</p>
-        <p className="ant-upload-hint">单击或拖动文件到此区域进行上传</p>
+        <p className="ant-upload-hint">单击或拖动文件到此区域进行上传，仅支持xlsx文件</p>
       </Dragger>
 
       {isUploading && (
