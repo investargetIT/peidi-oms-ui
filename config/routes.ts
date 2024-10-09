@@ -57,6 +57,12 @@ export default [
     path: '/finance',
     component: './Finance',
   },
+  {
+    name: 'repurchaseRate',
+    icon: 'creditCard',
+    path: '/repurchaseRate',
+    component: './RepurchaseRate',
+  },
   // {
   //   name: 'goodsCategory',
   //   icon: 'apartment',
