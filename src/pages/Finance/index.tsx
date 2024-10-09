@@ -115,6 +115,11 @@ const App: React.FC = () => {
   const [jdPercent, setJdPercent] = useState<number>(0);
   const [isJdUploading, setIsJdUploading] = useState<boolean>(false);
 
+  // 天猫仅退款
+  const [tmFileList, setTmFileList] = useState<UploadFile[]>([]);
+  const [tmPercent, setTmPercent] = useState<number>(0);
+  const [isTmUploading, setIsTmUploading] = useState<boolean>(false);
+
   return (
     <PageContainer>
       <Card>
@@ -181,6 +186,18 @@ const App: React.FC = () => {
               setPercent={setJdPercent}
               isUploading={isJdUploading}
               setIsUploading={setIsJdUploading}
+            />
+          </Col>
+          <Col span={12}>
+            <UploadComponent
+              title="天猫仅退款"
+              action={`${process.env.BASE_URL}/finance/upload/tmallrefund`}
+              fileList={tmFileList}
+              setFileList={setTmFileList}
+              percent={tmPercent}
+              setPercent={setTmPercent}
+              isUploading={isTmUploading}
+              setIsUploading={setIsTmUploading}
             />
           </Col>
         </Row>
