@@ -50,16 +50,14 @@ const App: React.FC = () => {
   // 调用接口
   const handleFetchList = async (values: any, page: number, pageSize: number) => {
     const { dateRange, shop, productCode } = values;
-    const tradeTimeParams = {
+    const tradeTimeParams = [{
         searchName: 'tradeTime',
         searchType: 'between',
         searchValue: dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join('#/#'),
-    };
-
-    const restParams = {
-        tradeTime: tradeTimeParams.searchValue,  // 使用格式化的 tradeTime
-    };
-    console.log(restParams)
+    }];
+    console.log(tradeTimeParams);
+    const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
+    console.log(restParams);
     try {
       const response = await salesOutDetails({
         page,

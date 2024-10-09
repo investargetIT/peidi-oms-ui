@@ -90,7 +90,7 @@ export const errorConfig: RequestConfig = {
     (config: RequestOptions) => {
       const token = localStorage.getItem('token');
       const url = config?.url?.concat('?token=' + token);
-      config.headers.Authorization = 'Bearer ' + token;
+      config.headers.Authorization = token;
       return { ...config, url };
     },
   ],
