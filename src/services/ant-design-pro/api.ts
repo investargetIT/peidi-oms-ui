@@ -106,8 +106,8 @@ export async function salesOutDetails(params: API.PageParams) {
   try {
     const response = await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${restParams}`);
     return {
-      data: response.data.content,
-      total: response.data.totalElements,
+      data: response.data.records,
+      total: response.data.total,
       success: true,
     };
   } catch (error) {
