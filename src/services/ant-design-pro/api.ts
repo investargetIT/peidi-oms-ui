@@ -104,14 +104,7 @@ export async function removeRule(options?: { [key: string]: any }) {
 export async function salesOutDetails(params: API.PageParams) {
   const { page, pageSize, restParams } = params;
   try {
-    const response = await request('/orders/salesOutDetails-page', {
-      method: 'GET',
-      params: {
-        pageNo: page - 1,
-        pageSize: pageSize,
-        searchStr: restParams,
-      },
-    });
+    const response = await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${restParams}`);
     return {
       data: response.data.content,
       total: response.data.totalElements,

@@ -52,7 +52,7 @@ const App: React.FC = () => {
     const { dateRange, shop, productCode } = values;
     const tradeTimeParams = [{
         searchName: 'tradeTime',
-        searchType: 'between',
+        searchType: 'betweenStr',
         searchValue: dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join(','),
     }];
     console.log(tradeTimeParams);
