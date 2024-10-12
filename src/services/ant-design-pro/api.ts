@@ -101,8 +101,45 @@ export async function removeRule(options?: { [key: string]: any }) {
   });
 }
 
-/** 获取客户信息 GET /customers/search */
+/** 获取订单店铺信息 GET /orders/shopTarget **/
+export async function shopTarget(params: API.PageParams) {
+  try {
+    const response = await request(`/orders/shopTarget`);
+    return {
+      data: response.data,
+      total: response.data.total,
+      success: true,
+    };
+  } catch (error) {
+    return {
+      data: [],
+      total: 0,
+      success: false,
+    };
+  }
+}
+
+/** 获取客户复购率信息 GET /orders/salesOutDetails **/
 export async function salesOutDetails(params: API.PageParams) {
+  const { restParams, groupStr } = params;
+  try {
+    const response = await request(`/orders/salesOutDetails?searchStr=${restParams}&groupStr=${groupStr}`);
+    return {
+      data: response.data.records,
+      total: response.data.total,
+      success: true,
+    };
+  } catch (error) {
+    return {
+      data: [],
+      total: 0,
+      success: false,
+    };
+  }
+}
+
+/** 获取客户复购率分页信息 GET /orders/salesOutDetails-page **/
+export async function salesOutDetailsPage(params: API.PageParams) {
   const { page, pageSize, restParams, groupStr } = params;
   try {
     const response = await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${restParams}&groupStr=${groupStr}`);

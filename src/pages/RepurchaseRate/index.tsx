@@ -1,8 +1,9 @@
-import { salesOutDetails } from '@/services/ant-design-pro/api';
-import React, { useState } from 'react';
+import { shopTarget, salesOutDetailsPage } from '@/services/ant-design-pro/api';
+import React, { useState, useEffect } from 'react';
 import { Button, message, Steps, theme, Select, DatePicker, Input, Form } from 'antd';
 import dayjs from 'dayjs';
 import { ProTable } from '@ant-design/pro-components';
+import { debounce } from 'lodash';
 
 const { RangePicker } = DatePicker;
 
@@ -21,9 +22,30 @@ const ListAndFilterForm: React.FC<{
   initialValues: any // 用于表单初始化
 }> = ({ onFetchList, listData, pagination, onPageChange, initialValues }) => {
   const [form] = Form.useForm();
+  const [shopList, setShopList] = useState<any[]>([]);
 
   // 初始化表单数据
-  form.setFieldsValue(initialValues);
+  useEffect(() => {
+    form.setFieldsValue(initialValues);
+  }, [initialValues]);
+
+  // 获取店铺数据
+  useEffect(() => {
+    const fetchShopList = async () => {
+      try {
+        const response = await shopTarget();
+        if (response?.data) {
+          setShopList(response.data); // 存储店铺列表
+        } else {
+          message.error('获取店铺列表失败');
+        }
+      } catch (error) {
+        message.error('调用shopTarget接口失败');
+      }
+    };
+
+    fetchShopList();
+  }, []);
 
   // 表格的列定义
   const columns = [
@@ -33,7 +55,7 @@ const ListAndFilterForm: React.FC<{
   ];
 
   // 提交表单
-  const onSubmit = () => form.validateFields().then((values) => onFetchList(values, pagination.current, pagination.pageSize));
+  const onSubmit = debounce(() => form.validateFields().then((values) => onFetchList(values, pagination.current, pagination.pageSize)), 300);
 
   return (
     <>
@@ -41,15 +63,20 @@ const ListAndFilterForm: React.FC<{
         <Form.Item name="dateRange" label="时间范围">
           <RangePicker />
         </Form.Item>
-        <Form.Item name="shop" label="店铺">
+        <Form.Item name="shopName" label="店铺">
           <Select placeholder="请选择店铺" style={{ width: 200 }}>
-            <Select.Option value="shop1">店铺1</Select.Option>
-            <Select.Option value="shop2">店铺2</Select.Option>
-            <Select.Option value="shop3">店铺3</Select.Option>
+            {shopList.map((shop) => (
+              <Select.Option key={shop.shopName} value={shop.shopName}>
+                {shop.shopName}
+              </Select.Option>
+            ))}
           </Select>
         </Form.Item>
         <Form.Item name="productCode" label="货品编号">
           <Input placeholder="请输入货品编号" />
+        </Form.Item>
+        <Form.Item name="receiverArea" label="地区">
+          <Input placeholder="请输入地区" />
         </Form.Item>
         <Form.Item>
           <Button type="primary" htmlType="submit">确认</Button>
@@ -70,6 +97,22 @@ const ListAndFilterForm: React.FC<{
       />
     </>
   );
+};
+
+const buildTradeTimeParams = (values: any) => {
+  const { dateRange, shopName, productCode, receiverArea } = values;
+  return [
+    {
+      searchName: 'tradeTime',
+      searchType: 'betweenStr',
+      searchValue: Array.isArray(dateRange) && dateRange.length > 0 
+        ? dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join(',') 
+        : '',
+    },
+    { searchName: 'shopName', searchType: 'like', searchValue: shopName || '' },
+    { searchName: 'productCode', searchType: 'like', searchValue: productCode || '' },
+    { searchName: 'receiverArea', searchType: 'like', searchValue: receiverArea || '' },
+  ];
 };
 
 const RepurchaseRate: React.FC = () => {
@@ -97,21 +140,14 @@ const RepurchaseRate: React.FC = () => {
     marginTop: 16,
   };
 
-  // 页面1的列表查询
   const handleFetchListPage1 = async (values: any, page: number, pageSize: number) => {
-    const { dateRange, shop, productCode } = values;
-    const tradeTimeParams = [{
-      searchName: 'tradeTime',
-      searchType: 'betweenStr',
-      searchValue: Array.isArray(dateRange) && dateRange.length > 0 
-        ? dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join(',') 
-        : '',
-    }];
+    const tradeTimeParams = buildTradeTimeParams(values);
     const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
     const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
-    setFormValues(values); // 缓存表单数据
+    setFormValuesPage1(values);
+
     try {
-      const response = await salesOutDetails({ page, pageSize, restParams, groupStr });
+      const response = await salesOutDetailsPage({ page, pageSize, restParams, groupStr });
       if (response?.data && response?.total) {
         setListDataPage1(response.data);
         setPagination1({ current: page, pageSize, total: response.total });
@@ -124,22 +160,14 @@ const RepurchaseRate: React.FC = () => {
     }
   };
 
-  // 页面2的列表查询
   const handleFetchListPage2 = async (values: any, page: number, pageSize: number) => {
-    const { dateRange, shop, productCode } = values;
-    const tradeTimeParams = [{
-      searchName: 'tradeTime',
-      searchType: 'betweenStr',
-      searchValue: Array.isArray(dateRange) && dateRange.length > 0 
-        ? dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join(',') 
-        : '',
-    }];
+    const tradeTimeParams = buildTradeTimeParams(values);
     const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
-
-    setFormValuesPage2(values); // 保存表单数据
+    const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
+    setFormValuesPage2(values);
 
     try {
-      const response = await salesOutDetails({ page, pageSize, restParams });
+      const response = await salesOutDetailsPage({ page, pageSize, restParams, groupStr });
       if (response?.data && response?.total) {
         setListDataPage2(response.data);
         setPagination2({ current: page, pageSize, total: response.total });
@@ -165,7 +193,7 @@ const RepurchaseRate: React.FC = () => {
             listData={listDataPage1}
             pagination={pagination1}
             onPageChange={handlePageChangePage1}
-            initialValues={formValuesPage1} // 初始化表单数据
+            initialValues={formValuesPage1}
           />
         )}
 
@@ -175,19 +203,19 @@ const RepurchaseRate: React.FC = () => {
             listData={listDataPage2}
             pagination={pagination2}
             onPageChange={handlePageChangePage2}
-            initialValues={formValuesPage2} // 初始化表单数据
+            initialValues={formValuesPage2}
           />
         )}
 
         {current > 1 && (
           <div>
             <Form layout="vertical">
-                <Form.Item label={`页面1数据总数`}>
-                    <Input value={pagination1.total} disabled />
-                </Form.Item>
-                <Form.Item label={`页面2数据总数`}>
-                    <Input value={pagination2.total} disabled />
-                </Form.Item>
+              <Form.Item label={`页面1数据总数`}>
+                <Input value={pagination1.total} disabled />
+              </Form.Item>
+              <Form.Item label={`页面2数据总数`}>
+                <Input value={pagination2.total} disabled />
+              </Form.Item>
             </Form>
           </div>
         )}
