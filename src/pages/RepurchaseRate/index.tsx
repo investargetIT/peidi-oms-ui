@@ -105,11 +105,11 @@ const RepurchaseRate: React.FC = () => {
         : '',
     }];
     const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
-
+    const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
     setFormValues(values); // 缓存表单数据
 
     try {
-      const response = await salesOutDetails({ page, pageSize, restParams });
+      const response = await salesOutDetails({ page, pageSize, restParams, groupStr });
       if (response?.data && response?.total) {
         setListDataPage1(response.data);
         setPagination1({ current: page, pageSize, total: response.total });

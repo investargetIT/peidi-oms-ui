@@ -4,9 +4,10 @@ import { request } from '@umijs/max';
 
 /** 获取当前的用户 GET /api/currentUser */
 export async function currentUser(options?: { [key: string]: any }) {
+  const token = localStorage.getItem('token');
   return request<{
     data: API.CurrentUser;
-  }>(process.env.USER_AUTH_BASE_URL + '/user/user-check', {
+  }>(process.env.USER_AUTH_BASE_URL + '/user/user-check?token=' + token, {
     method: 'GET',
     ...(options || {}),
   });
@@ -102,9 +103,9 @@ export async function removeRule(options?: { [key: string]: any }) {
 
 /** 获取客户信息 GET /customers/search */
 export async function salesOutDetails(params: API.PageParams) {
-  const { page, pageSize, restParams } = params;
+  const { page, pageSize, restParams, groupStr } = params;
   try {
-    const response = await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${restParams}`);
+    const response = await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${restParams}&groupStr=${groupStr}`);
     return {
       data: response.data.records,
       total: response.data.total,
