@@ -17,9 +17,13 @@ const ListAndFilterForm: React.FC<{
   onFetchList: (values: any, page: number, pageSize: number) => void, 
   listData: any[], 
   pagination: any, 
-  onPageChange: (page: number, pageSize: number) => void 
-}> = ({ onFetchList, listData, pagination, onPageChange }) => {
+  onPageChange: (page: number, pageSize: number) => void,
+  initialValues: any // 用于表单初始化
+}> = ({ onFetchList, listData, pagination, onPageChange, initialValues }) => {
   const [form] = Form.useForm();
+
+  // 初始化表单数据
+  form.setFieldsValue(initialValues);
 
   // 表格的列定义
   const columns = [
@@ -75,9 +79,8 @@ const RepurchaseRate: React.FC = () => {
   const [listDataPage2, setListDataPage2] = useState<any[]>([]);
   const [pagination1, setPagination1] = useState({ current: 1, pageSize: 10, total: 0 });
   const [pagination2, setPagination2] = useState({ current: 1, pageSize: 10, total: 0 });
-  const [totalDataPage1, setTotalDataPage1] = useState<number>(0);
-  const [totalDataPage2, setTotalDataPage2] = useState<number>(0);
-  const [formValues, setFormValues] = useState<any>({});
+  const [formValuesPage1, setFormValuesPage1] = useState<any>({});
+  const [formValuesPage2, setFormValuesPage2] = useState<any>({});
 
   const next = () => setCurrent(current + 1);
   const prev = () => setCurrent(current - 1);
@@ -94,7 +97,7 @@ const RepurchaseRate: React.FC = () => {
     marginTop: 16,
   };
 
-  // 调用接口获取页面1的列表
+  // 页面1的列表查询
   const handleFetchListPage1 = async (values: any, page: number, pageSize: number) => {
     const { dateRange, shop, productCode } = values;
     const tradeTimeParams = [{
@@ -106,14 +109,13 @@ const RepurchaseRate: React.FC = () => {
     }];
     const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
 
-    setFormValues(values); // 缓存表单数据
+    setFormValuesPage1(values); // 保存表单数据
 
     try {
       const response = await salesOutDetails({ page, pageSize, restParams });
       if (response?.data && response?.total) {
         setListDataPage1(response.data);
         setPagination1({ current: page, pageSize, total: response.total });
-        setTotalDataPage1(response.total); // 保存页面1的总数
         message.success('页面1列表获取成功');
       } else {
         message.error('数据结构不正确');
@@ -123,7 +125,7 @@ const RepurchaseRate: React.FC = () => {
     }
   };
 
-  // 调用接口获取页面2的列表
+  // 页面2的列表查询
   const handleFetchListPage2 = async (values: any, page: number, pageSize: number) => {
     const { dateRange, shop, productCode } = values;
     const tradeTimeParams = [{
@@ -135,14 +137,13 @@ const RepurchaseRate: React.FC = () => {
     }];
     const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
 
-    setFormValues(values); // 缓存表单数据
+    setFormValuesPage2(values); // 保存表单数据
 
     try {
       const response = await salesOutDetails({ page, pageSize, restParams });
       if (response?.data && response?.total) {
         setListDataPage2(response.data);
         setPagination2({ current: page, pageSize, total: response.total });
-        setTotalDataPage2(response.total); // 保存页面2的总数
         message.success('页面2列表获取成功');
       } else {
         message.error('数据结构不正确');
@@ -152,9 +153,8 @@ const RepurchaseRate: React.FC = () => {
     }
   };
 
-  // 分页变化处理，根据不同页面调用不同的接口
-  const handlePageChangePage1 = (page: number, pageSize: number) => handleFetchListPage1(formValues, page, pageSize);
-  const handlePageChangePage2 = (page: number, pageSize: number) => handleFetchListPage2(formValues, page, pageSize);
+  const handlePageChangePage1 = (page: number, pageSize: number) => handleFetchListPage1(formValuesPage1, page, pageSize);
+  const handlePageChangePage2 = (page: number, pageSize: number) => handleFetchListPage2(formValuesPage2, page, pageSize);
 
   return (
     <>
@@ -166,6 +166,7 @@ const RepurchaseRate: React.FC = () => {
             listData={listDataPage1}
             pagination={pagination1}
             onPageChange={handlePageChangePage1}
+            initialValues={formValuesPage1} // 初始化表单数据
           />
         )}
 
@@ -175,6 +176,7 @@ const RepurchaseRate: React.FC = () => {
             listData={listDataPage2}
             pagination={pagination2}
             onPageChange={handlePageChangePage2}
+            initialValues={formValuesPage2} // 初始化表单数据
           />
         )}
 
@@ -182,24 +184,12 @@ const RepurchaseRate: React.FC = () => {
           <div>
             <Form layout="vertical">
                 <Form.Item label={`页面1数据总数`}>
-                    <Input value={totalDataPage1} />
+                    <Input value={pagination1.total} disabled />
                 </Form.Item>
                 <Form.Item label={`页面2数据总数`}>
-                    <Input value={totalDataPage2} />
+                    <Input value={pagination2.total} disabled />
                 </Form.Item>
             </Form>
-            {/* 显示页面1和页面2的表格数据（空） */}
-            <ProTable
-              columns={[
-                { title: '订单号', dataIndex: 'oid', key: 'oid' },
-                { title: '支付时间', dataIndex: 'payTime', key: 'payTime' },
-                { title: '成交总价', dataIndex: 'dealTotalPrice', key: 'dealTotalPrice' },
-              ]}
-              dataSource={[]} // 数据为空
-              pagination={false} // 不需要分页
-              rowKey="oid"
-              search={false} // 禁用ProTable自带的搜索框
-            />
           </div>
         )}
       </div>
@@ -219,4 +209,4 @@ const RepurchaseRate: React.FC = () => {
   );
 };
 
-export default RepurchaseRate
+export default RepurchaseRate;
