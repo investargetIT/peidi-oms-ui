@@ -89,7 +89,7 @@ export const errorConfig: RequestConfig = {
   requestInterceptors: [
     (config: RequestOptions) => {
       const token = localStorage.getItem('token');
-      const url = config?.url?.concat('?token=' + token);
+      const url = config?.url;
       config.headers.Authorization = token;
       return { ...config, url };
     },
