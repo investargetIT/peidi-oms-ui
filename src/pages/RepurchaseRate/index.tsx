@@ -1,12 +1,12 @@
-import { shopTarget, salesOutDetailsPage } from '@/services/ant-design-pro/api';
+import { shopTarget, salesOutDetailsPage, salesOutDetails } from '@/services/ant-design-pro/api';
 import React, { useState, useEffect } from 'react';
-import { Button, message, Steps, theme, Select, DatePicker, Input, Form } from 'antd';
+import { Button, message, Steps, theme, Select, DatePicker, Input, Form, Table } from 'antd';
+const { RangePicker } = DatePicker; // 导入 RangePicker
 import dayjs from 'dayjs';
 import { ProTable } from '@ant-design/pro-components';
 import { debounce } from 'lodash';
 
-const { RangePicker } = DatePicker;
-
+// 步骤定义
 const steps = [
   { title: 'First', content: 'First-content' },
   { title: 'Second', content: 'Second-content' },
@@ -23,6 +23,7 @@ const ListAndFilterForm: React.FC<{
 }> = ({ onFetchList, listData, pagination, onPageChange, initialValues }) => {
   const [form] = Form.useForm();
   const [shopList, setShopList] = useState<any[]>([]);
+  const [orderDetailsMap, setOrderDetailsMap] = useState<{ [key: string]: any[] }>({}); // 存储每个收件人的订单信息
 
   // 初始化表单数据
   useEffect(() => {
@@ -49,13 +50,62 @@ const ListAndFilterForm: React.FC<{
 
   // 表格的列定义
   const columns = [
-    { title: '订单号', dataIndex: 'oid', key: 'oid' },
-    { title: '支付时间', dataIndex: 'payTime', key: 'payTime' },
-    { title: '成交总价', dataIndex: 'dealTotalPrice', key: 'dealTotalPrice' },
+    {
+      title: '收件人',
+      dataIndex: 'receiverName',
+      key: 'receiverName',
+    },
+    { title: '收件人手机', dataIndex: 'receiverMobile', key: 'receiverMobile' },
+    { title: '收货地区', dataIndex: 'receiverArea', key: 'receiverArea' },
+    { title: '收货地址', dataIndex: 'receiverAddress', key: 'receiverAddress' },
   ];
 
   // 提交表单
   const onSubmit = debounce(() => form.validateFields().then((values) => onFetchList(values, pagination.current, pagination.pageSize)), 300);
+
+  // 获取订单详情
+  const fetchOrderDetails = async (record: any, formValues: any) => {
+    const { dateRange, shopName, goodsNo } = formValues;
+    const { receiverName, receiverMobile, receiverArea, receiverAddress } = record;
+    
+    // 构建搜索条件数组
+    const searchConditions = [
+      {
+        searchName: 'tradeTime',
+        searchType: 'betweenStr',
+        searchValue: Array.isArray(dateRange) && dateRange.length > 0 
+          ? dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join(',') 
+          : '',
+      },
+      { searchName: 'shopName', searchType: 'like', searchValue: shopName || '' },
+      { searchName: 'goodsNo', searchType: 'like', searchValue: goodsNo || '' },
+      { searchName: 'receiverName', searchType: 'like', searchValue: receiverName || '' },
+      { searchName: 'receiverMobile', searchType: 'like', searchValue: receiverMobile || '' },
+      { searchName: 'receiverArea', searchType: 'like', searchValue: receiverArea || '' },
+      { searchName: 'receiverAddress', searchType: 'like', searchValue: receiverAddress || '' },
+    ];
+  
+    // 将搜索条件数组转换为字符串
+    const searchStr = JSON.stringify(searchConditions);
+    console.log(123)
+  
+    try {
+      // 调用 salesOutDetails 接口
+      const response = await salesOutDetails({ searchStr });
+      console.log(1234)
+    //   if (response?.data) {
+    //     // 成功时存储订单信息
+    //     setOrderDetailsMap(prev => ({
+    //       ...prev, 
+    //       [`${receiverName}-${receiverMobile}-${receiverArea}-${receiverAddress}`]: response.data 
+    //     }));
+    //   } else {
+    //     message.error('获取订单详情失败');
+    //   }
+    } catch (error) {
+      message.error('调用salesOutDetails接口失败');
+    }
+  };
 
   return (
     <>
@@ -66,13 +116,13 @@ const ListAndFilterForm: React.FC<{
         <Form.Item name="shopName" label="店铺">
           <Select placeholder="请选择店铺" style={{ width: 200 }}>
             {shopList.map((shop) => (
-              <Select.Option key={shop.shopName} value={shop.shopName}>
+              <Select.Option key={shop.wdtName} value={shop.wdtName}>
                 {shop.shopName}
               </Select.Option>
             ))}
           </Select>
         </Form.Item>
-        <Form.Item name="productCode" label="货品编号">
+        <Form.Item name="goodsNo" label="货品编号">
           <Input placeholder="请输入货品编号" />
         </Form.Item>
         <Form.Item name="receiverArea" label="地区">
@@ -93,6 +143,25 @@ const ListAndFilterForm: React.FC<{
           onChange: onPageChange,
         }}
         rowKey="oid"
+        expandable={{
+          expandedRowRender: (record) => {
+            const formValues = form.getFieldsValue(); // 获取表单数据
+            fetchOrderDetails(record,formValues); // 获取订单信息
+            const key = `${record.receiverName}-${record.receiverMobile}-${record.receiverArea}-${record.receiverAddress}`;
+            return (
+              <Table
+                columns={[
+                  { title: '订单号', dataIndex: 'oid', key: 'oid' },
+                  { title: '商品名称', dataIndex: 'goodsName', key: 'goodsName' },
+                  { title: '成交总价', dataIndex: 'paid', key: 'paid' },
+                ]}
+                dataSource={orderDetailsMap[key] || []} // 根据收件人信息获取对应的订单详情
+                rowKey="oid"
+                pagination={false} // 不需要分页
+              />
+            );
+          },
+        }}
         search={false}  // 禁用ProTable自带的搜索框
       />
     </>
@@ -100,7 +169,7 @@ const ListAndFilterForm: React.FC<{
 };
 
 const buildTradeTimeParams = (values: any) => {
-  const { dateRange, shopName, productCode, receiverArea } = values;
+  const { dateRange, shopName, goodsNo, receiverArea } = values;
   return [
     {
       searchName: 'tradeTime',
@@ -110,7 +179,7 @@ const buildTradeTimeParams = (values: any) => {
         : '',
     },
     { searchName: 'shopName', searchType: 'like', searchValue: shopName || '' },
-    { searchName: 'productCode', searchType: 'like', searchValue: productCode || '' },
+    { searchName: 'goodsNo', searchType: 'like', searchValue: goodsNo || '' },
     { searchName: 'receiverArea', searchType: 'like', searchValue: receiverArea || '' },
   ];
 };
@@ -142,12 +211,17 @@ const RepurchaseRate: React.FC = () => {
 
   const handleFetchListPage1 = async (values: any, page: number, pageSize: number) => {
     const tradeTimeParams = buildTradeTimeParams(values);
-    const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
+    const searchStr = encodeURIComponent(JSON.stringify(tradeTimeParams));
     const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
     setFormValuesPage1(values);
-
     try {
-      const response = await salesOutDetailsPage({ page, pageSize, restParams, groupStr });
+      const response = await salesOutDetailsPage({
+        page,
+        pageSize,
+        searchStr,
+        groupStr,
+      });
+
       if (response?.data && response?.total) {
         setListDataPage1(response.data);
         setPagination1({ current: page, pageSize, total: response.total });
@@ -162,12 +236,18 @@ const RepurchaseRate: React.FC = () => {
 
   const handleFetchListPage2 = async (values: any, page: number, pageSize: number) => {
     const tradeTimeParams = buildTradeTimeParams(values);
-    const restParams = encodeURIComponent(JSON.stringify(tradeTimeParams));
+    const searchStr = encodeURIComponent(JSON.stringify(tradeTimeParams));
     const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
     setFormValuesPage2(values);
 
     try {
-      const response = await salesOutDetailsPage({ page, pageSize, restParams, groupStr });
+      const response = await salesOutDetailsPage({
+        page,
+        pageSize,
+        searchStr,
+        groupStr,
+      });
+
       if (response?.data && response?.total) {
         setListDataPage2(response.data);
         setPagination2({ current: page, pageSize, total: response.total });

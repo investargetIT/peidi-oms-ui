@@ -121,9 +121,9 @@ export async function shopTarget(params: API.PageParams) {
 
 /** 获取客户复购率信息 GET /orders/salesOutDetails **/
 export async function salesOutDetails(params: API.PageParams) {
-  const { restParams, groupStr } = params;
+  const { searchStr } = params;
   try {
-    const response = await request(`/orders/salesOutDetails?searchStr=${restParams}&groupStr=${groupStr}`);
+    const response = await request(`/orders/salesOutDetails?searchStr=${searchStr}`);
     return {
       data: response.data.records,
       total: response.data.total,
@@ -140,9 +140,9 @@ export async function salesOutDetails(params: API.PageParams) {
 
 /** 获取客户复购率分页信息 GET /orders/salesOutDetails-page **/
 export async function salesOutDetailsPage(params: API.PageParams) {
-  const { page, pageSize, restParams, groupStr } = params;
+  const { page, pageSize, searchStr, groupStr } = params;
   try {
-    const response = await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${restParams}&groupStr=${groupStr}`);
+    const response = await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${searchStr}&groupStr=${groupStr}`);
     return {
       data: response.data.records,
       total: response.data.total,
