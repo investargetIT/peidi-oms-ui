@@ -86,7 +86,7 @@ const ListAndFilterForm: React.FC<{
     ];
   
     // 将搜索条件数组转换为字符串
-    const searchStr = JSON.stringify(searchConditions);
+    const searchStr = encodeURIComponent(JSON.stringify(searchConditions));
     console.log(123)
   
     try {
@@ -144,9 +144,13 @@ const ListAndFilterForm: React.FC<{
         }}
         rowKey="oid"
         expandable={{
+          onExpand: (expanded, record) => {
+            if (expanded) {
+              // 展开时获取订单详情
+              fetchOrderDetails(record, form.getFieldsValue());
+            }
+          },
           expandedRowRender: (record) => {
-            const formValues = form.getFieldsValue(); // 获取表单数据
-            fetchOrderDetails(record,formValues); // 获取订单信息
             const key = `${record.receiverName}-${record.receiverMobile}-${record.receiverArea}-${record.receiverAddress}`;
             return (
               <Table
