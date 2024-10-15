@@ -197,8 +197,15 @@ const RepurchaseRate: React.FC = () => {
   const [paginationRepurchase, setPaginationRepurchase] = useState({ current: 1, pageSize: 10, total: 0 }); // 新增分页状态
   const [formValuesPage1, setFormValuesPage1] = useState<any>({});
   const [formValuesPage2, setFormValuesPage2] = useState<any>();
+  const totalA = pagination1.total; // A 订单页的总数
+  const totalB = pagination2.total; // B 订单页的总数
+  const totalC = paginationRepurchase.total; // 用户复购率页的总数
+  const totalAll = parseFloat((totalC / totalA).toFixed(2)); // 用户复购率
+
   
   const [searchStr, setSearchStr] = useState<string>(''); // 新增字段保存搜索条件
+  const [orderDetailsMap, setOrderDetailsMap] = useState<{ [key: string]: any[] }>({}); // 新增 orderDetailsMap 用于存储订单详情
+
 
   const next = async () => {
     if (current === 0) {
@@ -279,22 +286,62 @@ const RepurchaseRate: React.FC = () => {
   const handlePageChangePage1 = (page: number, pageSize: number) => handleFetchListPage1(formValuesPage1, page, pageSize);
   const handlePageChangePage2 = (page: number, pageSize: number) => handleFetchListPage2(formValuesPage2, page, pageSize);
 
+  const buildTradeTimeParamsAll = (values1: any, values2: any) => {
+    const { dateRange: dateRange1, shopName: shopName1, goodsNo: goodsNo1, receiverArea: receiverArea1 } = values1;
+    const { dateRange: dateRange2, shopName: shopName2, goodsNo: goodsNo2, receiverArea: receiverArea2 } = values2;
+
+    return [
+        {
+          searchName: 'tradeTime',
+          searchType: 'betweenStr',
+          searchValue: Array.isArray(dateRange1) && dateRange1.length > 0 
+            ? dateRange1.map(date => dayjs(date).format('YYYY-MM-DD')).join(',') 
+            : '',
+        },
+        { searchName: 'shopName', searchType: 'like', searchValue: shopName1 || '' },
+        { searchName: 'goodsNo', searchType: 'like', searchValue: goodsNo1 || '' },
+        { searchName: 'receiverArea', searchType: 'like', searchValue: receiverArea1 || '' },
+        {
+          searchName: 'tradeTime',
+          searchType: 'betweenStr',
+          searchValue: Array.isArray(dateRange2) && dateRange2.length > 0 
+            ? dateRange2.map(date => dayjs(date).format('YYYY-MM-DD')).join(',') 
+            : '',
+        },
+        { searchName: 'shopName', searchType: 'like', searchValue: shopName2 || '' },
+        { searchName: 'goodsNo', searchType: 'like', searchValue: goodsNo2 || '' },
+        { searchName: 'receiverArea', searchType: 'like', searchValue: receiverArea2 || '' }
+    ];
+};
+
   // 新增用户复购率页的获取数据函数
   const handleFetchRepurchaseRate = async () => {
+    // 获取 A订单页和 B订单页的搜索条件
+    const searchParamsA = buildTradeTimeParamsAll(formValuesPage1, formValuesPage2);
+
+    // 转换为字符串
+    const searchStr = encodeURIComponent(JSON.stringify(searchParamsA));
     const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
+
     try {
       const response = await salesOutDetailsPage({
-        page: pagination1.current,
-        pageSize: pagination1.pageSize,
-        searchStr: searchStr, // 使用保存的搜索条件
+        page: paginationRepurchase.current, // 使用当前复购页的分页信息
+        pageSize: paginationRepurchase.pageSize,
+        searchStr, // 使用保存的搜索条件
         groupStr,
       });
-      if (response?.data && response?.total) {
+  
+      if (response?.data && Array.isArray(response.data)) {
+        // 确保 data 是有效数组
         setRepurchaseData(response.data); // 将数据存储在状态中
-        setPaginationRepurchase({ current: paginationRepurchase.current, pageSize: paginationRepurchase.pageSize, total: response.total }); // 更新分页信息
+        setPaginationRepurchase({
+          current: paginationRepurchase.current,
+          pageSize: paginationRepurchase.pageSize,
+          total: response.total || 0, // 确保 total 存在
+        });
         message.success('用户复购率数据获取成功');
       } else {
-        message.error('数据结构不正确');
+        message.error('数据结构不正确或数据为空');
       }
     } catch (error) {
       message.error('获取用户复购率失败');
@@ -307,17 +354,94 @@ const RepurchaseRate: React.FC = () => {
     }
   }, [current]);
 
-  // 用户复购率页的列定义
   const repurchaseColumns = [
     { title: '收件人', dataIndex: 'receiverName', key: 'receiverName' },
     { title: '收件人手机', dataIndex: 'receiverMobile', key: 'receiverMobile' },
     { title: '收货地区', dataIndex: 'receiverArea', key: 'receiverArea' },
     { title: '收货地址', dataIndex: 'receiverAddress', key: 'receiverAddress' },
-    { title: '订单号', dataIndex: 'oid', key: 'oid' },
-    { title: '商品名称', dataIndex: 'goodsName', key: 'goodsName' },
-    { title: '成交总价', dataIndex: 'paid', key: 'paid' },
   ];
+  
+  // 获取订单详情的函数
+  const fetchOrderDetails = async (record) => {
+    const { receiverName, receiverMobile, receiverArea, receiverAddress } = record;
 
+    // 获取 A 订单页和 B 订单页的搜索条件
+    const searchParams = buildTradeTimeParamsAll(formValuesPage1, formValuesPage2);
+
+    // 将收件人信息添加到 A 订单页的搜索条件中
+    searchParams.push(
+      { searchName: 'receiverName', searchType: 'like', searchValue: receiverName },
+      { searchName: 'receiverMobile', searchType: 'like', searchValue: receiverMobile },
+      { searchName: 'receiverAddress', searchType: 'like', searchValue: receiverAddress }
+    );
+
+    // 转换为字符串
+    const searchStr = encodeURIComponent(JSON.stringify(searchParams));
+    try {
+      const response = await salesOutDetails({ searchStr });
+      if (response?.data) {
+        return response.data; // 返回订单详情数据
+      } else {
+        message.error('获取订单详情失败');
+      }
+    } catch (error) {
+      message.error('调用salesOutDetails接口失败');
+    }
+  };
+  
+  const RepurchaseRate = () => {
+    const [orderDetailsMap, setOrderDetailsMap] = useState({}); // 存储订单详情
+    
+    // 展开行的渲染
+    const expandedRowRender = (record) => {
+      const key = `${record.receiverName}-${record.receiverMobile}-${record.receiverArea}-${record.receiverAddress}`;
+      return (
+        <Table
+          columns={[
+            { title: '订单号', dataIndex: 'oid', key: 'oid' },
+            { title: '商品名称', dataIndex: 'goodsName', key: 'goodsName' },
+            { title: '成交总价', dataIndex: 'paid', key: 'paid' },
+          ]}
+          dataSource={orderDetailsMap[key] || []} // 根据收件人信息获取对应的订单详情
+          rowKey="id"
+          pagination={false} // 不需要分页
+        />
+      );
+    };
+  
+    // 处理展开事件
+    const handleExpand = async (expanded, record) => {
+      if (expanded) {
+        const key = `${record.receiverName}-${record.receiverMobile}-${record.receiverArea}-${record.receiverAddress}`;
+        
+        // 如果当前收件人没有订单详情，则调用接口获取
+        if (!orderDetailsMap[key]) {
+          const orderDetails = await fetchOrderDetails(record);
+          setOrderDetailsMap(prev => ({ ...prev, [key]: orderDetails }));
+        }
+      }
+    };
+  
+    return (
+      <ProTable
+        columns={repurchaseColumns}
+        dataSource={repurchaseData} // 假设 repurchaseData 存储了列表数据
+        rowKey="oid"
+        expandable={{
+          expandedRowRender, // 渲染展开的内容
+          onExpand: handleExpand, // 触发展开时调用
+          expandIconColumnIndex: 0, // 设置加号列的位置
+        }}
+        pagination={{
+          current: paginationRepurchase.current,
+          pageSize: paginationRepurchase.pageSize,
+          total: paginationRepurchase.total,
+          onChange: (page, pageSize) => setPaginationRepurchase({ current: page, pageSize, total: paginationRepurchase.total }),
+        }}
+      />
+    );
+  };
+  
   return (
     <>
       <Steps current={current} items={items} />
@@ -341,8 +465,19 @@ const RepurchaseRate: React.FC = () => {
             initialValues={formValuesPage2}
           />
         )}
-
         {current === 2 && ( // 用户复购率页
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <div>
+              <span>A 订单页总数: {totalA}</span>
+              <span style={{ marginLeft: 20 }}>B 订单页总数: {totalB}</span>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <span>用户复购率页总数: {totalC}</span>
+              <span style={{ marginLeft: 20 }}>用户复购率: {totalAll}%</span>
+            </div>
+          </div>
+
           <ProTable
             columns={repurchaseColumns}
             dataSource={repurchaseData}
@@ -353,7 +488,33 @@ const RepurchaseRate: React.FC = () => {
               onChange: (page, pageSize) => setPaginationRepurchase({ current: page, pageSize, total: paginationRepurchase.total }),
             }}
             rowKey="oid" // 使用订单号作为唯一标识
+            search={false} // 隐藏搜索框
+            expandable={{
+              expandedRowRender: (record) => (
+                <Table
+                  columns={[
+                    { title: '订单号', dataIndex: 'oid', key: 'oid' },
+                    { title: '商品名称', dataIndex: 'goodsName', key: 'goodsName' },
+                    { title: '成交总价', dataIndex: 'paid', key: 'paid' },
+                  ]}
+                  dataSource={orderDetailsMap[`${record.receiverName}-${record.receiverMobile}`] || []} // 根据收件人获取订单详情
+                  rowKey="id"
+                  pagination={false}
+                />
+              ),
+              onExpand: async (expanded, record) => {
+                if (expanded) {
+                  const key = `${record.receiverName}-${record.receiverMobile}`;
+                  if (!orderDetailsMap[key]) {
+                    const orderDetails = await fetchOrderDetails(record); // 调用获取订单详情的函数
+                    setOrderDetailsMap(prev => ({ ...prev, [key]: orderDetails })); // 更新状态
+                  }
+                }
+              },
+              expandIconColumnIndex: 0, // 确保加号显示在第一列
+            }}
           />
+          </>
         )}
       </div>
 
