@@ -125,7 +125,7 @@ export async function salesOutDetails(params: API.PageParams) {
   try {
     const response = await request(`/orders/salesOutDetails?searchStr=${searchStr}`);
     return {
-      data: response.data.records,
+      data: response.data,
       total: response.data.total,
       success: true,
     };

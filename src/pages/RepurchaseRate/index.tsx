@@ -8,9 +8,9 @@ import { debounce } from 'lodash';
 
 // 步骤定义
 const steps = [
-  { title: 'First', content: 'First-content' },
-  { title: 'Second', content: 'Second-content' },
-  { title: 'Last', content: 'Last-content' },
+  { title: 'A订单页', content: 'First-content' },
+  { title: 'B订单页', content: 'Second-content' },
+  { title: '用户复购率页', content: 'Last-content' },
 ];
 
 // 表单和表格组件
@@ -87,21 +87,19 @@ const ListAndFilterForm: React.FC<{
   
     // 将搜索条件数组转换为字符串
     const searchStr = encodeURIComponent(JSON.stringify(searchConditions));
-    console.log(123)
   
+    // 调用 salesOutDetails 接口
+    const response = await salesOutDetails({ searchStr });
     try {
-      // 调用 salesOutDetails 接口
-      const response = await salesOutDetails({ searchStr });
-      console.log(1234)
-    //   if (response?.data) {
-    //     // 成功时存储订单信息
-    //     setOrderDetailsMap(prev => ({
-    //       ...prev, 
-    //       [`${receiverName}-${receiverMobile}-${receiverArea}-${receiverAddress}`]: response.data 
-    //     }));
-    //   } else {
-    //     message.error('获取订单详情失败');
-    //   }
+      if (response?.data) {
+        // 成功时存储订单信息
+        setOrderDetailsMap(prev => ({
+          ...prev, 
+          [`${receiverName}-${receiverMobile}-${receiverArea}-${receiverAddress}`]: response.data 
+        }));
+      } else {
+        message.error('获取订单详情失败');
+      }
     } catch (error) {
       message.error('调用salesOutDetails接口失败');
     }
@@ -160,7 +158,7 @@ const ListAndFilterForm: React.FC<{
                   { title: '成交总价', dataIndex: 'paid', key: 'paid' },
                 ]}
                 dataSource={orderDetailsMap[key] || []} // 根据收件人信息获取对应的订单详情
-                rowKey="oid"
+                rowKey="id"
                 pagination={false} // 不需要分页
               />
             );
@@ -193,12 +191,26 @@ const RepurchaseRate: React.FC = () => {
   const [current, setCurrent] = useState(0);
   const [listDataPage1, setListDataPage1] = useState<any[]>([]);
   const [listDataPage2, setListDataPage2] = useState<any[]>([]);
+  const [repurchaseData, setRepurchaseData] = useState<any[]>([]); // 新增字段存储用户复购率数据
   const [pagination1, setPagination1] = useState({ current: 1, pageSize: 10, total: 0 });
   const [pagination2, setPagination2] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [paginationRepurchase, setPaginationRepurchase] = useState({ current: 1, pageSize: 10, total: 0 }); // 新增分页状态
   const [formValuesPage1, setFormValuesPage1] = useState<any>({});
-  const [formValuesPage2, setFormValuesPage2] = useState<any>({});
+  const [formValuesPage2, setFormValuesPage2] = useState<any>();
+  
+  const [searchStr, setSearchStr] = useState<string>(''); // 新增字段保存搜索条件
 
-  const next = () => setCurrent(current + 1);
+  const next = async () => {
+    if (current === 0) {
+      // 保存 A 订单页的搜索条件
+      setSearchStr(encodeURIComponent(JSON.stringify(buildTradeTimeParams(formValuesPage1))));
+    } else if (current === 1) {
+      // 保存 B 订单页的搜索条件
+      setSearchStr(encodeURIComponent(JSON.stringify(buildTradeTimeParams(formValuesPage2))));
+    }
+    setCurrent(current + 1);
+  };
+
   const prev = () => setCurrent(current - 1);
 
   const items = steps.map((item) => ({ key: item.title, title: item.title }));
@@ -229,7 +241,7 @@ const RepurchaseRate: React.FC = () => {
       if (response?.data && response?.total) {
         setListDataPage1(response.data);
         setPagination1({ current: page, pageSize, total: response.total });
-        message.success('页面1列表获取成功');
+        message.success('A订单页列表获取成功');
       } else {
         message.error('数据结构不正确');
       }
@@ -255,7 +267,7 @@ const RepurchaseRate: React.FC = () => {
       if (response?.data && response?.total) {
         setListDataPage2(response.data);
         setPagination2({ current: page, pageSize, total: response.total });
-        message.success('页面2列表获取成功');
+        message.success('B订单页列表获取成功');
       } else {
         message.error('数据结构不正确');
       }
@@ -266,6 +278,45 @@ const RepurchaseRate: React.FC = () => {
 
   const handlePageChangePage1 = (page: number, pageSize: number) => handleFetchListPage1(formValuesPage1, page, pageSize);
   const handlePageChangePage2 = (page: number, pageSize: number) => handleFetchListPage2(formValuesPage2, page, pageSize);
+
+  // 新增用户复购率页的获取数据函数
+  const handleFetchRepurchaseRate = async () => {
+    const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
+    try {
+      const response = await salesOutDetailsPage({
+        page: pagination1.current,
+        pageSize: pagination1.pageSize,
+        searchStr: searchStr, // 使用保存的搜索条件
+        groupStr,
+      });
+      if (response?.data && response?.total) {
+        setRepurchaseData(response.data); // 将数据存储在状态中
+        setPaginationRepurchase({ current: paginationRepurchase.current, pageSize: paginationRepurchase.pageSize, total: response.total }); // 更新分页信息
+        message.success('用户复购率数据获取成功');
+      } else {
+        message.error('数据结构不正确');
+      }
+    } catch (error) {
+      message.error('获取用户复购率失败');
+    }
+  };
+
+  useEffect(() => {
+    if (current === steps.length - 1) {
+      handleFetchRepurchaseRate(); // 进入用户复购率页时调用数据
+    }
+  }, [current]);
+
+  // 用户复购率页的列定义
+  const repurchaseColumns = [
+    { title: '收件人', dataIndex: 'receiverName', key: 'receiverName' },
+    { title: '收件人手机', dataIndex: 'receiverMobile', key: 'receiverMobile' },
+    { title: '收货地区', dataIndex: 'receiverArea', key: 'receiverArea' },
+    { title: '收货地址', dataIndex: 'receiverAddress', key: 'receiverAddress' },
+    { title: '订单号', dataIndex: 'oid', key: 'oid' },
+    { title: '商品名称', dataIndex: 'goodsName', key: 'goodsName' },
+    { title: '成交总价', dataIndex: 'paid', key: 'paid' },
+  ];
 
   return (
     <>
@@ -291,29 +342,27 @@ const RepurchaseRate: React.FC = () => {
           />
         )}
 
-        {current > 1 && (
-          <div>
-            <Form layout="vertical">
-              <Form.Item label={`页面1数据总数`}>
-                <Input value={pagination1.total} disabled />
-              </Form.Item>
-              <Form.Item label={`页面2数据总数`}>
-                <Input value={pagination2.total} disabled />
-              </Form.Item>
-            </Form>
-          </div>
+        {current === 2 && ( // 用户复购率页
+          <ProTable
+            columns={repurchaseColumns}
+            dataSource={repurchaseData}
+            pagination={{
+              current: paginationRepurchase.current,
+              pageSize: paginationRepurchase.pageSize,
+              total: paginationRepurchase.total,
+              onChange: (page, pageSize) => setPaginationRepurchase({ current: page, pageSize, total: paginationRepurchase.total }),
+            }}
+            rowKey="oid" // 使用订单号作为唯一标识
+          />
         )}
       </div>
 
       <div style={{ marginTop: 24 }}>
         {current < steps.length - 1 && (
-          <Button type="primary" onClick={next}>Next</Button>
-        )}
-        {current === steps.length - 1 && (
-          <Button type="primary" onClick={() => message.success('Processing complete!')}>Done</Button>
+          <Button type="primary" onClick={next}>下一页</Button>
         )}
         {current > 0 && (
-          <Button style={{ margin: '0 8px' }} onClick={prev}>Previous</Button>
+          <Button style={{ margin: '0 8px' }} onClick={prev}>上一页</Button>
         )}
       </div>
     </>
