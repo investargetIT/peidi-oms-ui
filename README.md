@@ -15,7 +15,7 @@ docker exec peidi-oms-ui npm run build
 ```
 2.上传静态页面到服务器
 ```
-scp -r dist/* root@ip地址:/srv/peidi-oms-ui
+scp -r dist/* root@ip地址:/media/www/peidi-oms-ui
 ```
 # 环境变量
 1. 在`.env`文件中设置环境变量（别忘了修改`.env.example`文件）
