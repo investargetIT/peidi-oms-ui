@@ -73,8 +73,11 @@ const ListAndFilterForm: React.FC<{
       {
         searchName: 'tradeTime',
         searchType: 'betweenStr',
-        searchValue: Array.isArray(dateRange) && dateRange.length > 0 
-          ? dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join(',') 
+        searchValue: Array.isArray(dateRange) && dateRange.length > 0
+          ? [
+            dayjs(dateRange[0]).format('YYYY-MM-DD 00:00:00'), // 起始日期加上 00:00:00
+            dayjs(dateRange[1]).format('YYYY-MM-DD 23:59:59')  // 结束日期加上 23:59:59
+          ].join(',')
           : '',
       },
       { searchName: 'shopName', searchType: 'like', searchValue: shopName || '' },
@@ -176,8 +179,11 @@ const buildTradeTimeParams = (values: any) => {
     {
       searchName: 'tradeTime',
       searchType: 'betweenStr',
-      searchValue: Array.isArray(dateRange) && dateRange.length > 0 
-        ? dateRange.map(date => dayjs(date).format('YYYY-MM-DD')).join(',') 
+      searchValue: Array.isArray(dateRange) && dateRange.length > 0
+        ? [
+          dayjs(dateRange[0]).format('YYYY-MM-DD 00:00:00'), // 起始日期加上 00:00:00
+          dayjs(dateRange[1]).format('YYYY-MM-DD 23:59:59')  // 结束日期加上 23:59:59
+        ].join(',')
         : '',
     },
     { searchName: 'shopName', searchType: 'like', searchValue: shopName || '' },
