@@ -21,7 +21,7 @@ const DDLoginFree: React.FC = () => {
         request(process.env.PYTHON_BASE_URL + '/service/dinguserinfo', {
           method: 'POST',
           data: { code }
-        }).then((res) => {
+        }).then(res => {
           console.log(res);
           if (res.code === 1000 && res.result.errcode === 0) {
             const { result: ddUserInfo } = res.result;
@@ -48,7 +48,7 @@ const DDLoginFree: React.FC = () => {
           }
         }).then(res => {
           if (res) {
-            if (res.success) {
+            if (res.success || (res.code === 100100002 && res.msg === 'EMAIL_ACCOUNT_ALREADY_EXIST')) {
               // 注册成功，调用登录接口
               return request(process.env.USER_AUTH_BASE_URL + '/user/login/password', {
                 method: 'POST',
