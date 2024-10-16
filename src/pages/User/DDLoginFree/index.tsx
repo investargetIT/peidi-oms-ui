@@ -18,13 +18,10 @@ const DDLoginFree: React.FC = () => {
         console.log(info);
         const { code } = info;
         // 通过该免登授权码可以获取用户身份
-        request(process.env.PYTHON_BASE_URL + '/service/dinguserinfo', {
-          method: 'POST',
-          data: { code }
-        }).then(res => {
+        request(process.env.BASE_URL + '/ding/userInfo?code=' + code).then(res => {
           console.log(res);
-          if (res.code === 1000 && res.result.errcode === 0) {
-            const { result: ddUserInfo } = res.result;
+          if (res.success) {
+            const { data: ddUserInfo } = res;
             console.log('ddUserInfo', ddUserInfo);
             const { org_email, name } = ddUserInfo;
             if (org_email) {
