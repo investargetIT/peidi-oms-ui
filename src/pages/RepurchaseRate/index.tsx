@@ -323,10 +323,12 @@ const RepurchaseRate: React.FC = () => {
   // 新增用户复购率页的获取数据函数
   const handleFetchRepurchaseRate = async () => {
     // 获取 A订单页和 B订单页的搜索条件
-    const searchParamsA = buildTradeTimeParamsAll(formValuesPage1, formValuesPage2);
+    const tradeTimeParamsA = buildTradeTimeParams(formValuesPage1);
+    const tradeTimeParamsB = buildTradeTimeParams(formValuesPage2);
+    const searchParamsAll = [tradeTimeParamsA,tradeTimeParamsB]
 
     // 转换为字符串
-    const searchStr = encodeURIComponent(JSON.stringify(searchParamsA));
+    const searchStr = encodeURIComponent(JSON.stringify(searchParamsAll));
     const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
 
     try {
@@ -372,17 +374,27 @@ const RepurchaseRate: React.FC = () => {
     const { receiverName, receiverMobile, receiverArea, receiverAddress } = record;
 
     // 获取 A 订单页和 B 订单页的搜索条件
-    const searchParams = buildTradeTimeParamsAll(formValuesPage1, formValuesPage2);
+    const searchParamsA = buildTradeTimeParams(formValuesPage1);
+    const searchParamsB = buildTradeTimeParams(formValuesPage2);
 
-    // 将收件人信息添加到 A 订单页的搜索条件中
-    searchParams.push(
+
+    // 将收件人信息添加到 A\B 订单页的搜索条件中
+    searchParamsA.push(
       { searchName: 'receiverName', searchType: 'like', searchValue: receiverName },
       { searchName: 'receiverMobile', searchType: 'like', searchValue: receiverMobile },
       { searchName: 'receiverAddress', searchType: 'like', searchValue: receiverAddress }
     );
 
+    searchParamsB.push(
+      { searchName: 'receiverName', searchType: 'like', searchValue: receiverName },
+      { searchName: 'receiverMobile', searchType: 'like', searchValue: receiverMobile },
+      { searchName: 'receiverAddress', searchType: 'like', searchValue: receiverAddress }
+    );
+
+    const searchParamsAll = [searchParamsA,searchParamsB]
+
     // 转换为字符串
-    const searchStr = encodeURIComponent(JSON.stringify(searchParams));
+    const searchStr = encodeURIComponent(JSON.stringify(searchParamsAll));
     try {
       const response = await salesOutDetails({ searchStr });
       if (response?.data) {
