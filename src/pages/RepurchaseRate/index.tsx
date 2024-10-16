@@ -140,7 +140,7 @@ const ListAndFilterForm: React.FC<{
           total: pagination.total,
           onChange: onPageChange,
         }}
-        rowKey="oid"
+        rowKey="id"
         expandable={{
           onExpand: (expanded, record) => {
             if (expanded) {
@@ -223,7 +223,7 @@ const RepurchaseRate: React.FC = () => {
   const items = steps.map((item) => ({ key: item.title, title: item.title }));
 
   const contentStyle: React.CSSProperties = {
-    lineHeight: '260px',
+    lineHeight: '50px',
     textAlign: 'center',
     color: token.colorTextTertiary,
     backgroundColor: token.colorFillAlter,
@@ -426,7 +426,7 @@ const RepurchaseRate: React.FC = () => {
       <ProTable
         columns={repurchaseColumns}
         dataSource={repurchaseData} // 假设 repurchaseData 存储了列表数据
-        rowKey="oid"
+        rowKey="id"
         expandable={{
           expandedRowRender, // 渲染展开的内容
           onExpand: handleExpand, // 触发展开时调用
@@ -487,7 +487,7 @@ const RepurchaseRate: React.FC = () => {
               total: paginationRepurchase.total,
               onChange: (page, pageSize) => setPaginationRepurchase({ current: page, pageSize, total: paginationRepurchase.total }),
             }}
-            rowKey="oid" // 使用订单号作为唯一标识
+            rowKey="id" // 使用订单号作为唯一标识
             search={false} // 隐藏搜索框
             expandable={{
               expandedRowRender: (record) => (
