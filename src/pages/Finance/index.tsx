@@ -43,6 +43,7 @@ const UploadComponent: React.FC<{
         setIsUploading(false);
         setPercent(0); // 上传失败时重置进度
       }
+      console.log(info)
 
       // 更新文件列表
       const newFileList = info.fileList.map((file) => ({
@@ -77,8 +78,8 @@ const UploadComponent: React.FC<{
           <h3>上传文件：</h3>
           <ul>
             {fileList.map((file) => (
-              <li key={file.uid}>
-                <a href={file.url} download={file.name}>
+              <li key={file.data}>
+                <a href={`${process.env.BASE_URL}/finance/download?objectName=${file.response.data}&authorization=${localStorage.getItem('token')}`} download={file.name}>
                   {file.name} - 点击下载
                 </a>
               </li>
