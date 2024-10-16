@@ -9,8 +9,12 @@ const DDLoginFree: React.FC = () => {
 
   useEffect(() => {
     console.log('mounted');
+    if (dd.env.platform === 'notInDingTalk') {
+      setErrMsg('请在钉钉客户端打开');
+      return;
+    }
+
     initDingH5RemoteDebug();
-    
     let ddUserEmail = '';
     dd.runtime.permission.requestAuthCode({
       corpId: process.env.DINGTALK_CORP_ID, // 企业id
@@ -58,9 +62,10 @@ const DDLoginFree: React.FC = () => {
         }).then(res => {
           if (res) {
             if (res.success) {
+              localStorage.setItem('token', res.data);
               // 登录成功，跳转到指定页面
               const urlParams = new URL(window.location.href).searchParams;
-              history.push(urlParams.get('redirect') || '/');
+              window.location.href = urlParams.get('redirect') || '/';
             } else {
               setErrMsg('用户登录失败：' + JSON.stringify(res));
             }

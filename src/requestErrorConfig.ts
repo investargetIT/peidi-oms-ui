@@ -27,17 +27,17 @@ interface ResponseStructure {
 export const errorConfig: RequestConfig = {
   // 错误处理： umi@3 的错误处理方案。
   errorConfig: {
-    // 错误抛出
-    errorThrower: (res) => {
-      const { success, data, errorCode, errorMessage, showType } =
-        res as unknown as ResponseStructure;
-      if (!success) {
-        const error: any = new Error(errorMessage);
-        error.name = 'BizError';
-        error.info = { errorCode, errorMessage, showType, data };
-        throw error; // 抛出自制的错误
-      }
-    },
+    // // 错误抛出
+    // errorThrower: (res) => {
+    //   const { success, data, errorCode, errorMessage, showType } =
+    //     res as unknown as ResponseStructure;
+    //   if (!success) {
+    //     const error: any = new Error(errorMessage);
+    //     error.name = 'BizError';
+    //     error.info = { errorCode, errorMessage, showType, data };
+    //     throw error; // 抛出自制的错误
+    //   }
+    // },
     // 错误接收及处理
     errorHandler: (error: any, opts: any) => {
       if (opts?.skipErrorHandler) throw error;
@@ -95,16 +95,16 @@ export const errorConfig: RequestConfig = {
     },
   ],
 
-  // 响应拦截器
-  responseInterceptors: [
-    (response) => {
-      // 拦截响应数据，进行个性化处理
-      const { data } = response as unknown as ResponseStructure;
+  // // 响应拦截器
+  // responseInterceptors: [
+  //   (response) => {
+  //     // 拦截响应数据，进行个性化处理
+  //     const { data } = response as unknown as ResponseStructure;
 
-      if (data?.success === false) {
-        message.error('请求失败！');
-      }
-      return response;
-    },
-  ],
+  //     if (data?.success === false) {
+  //       message.error('请求失败！');
+  //     }
+  //     return response;
+  //   },
+  // ],
 };
