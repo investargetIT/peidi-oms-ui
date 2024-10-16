@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { InboxOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd';
 import { message, Upload, Progress, Card, Row, Col, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
+import axios from 'axios';
 
 const { Dragger } = Upload;
 const { Title } = Typography;
@@ -16,7 +17,8 @@ const UploadComponent: React.FC<{
   setPercent: (percent: number) => void;
   isUploading: boolean;
   setIsUploading: (isUploading: boolean) => void;
-}> = ({ title, action, fileList, setFileList, percent, setPercent, isUploading, setIsUploading }) => {
+  onUploadSuccess: () => void; // 新增的属性
+}> = ({ title, action, fileList, setFileList, percent, setPercent, isUploading, setIsUploading, onUploadSuccess }) => {
   const props: UploadProps = {
     name: 'file',
     multiple: false,
@@ -29,7 +31,6 @@ const UploadComponent: React.FC<{
     action,
     onChange(info) {
       const { status, response } = info.file;
-
       if (status === 'uploading') {
         setIsUploading(true);
         setPercent(50); // 上传过程中设置为 50%
@@ -38,12 +39,12 @@ const UploadComponent: React.FC<{
         setPercent(100); // 上传完成时设置为 100%
         message.success(`${info.file.name} 上传成功.`);
         setIsUploading(false);
+        onUploadSuccess(); // 调用成功后更新数据
       } else if (status === 'error') {
         message.error(`${info.file.name} 上传失败.`);
         setIsUploading(false);
         setPercent(0); // 上传失败时重置进度
       }
-      console.log(info)
 
       // 更新文件列表
       const newFileList = info.fileList.map((file) => ({
@@ -51,9 +52,6 @@ const UploadComponent: React.FC<{
         url: response?.downloadUrl || '', // 假设接口返回 downloadUrl 字段
       }));
       setFileList(newFileList);
-    },
-    onDrop(e) {
-      console.log('Dropped files', e.dataTransfer.files);
     },
   };
 
@@ -70,21 +68,6 @@ const UploadComponent: React.FC<{
       {isUploading && (
         <div style={{ marginTop: 16 }}>
           <Progress percent={percent} />
-        </div>
-      )}
-
-      {fileList.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <h3>上传文件：</h3>
-          <ul>
-            {fileList.map((file) => (
-              <li key={file.data}>
-                <a href={`${process.env.BASE_URL}/finance/download?objectName=${file.response.data}&authorization=${localStorage.getItem('token')}`} download={file.name}>
-                  {file.name} - 点击下载
-                </a>
-              </li>
-            ))}
-          </ul>
         </div>
       )}
     </div>
@@ -122,9 +105,115 @@ const App: React.FC = () => {
   const [tmPercent, setTmPercent] = useState<number>(0);
   const [isTmUploading, setIsTmUploading] = useState<boolean>(false);
 
+  // 用于保存接口返回的数据
+  const [uploadFileNames, setUploadFileNames] = useState<string[]>([]);
+  const [executeFileNames , setExecuteFileNames ] = useState<string[]>([]);
+  const [executeStatus, setExecuteStatus] = useState<string | null>(null);
+
+  // 获取状态信息
+  useEffect(() => {
+    const fetchExecuteStatus = async () => {
+      try {
+        const response = await axios.get(`${process.env.BASE_URL}/finance/date/execute`, {
+          headers: { Authorization: localStorage.getItem('token') },
+        });
+        const { uploadFileNames, executeStatus } = response.data.data;
+        setUploadFileNames(uploadFileNames);
+        setExecuteFileNames(executeFileNames);
+        setExecuteStatus(executeStatus);
+        console.log(executeStatus)
+      } catch (error) {
+        console.error('Failed to fetch execute status:', error);
+      }
+    };
+
+    fetchExecuteStatus();
+  }, []);
+
+  // 上传成功后调用的函数
+  const handleUploadSuccess = async () => {
+    try {
+      const response = await axios.get(`${process.env.BASE_URL}/finance/date/execute`, {
+        headers: { Authorization: localStorage.getItem('token') },
+      });
+      const { uploadFileNames, executeStatus } = response.data.data;
+      setUploadFileNames(uploadFileNames);
+      setExecuteStatus(executeStatus);
+      message.success('状态信息已更新');
+    } catch (error) {
+      console.error('Failed to refresh execute status:', error);
+      message.error('更新状态信息失败');
+    }
+  };
+
   return (
     <PageContainer>
       <Card>
+        <Row gutter={16}>
+          <Col span={12}>
+            {/* 显示已上传文件和计算状态 */}
+            <div style={{ marginBottom: 16 }}>
+              <h3>已上传文件:</h3>
+              <ul>
+                {uploadFileNames.length > 0 ? (
+                  uploadFileNames.map((fileName, index) => (
+                    <li key={index}>
+                      <a href={`${process.env.BASE_URL}/finance/download?objectName=${fileName}&authorization=${localStorage.getItem('token')}`}>
+                        {fileName} - 点击下载
+                      </a>
+                    </li>
+                  ))
+                ) : (
+                  <li>暂无已上传文件</li>
+                )}
+              </ul>
+
+              {/* 财务数据处理按钮 */}
+              <button
+                onClick={async () => {
+                  if (executeStatus) {
+                    try {
+                      await axios.post(`${process.env.BASE_URL}/finance/date/execute`, {}, {
+                        headers: { Authorization: localStorage.getItem('token') },
+                      });
+                      // 成功后可以选择重新获取状态信息
+                      await fetchExecuteStatus();
+                    } catch (error) {
+                      console.error('Failed to execute finance processing:', error);
+                    }
+                  }
+                }}
+                disabled={executeStatus=='false'} // 控制按钮的可点击状态
+                style={{
+                  backgroundColor: executeStatus ? '#4CAF50' : '#e7e7e7', // 可点击时绿色，不可点击时灰色
+                  color: executeStatus ? 'white' : 'black', // 可点击时字体为白色，不可点击时为黑色
+                  cursor: executeStatus ? 'pointer' : 'not-allowed', // 根据状态改变光标样式
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '4px',
+                }}
+              >
+                财务数据处理
+              </button>
+
+              {/* 增加执行文件列表 */}
+              <h3>执行文件:</h3>
+              <ul>
+                {executeFileNames && executeFileNames.length > 0 ? (
+                  executeFileNames.map((fileName, index) => (
+                    <li key={index}>
+                      <a href={`${process.env.BASE_URL}/finance/download?objectName=${fileName}&authorization=${localStorage.getItem('token')}`}>
+                        {fileName} - 点击下载
+                      </a>
+                    </li>
+                  ))
+                ) : (
+                  <li>暂无执行文件</li>
+                )}
+              </ul>
+            </div>
+          </Col>
+        </Row>
         <Row gutter={16}>
           <Col span={12}>
             <UploadComponent
@@ -136,6 +225,7 @@ const App: React.FC = () => {
               setPercent={setManualPercent}
               isUploading={isManualUploading}
               setIsUploading={setIsManualUploading}
+              onUploadSuccess={handleUploadSuccess} // 传递上传成功的处理函数
             />
           </Col>
           <Col span={12}>
@@ -148,6 +238,7 @@ const App: React.FC = () => {
               setPercent={setAliPercent}
               isUploading={isAliUploading}
               setIsUploading={setIsAliUploading}
+              onUploadSuccess={handleUploadSuccess} // 传递上传成功的处理函数
             />
           </Col>
         </Row>
@@ -162,6 +253,7 @@ const App: React.FC = () => {
               setPercent={setDYPercent}
               isUploading={isDYUploading}
               setIsUploading={setIsDYUploading}
+              onUploadSuccess={handleUploadSuccess} // 传递上传成功的处理函数
             />
           </Col>
           <Col span={12}>
@@ -174,6 +266,7 @@ const App: React.FC = () => {
               setPercent={setPddPercent}
               isUploading={isPddUploading}
               setIsUploading={setIsPddUploading}
+              onUploadSuccess={handleUploadSuccess} // 传递上传成功的处理函数
             />
           </Col>
         </Row>
@@ -188,18 +281,20 @@ const App: React.FC = () => {
               setPercent={setJdPercent}
               isUploading={isJdUploading}
               setIsUploading={setIsJdUploading}
+              onUploadSuccess={handleUploadSuccess} // 传递上传成功的处理函数
             />
           </Col>
           <Col span={12}>
             <UploadComponent
               title="天猫仅退款"
-              action={`${process.env.BASE_URL}/finance/upload/tmallrefund`}
+              action={`${process.env.BASE_URL}/finance/upload/tmallRefund`}
               fileList={tmFileList}
               setFileList={setTmFileList}
               percent={tmPercent}
               setPercent={setTmPercent}
               isUploading={isTmUploading}
               setIsUploading={setIsTmUploading}
+              onUploadSuccess={handleUploadSuccess} // 传递上传成功的处理函数
             />
           </Col>
         </Row>
