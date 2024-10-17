@@ -510,7 +510,7 @@ const RepurchaseRate: React.FC = () => {
             </div>
             <div style={{ marginTop: 10 }}>
               <span>复购用户人数：{totalC}</span>
-              <span style={{ marginLeft: 20 }}>用户复购率: {totalAll}%</span>
+              {/* <span style={{ marginLeft: 20 }}>用户复购率: {totalAll}%</span> */}
             </div>
           </div>
 
