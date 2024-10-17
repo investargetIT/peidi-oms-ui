@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { InboxOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd';
-import { message, Upload, Progress, Card, Row, Col, Typography } from 'antd';
+import { Button, message, Upload, Progress, Card, Row, Col, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 
@@ -146,6 +146,17 @@ const App: React.FC = () => {
     }
   };
 
+  const execute = async () => {
+    try {
+      await axios.post(`${process.env.BASE_URL}/finance/date/execute`, {}, {
+        headers: { Authorization: localStorage.getItem('token') },
+      });
+      // 成功后可以选择重新获取状态信息
+    } catch (error) {
+      // console.error('Failed to execute finance processing:', error);
+    }
+  };
+
   return (
     <PageContainer>
       <Card>
@@ -167,35 +178,7 @@ const App: React.FC = () => {
                   <li>暂无已上传文件</li>
                 )}
               </ul>
-
-              {/* 财务数据处理按钮 */}
-              <button
-                onClick={async () => {
-                  if (executeStatus) {
-                    try {
-                      await axios.post(`${process.env.BASE_URL}/finance/date/execute`, {}, {
-                        headers: { Authorization: localStorage.getItem('token') },
-                      });
-                      // 成功后可以选择重新获取状态信息
-                      await fetchExecuteStatus();
-                    } catch (error) {
-                      console.error('Failed to execute finance processing:', error);
-                    }
-                  }
-                }}
-                disabled={executeStatus=='false'} // 控制按钮的可点击状态
-                style={{
-                  backgroundColor: executeStatus ? '#4CAF50' : '#e7e7e7', // 可点击时绿色，不可点击时灰色
-                  color: executeStatus ? 'white' : 'black', // 可点击时字体为白色，不可点击时为黑色
-                  cursor: executeStatus ? 'pointer' : 'not-allowed', // 根据状态改变光标样式
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '4px',
-                }}
-              >
-                财务数据处理
-              </button>
-
+              <Button disabled={executeStatus=='false'} type="primary" onClick={execute}  htmlType="submit">财务数据处理</Button>
               {/* 增加执行文件列表 */}
               <h3>执行文件:</h3>
               <ul>
