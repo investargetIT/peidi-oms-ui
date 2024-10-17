@@ -24,6 +24,7 @@ const ListAndFilterForm: React.FC<{
   const [form] = Form.useForm();
   const [shopList, setShopList] = useState<any[]>([]);
   const [orderDetailsMap, setOrderDetailsMap] = useState<{ [key: string]: any[] }>({}); // 存储每个收件人的订单信息
+  const [loading, setLoading] = useState<boolean>(false);
 
   // 初始化表单数据
   useEffect(() => {
@@ -61,7 +62,15 @@ const ListAndFilterForm: React.FC<{
   ];
 
   // 提交表单
-  const onSubmit = debounce(() => form.validateFields().then((values) => onFetchList(values, pagination.current, pagination.pageSize)), 300);
+  const onSubmit = debounce(
+    () => form.validateFields()
+      .then((values) => {
+        setLoading(true);
+        return onFetchList(values, pagination.current, pagination.pageSize)
+      })
+      .then(() => setLoading(false)),
+    300
+  );
 
   // 获取订单详情
   const fetchOrderDetails = async (record: any, formValues: any) => {
@@ -135,6 +144,7 @@ const ListAndFilterForm: React.FC<{
       </Form>
 
       <ProTable
+        loading={loading}
         columns={columns}
         dataSource={listData}
         pagination={{
