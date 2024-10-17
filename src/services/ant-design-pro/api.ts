@@ -157,3 +157,20 @@ export async function salesOutDetailsPage(params: API.PageParams) {
   }
 }
 
+export async function salesOutDetailsRepeatPage(params: API.PageParams) {
+  const { page, pageSize, searchStr, groupStr } = params;
+  try {
+    const response = await request(`/orders/salesOutDetails-repeat-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${searchStr}&groupStr=${groupStr}`);
+    return {
+      data: response.data.records,
+      total: response.data.total,
+      success: true,
+    };
+  } catch (error) {
+    return {
+      data: [],
+      total: 0,
+      success: false,
+    };
+  }
+}

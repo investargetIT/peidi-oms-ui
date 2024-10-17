@@ -1,4 +1,4 @@
-import { shopTarget, salesOutDetailsPage, salesOutDetails } from '@/services/ant-design-pro/api';
+import { shopTarget, salesOutDetailsPage, salesOutDetails, salesOutDetailsRepeatPage } from '@/services/ant-design-pro/api';
 import React, { useState, useEffect } from 'react';
 import { Button, message, Steps, theme, Select, DatePicker, Input, Form, Table } from 'antd';
 const { RangePicker } = DatePicker; // 导入 RangePicker
@@ -346,7 +346,7 @@ const RepurchaseRate: React.FC = () => {
     const groupStr = 'receiverName,receiverMobile,receiverArea,receiverAddress';
 
     try {
-      const response = await salesOutDetailsPage({
+      const response = await salesOutDetailsRepeatPage({
         page: paginationRepurchase.current, // 使用当前复购页的分页信息
         pageSize: paginationRepurchase.pageSize,
         searchStr, // 使用保存的搜索条件
@@ -521,30 +521,30 @@ const RepurchaseRate: React.FC = () => {
             }}
             rowKey="id" // 使用订单号作为唯一标识
             search={false} // 隐藏搜索框
-            expandable={{
-              expandedRowRender: (record) => (
-                <Table
-                  columns={[
-                    { title: '订单号', dataIndex: 'oid', key: 'oid' },
-                    { title: '商品名称', dataIndex: 'goodsName', key: 'goodsName' },
-                    { title: '成交总价', dataIndex: 'paid', key: 'paid' },
-                  ]}
-                  dataSource={orderDetailsMap[`${record.receiverName}-${record.receiverMobile}`] || []} // 根据收件人获取订单详情
-                  rowKey="id"
-                  pagination={false}
-                />
-              ),
-              onExpand: async (expanded, record) => {
-                if (expanded) {
-                  const key = `${record.receiverName}-${record.receiverMobile}`;
-                  if (!orderDetailsMap[key]) {
-                    const orderDetails = await fetchOrderDetails(record); // 调用获取订单详情的函数
-                    setOrderDetailsMap(prev => ({ ...prev, [key]: orderDetails })); // 更新状态
-                  }
-                }
-              },
-              expandIconColumnIndex: 0, // 确保加号显示在第一列
-            }}
+            // expandable={{
+            //   expandedRowRender: (record) => (
+            //     <Table
+            //       columns={[
+            //         { title: '订单号', dataIndex: 'oid', key: 'oid' },
+            //         { title: '商品名称', dataIndex: 'goodsName', key: 'goodsName' },
+            //         { title: '成交总价', dataIndex: 'paid', key: 'paid' },
+            //       ]}
+            //       dataSource={orderDetailsMap[`${record.receiverName}-${record.receiverMobile}`] || []} // 根据收件人获取订单详情
+            //       rowKey="id"
+            //       pagination={false}
+            //     />
+            //   ),
+            //   onExpand: async (expanded, record) => {
+            //     if (expanded) {
+            //       const key = `${record.receiverName}-${record.receiverMobile}`;
+            //       if (!orderDetailsMap[key]) {
+            //         const orderDetails = await fetchOrderDetails(record); // 调用获取订单详情的函数
+            //         setOrderDetailsMap(prev => ({ ...prev, [key]: orderDetails })); // 更新状态
+            //       }
+            //     }
+            //   },
+            //   expandIconColumnIndex: 0, // 确保加号显示在第一列
+            // }}
           />
           </>
         )}
