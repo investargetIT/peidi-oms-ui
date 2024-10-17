@@ -172,7 +172,7 @@ const Login: React.FC = () => {
         >
           <LoginFormPage
             backgroundImageUrl="/bg.jpg"
-            // backgroundVideoUrl="https://gw.alipayobjects.com/v/huamei_gcee1x/afts/video/jXRBRK_VAwoAAAAAAAAAAAAAK4eUAQBr"
+            backgroundVideoUrl="https://gw.alipayobjects.com/v/huamei_gcee1x/afts/video/jXRBRK_VAwoAAAAAAAAAAAAAK4eUAQBr"
             // contentStyle={{
             //   minWidth: 280,
             //   maxWidth: '75vw',
