@@ -124,7 +124,7 @@ const ListAndFilterForm: React.FC<{
     <>
       <Form form={form} layout="inline" onFinish={onSubmit}>
         <Form.Item name="dateRange" label="时间范围">
-          <RangePicker />
+          <RangePicker placeholder={[ '开始日期', '结束日期' ]} />
         </Form.Item>
         <Form.Item name="shopName" label="店铺">
           <Select placeholder="请选择店铺" style={{ width: 200 }}>
