@@ -140,11 +140,11 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu, childre
         ]
       : []
     ),
-    {
-      key: 'password',
-      icon: <SettingOutlined />,
-      label: '修改密码',
-    },
+    // {
+    //   key: 'password',
+    //   icon: <SettingOutlined />,
+    //   label: '修改密码',
+    // },
     {
       key: 'logout',
       icon: <LogoutOutlined />,
