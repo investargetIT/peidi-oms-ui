@@ -25,6 +25,7 @@ const ListAndFilterForm: React.FC<{
   const [shopList, setShopList] = useState<any[]>([]);
   const [orderDetailsMap, setOrderDetailsMap] = useState<{ [key: string]: any[] }>({}); // 存储每个收件人的订单信息
   const [loading, setLoading] = useState<boolean>(false);
+  const [subLoading, setSubLoading] = useState<boolean>(false);
 
   // 初始化表单数据
   useEffect(() => {
@@ -74,6 +75,7 @@ const ListAndFilterForm: React.FC<{
 
   // 获取订单详情
   const fetchOrderDetails = async (record: any, formValues: any) => {
+    setSubLoading(true);
     const { dateRange, shopName, goodsNo } = formValues;
     const { receiverName, receiverMobile, receiverArea, receiverAddress } = record;
     
@@ -102,6 +104,7 @@ const ListAndFilterForm: React.FC<{
   
     // 调用 salesOutDetails 接口
     const response = await salesOutDetails({ searchStr });
+    setSubLoading(false);
     try {
       if (response?.data) {
         // 成功时存储订单信息
@@ -165,6 +168,7 @@ const ListAndFilterForm: React.FC<{
             const key = `${record.receiverName}-${record.receiverMobile}-${record.receiverArea}-${record.receiverAddress}`;
             return (
               <Table
+                loading={subLoading}
                 columns={[
                   { title: '订单号', dataIndex: 'oid', key: 'oid' },
                   { title: '商品名称', dataIndex: 'goodsName', key: 'goodsName' },
