@@ -109,6 +109,7 @@ const App: React.FC = () => {
   const [uploadFileNames, setUploadFileNames] = useState<string[]>([]);
   const [executeFileNames , setExecuteFileNames ] = useState<string[]>([]);
   const [executeStatus, setExecuteStatus] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   // 获取状态信息
   useEffect(() => {
@@ -117,10 +118,11 @@ const App: React.FC = () => {
         const response = await axios.get(`${process.env.BASE_URL}/finance/date/execute`, {
           headers: { Authorization: localStorage.getItem('token') },
         });
-        const { uploadFileNames, executeStatus } = response.data.data;
+        const { uploadFileNames, executeStatus, uploadStatus } = response.data.data;
         setUploadFileNames(uploadFileNames);
         setExecuteFileNames(executeFileNames);
         setExecuteStatus(executeStatus);
+        setUploadStatus(uploadStatus);
         console.log(executeStatus)
       } catch (error) {
         console.error('Failed to fetch execute status:', error);
@@ -178,7 +180,7 @@ const App: React.FC = () => {
                   <li>暂无已上传文件</li>
                 )}
               </ul>
-              <Button disabled={executeStatus=='false'} type="primary" onClick={execute}  htmlType="submit">财务数据处理</Button>
+              <Button disabled={uploadStatus=='false'} type="primary" onClick={execute}  htmlType="submit">财务数据处理</Button>
               {/* 增加执行文件列表 */}
               <h3>执行文件:</h3>
               <ul>
