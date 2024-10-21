@@ -31,20 +31,20 @@ const UploadComponent: React.FC<{
     action,
     onChange(info) {
       const { status, response } = info.file;
-      console.log(response)
-      if (response === 'uploading') {
+      if (status === 'uploading') {
         setIsUploading(true);
         setPercent(50); // 上传过程中设置为 50%
-      }
-      if (status === 'done' && response.success) {
-        setPercent(100); // 上传完成时设置为 100%
-        message.success(`${info.file.name} 上传成功.`);
-        setIsUploading(false);
-        onUploadSuccess(); // 调用成功后更新数据
-      } else if (status === 'done' && !response.success) {
-        message.error(`${info.file.name} 上传失败  ${response.msg}`);
-        setIsUploading(false);
-        setPercent(0); // 上传失败时重置进度
+      } else if (status === 'done') {
+        if (response.success) {
+          setPercent(100); // 上传完成时设置为 100%
+          setIsUploading(false);
+          message.success(`${info.file.name} 上传成功.`);
+          onUploadSuccess(); // 调用成功后更新数据
+        } else {
+          setIsUploading(false);
+          message.error(`${info.file.name} 上传失败  ${response.msg}`);
+          setPercent(0); // 上传失败时重置进度
+        }
       }
 
       // 更新文件列表
