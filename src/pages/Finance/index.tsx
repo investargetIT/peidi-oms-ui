@@ -119,7 +119,7 @@ const App: React.FC = () => {
         const response = await axios.get(`${process.env.BASE_URL}/finance/date/execute`, {
           headers: { Authorization: localStorage.getItem('token') },
         });
-        const { uploadFileNames, executeStatus, uploadStatus } = response.data.data;
+        const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } = response.data.data;
         setUploadFileNames(uploadFileNames);
         setExecuteFileNames(executeFileNames);
         setExecuteStatus(executeStatus);
