@@ -31,17 +31,18 @@ const UploadComponent: React.FC<{
     action,
     onChange(info) {
       const { status, response } = info.file;
-      if (status === 'uploading') {
+      console.log(response)
+      if (response === 'uploading') {
         setIsUploading(true);
         setPercent(50); // 上传过程中设置为 50%
       }
-      if (status === 'done') {
+      if (status === 'done' && response.success) {
         setPercent(100); // 上传完成时设置为 100%
         message.success(`${info.file.name} 上传成功.`);
         setIsUploading(false);
         onUploadSuccess(); // 调用成功后更新数据
-      } else if (status === 'error') {
-        message.error(`${info.file.name} 上传失败.`);
+      } else if (status === 'done' && !response.success) {
+        message.error(`${info.file.name} 上传失败  ${response.msg}`);
         setIsUploading(false);
         setPercent(0); // 上传失败时重置进度
       }
@@ -141,10 +142,10 @@ const App: React.FC = () => {
       const { uploadFileNames, executeStatus } = response.data.data;
       setUploadFileNames(uploadFileNames);
       setExecuteStatus(executeStatus);
-      message.success('状态信息已更新');
+      // message.success('状态信息已更新');
     } catch (error) {
       console.error('Failed to refresh execute status:', error);
-      message.error('更新状态信息失败');
+      // message.error('更新状态信息失败');
     }
   };
 
