@@ -181,7 +181,7 @@ const App: React.FC = () => {
                   <li>暂无已上传文件</li>
                 )}
               </ul>
-              <Button disabled={uploadStatus=='false'} type="primary" onClick={execute}  htmlType="submit">财务数据处理</Button>
+              <Button disabled={uploadStatus == 'false' || executeStatus == 'false'} type="primary" onClick={execute}  htmlType="submit">财务数据处理</Button>
               {/* 增加执行文件列表 */}
               <h3>执行文件:</h3>
               <ul>
