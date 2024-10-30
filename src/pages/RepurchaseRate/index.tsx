@@ -127,10 +127,10 @@ const ListAndFilterForm: React.FC<{
           <RangePicker placeholder={[ '开始日期', '结束日期' ]} />
         </Form.Item>
         <Form.Item name="shopName" label="店铺">
-          <Select placeholder="请选择店铺" style={{ width: 200 }}>
+          <Select placeholder="请选择店铺" style={{ width: 360 }}>
             {shopList.map((shop) => (
               <Select.Option key={shop.wdtName} value={shop.wdtName}>
-                {shop.shopName} <span style={{color: '#cccccc'}}>{shop.channel}</span>
+                {shop.shopName}<span style={{ marginLeft: 10, color: '#cccccc' }}>{shop.channel}</span>
               </Select.Option>
             ))}
           </Select>
