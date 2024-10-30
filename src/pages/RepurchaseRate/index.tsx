@@ -130,7 +130,7 @@ const ListAndFilterForm: React.FC<{
           <Select placeholder="请选择店铺" style={{ width: 200 }}>
             {shopList.map((shop) => (
               <Select.Option key={shop.wdtName} value={shop.wdtName}>
-                {shop.shopName}
+                {shop.shopName} <span style={{color: '#cccccc'}}>{shop.channel}</span>
               </Select.Option>
             ))}
           </Select>
