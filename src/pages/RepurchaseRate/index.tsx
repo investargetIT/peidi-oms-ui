@@ -266,13 +266,9 @@ const RepurchaseRate: React.FC = () => {
         groupStr,
       });
 
-      if (response?.data && response?.total) {
-        setListDataPage1(response.data);
-        setPagination1({ current: page, pageSize, total: response.total });
-        message.success('A订单页列表获取成功');
-      } else {
-        message.error('数据结构不正确');
-      }
+      setListDataPage1(response.data);
+      setPagination1({ current: page, pageSize, total: response.total });
+      message.success('A订单页列表获取成功');
     } catch (error) {
       message.error('获取列表失败');
     }
@@ -292,13 +288,9 @@ const RepurchaseRate: React.FC = () => {
         groupStr,
       });
 
-      if (response?.data && response?.total) {
-        setListDataPage2(response.data);
-        setPagination2({ current: page, pageSize, total: response.total });
-        message.success('B订单页列表获取成功');
-      } else {
-        message.error('数据结构不正确');
-      }
+      setListDataPage2(response.data);
+      setPagination2({ current: page, pageSize, total: response.total });
+      message.success('B订单页列表获取成功');
     } catch (error) {
       message.error('获取列表失败');
     }
