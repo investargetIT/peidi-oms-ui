@@ -127,7 +127,7 @@ const ListAndFilterForm: React.FC<{
           <RangePicker placeholder={[ '开始日期', '结束日期' ]} />
         </Form.Item>
         <Form.Item name="shopName" label="店铺">
-          <Select placeholder="请选择店铺" style={{ width: 400 }}>
+          <Select placeholder="请选择店铺" style={{ width: 400 }} allowClear>
             {shopList.map((shop) => (
               <Select.Option key={shop.wdtName} value={shop.wdtName}>
                 {shop.shopName}<span style={{ marginLeft: 10, color: '#cccccc' }}>{shop.channel}</span>
@@ -142,7 +142,7 @@ const ListAndFilterForm: React.FC<{
           <Input placeholder="请输入地区" />
         </Form.Item>
         <Form.Item>
-          <Button type="primary" htmlType="submit">确认</Button>
+          <Button type="primary" htmlType="submit" disabled={loading}>确认</Button>
         </Form.Item>
       </Form>
 
@@ -265,10 +265,13 @@ const RepurchaseRate: React.FC = () => {
         searchStr,
         groupStr,
       });
-
-      setListDataPage1(response.data);
-      setPagination1({ current: page, pageSize, total: response.total });
-      message.success('A订单页列表获取成功');
+      if (response?.success) {
+        setListDataPage1(response.data.records);
+        setPagination1({ current: page, pageSize, total: response.data.total });
+        message.success('A订单页列表获取成功');
+      } else {
+        message.error('A订单页列表获取失败 ' + response.msg);
+      }
     } catch (error) {
       message.error('获取列表失败');
     }
@@ -288,9 +291,13 @@ const RepurchaseRate: React.FC = () => {
         groupStr,
       });
 
-      setListDataPage2(response.data);
-      setPagination2({ current: page, pageSize, total: response.total });
-      message.success('B订单页列表获取成功');
+      if (response?.success) {
+        setListDataPage2(response.data.records);
+        setPagination1({ current: page, pageSize, total: response.data.total });
+        message.success('B订单页列表获取成功');
+      } else {
+        message.error('B订单页列表获取失败 ' + response.msg);
+      }
     } catch (error) {
       message.error('获取列表失败');
     }

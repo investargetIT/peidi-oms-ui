@@ -141,20 +141,7 @@ export async function salesOutDetails(params: API.PageParams) {
 /** 获取客户复购率分页信息 GET /orders/salesOutDetails-page **/
 export async function salesOutDetailsPage(params: API.PageParams) {
   const { page, pageSize, searchStr, groupStr } = params;
-  try {
-    const response = await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${searchStr}&groupStr=${groupStr}`);
-    return {
-      data: response.data.records,
-      total: response.data.total,
-      success: true,
-    };
-  } catch (error) {
-    return {
-      data: [],
-      total: 0,
-      success: false,
-    };
-  }
+  return await request(`/orders/salesOutDetails-page?pageNo=${page}&pageSize=${pageSize}&searchStr=${searchStr}&groupStr=${groupStr}`);
 }
 
 export async function salesOutDetailsRepeatPage(params: API.PageParams) {
