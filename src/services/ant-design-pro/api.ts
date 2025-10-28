@@ -161,3 +161,19 @@ export async function salesOutDetailsRepeatPage(params: API.PageParams) {
     };
   }
 }
+
+/** 分页获取oba模板数据 GET /finance/oba/page **/
+export async function financeObaPage(params: { month: string, pageNo: number, pageSize: number }) {
+  const { month, pageNo, pageSize } = params;
+  return await request(`/finance/oba/page?month=${month}&pageNo=${pageNo}&pageSize=${pageSize}`);
+}
+
+/** 修改oba模板 POST /finance/oba/update */
+export async function financeObaUpdate(options?: { [key: string]: any }) {
+   return await request(`/finance/oba/update`, {
+    method: 'POST',
+    data:{
+      ...(options || {}),
+    }
+  });
+}

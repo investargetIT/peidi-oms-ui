@@ -1,5 +1,6 @@
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { EXCEL_CONFIG } from './excelConfig';
 
 // 示例数据
 const newData = [
@@ -231,4 +232,27 @@ const handleFormData = async () => {
   exportExcel(workbook);
 };
 
-export { handleFormData };
+// 传入antd table数据 导出excel
+const handleAntdTableData = async (tableData: any[]) => {
+  console.log('开始处理Table数据');
+
+  // 1. 创建空的Excel工作簿
+  const workbook = new ExcelJS.Workbook();
+  // 2. 在工作簿中创建工作表命名为sheet1
+  const sheet = workbook.addWorksheet('sheet1');
+  // 3. 把sheet第一行设置成EXCEL_CONFIG的title
+  sheet.getRow(1).values = EXCEL_CONFIG.map((item) => item.title);
+  // 4. 遍历EXCEL_CONFIG 把dataIndex按顺序存在数组里
+  const dataIndexList = EXCEL_CONFIG.map((item) => item.dataIndex);
+  // 5. 遍历tableData 按dataIndexList的顺序 把数据存在sheet的对应行里
+  tableData.forEach((item, index) => {
+    const row = sheet.getRow(index + 2); // 第一行是title 所以从第二行开始
+    dataIndexList.forEach((dataIndex, colIndex) => {
+      row.getCell(colIndex + 1).value = item[dataIndex];
+    });
+  });
+  // 6. 导出工作簿
+  exportExcel(workbook);
+};
+
+export { handleFormData, handleAntdTableData };
