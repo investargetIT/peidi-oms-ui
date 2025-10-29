@@ -116,7 +116,7 @@ const importExcel = async () => {
 };
 
 // 导出excel 传参workbook
-const exportExcel = async (workbook: ExcelJS.Workbook) => {
+const exportExcel = async (workbook: ExcelJS.Workbook, fileName: string = '测试') => {
   console.log('开始导出');
 
   // 使用更安全的写入选项
@@ -132,7 +132,7 @@ const exportExcel = async (workbook: ExcelJS.Workbook) => {
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
-  saveAs(blob, `测试.xlsx`);
+  saveAs(blob, `${fileName}.xlsx`);
 };
 
 // 辅助函数：复制行格式
@@ -175,7 +175,7 @@ const copyRowFormatting = (
 };
 
 // 业务逻辑-表单数据处理
-const handleFormData = async () => {
+const handleFormData = async (tableData: any[], fileName?: string) => {
   console.log('开始处理表单数据');
 
   const workbook = await importExcel();
@@ -186,54 +186,30 @@ const handleFormData = async () => {
     throw new Error('工作表不存在');
   }
 
-  let currentRow = 25;
+  const formatRow = 19; // 假设第5行是格式行
+  const currentRow = 25; // 从第25行开始写入数据
 
-  newData.forEach((data, index) => {
-    const row = sheet.getRow(currentRow + index);
+  const dataIndexList = EXCEL_CONFIG.map((item) => item.dataIndex);
+  tableData.forEach((item, index) => {
+    const row = sheet.getRow(index + currentRow); // 第一行是title 所以从第二行开始
+    dataIndexList.forEach((dataIndex, colIndex) => {
+      row.getCell(colIndex + 1).value = item[dataIndex];
 
-    // 设置单元格值
-    row.getCell(1).value = data.rowStatus; // A列: 行状态
-    row.getCell(2).value = data.id; // B列: ID
-    row.getCell(3).value = data.documentType; // C列: 单据类型
-    row.getCell(4).value = data.documentNumber; // D列: 单号
-    row.getCell(5).value = data.date; // E列: 日期
-    row.getCell(6).value = data.customer; // F列: 客户
-    row.getCell(7).value = data.customerName; // G列: 客户名称
-    row.getCell(8).value = data.priceIncludeTax; // H列: 价格含税
-    row.getCell(9).value = data.taxGroup; // I列: 税组合
-    row.getCell(10).value = data.salesman; // J列: 业务员
-    row.getCell(11).value = data.department; // K列: 部门
-    row.getCell(12).value = data.lineStatus; // L列: 单行.行状态
-    row.getCell(13).value = data.lineNumber; // M列: 行号
-    row.getCell(14).value = data.item; // N列: 料品
-    row.getCell(15).value = data.brand; // O列: 品牌
-    row.getCell(16).value = data.productCode; // P列: 货号
-    row.getCell(17).value = data.productName; // Q列: 品名
-    row.getCell(18).value = data.specification; // R列: 规格
-    row.getCell(19).value = data.unitPrice; // S列: 单价
-    row.getCell(20).value = data.quantity; // T列: 数量
-    row.getCell(21).value = data.freeProductType; // U列: 是否赠品
-    row.getCell(22).value = data.taxIncludedAmount; // V列: 销售订单行.价税合计
-    row.getCell(23).value = data.col1; // W列: 列1
-    row.getCell(24).value = data.planLineStatus; // X列: 计划行.行状态
-    row.getCell(25).value = data.subLineNumber; // Y列: 子行号
-    row.getCell(26).value = data.deliveryDate; // Z列: 交期
-    row.getCell(27).value = data.supplyType; // AA列: 销售订单行_订单子行.供应类型
+      // 设置单元格样式（可选，如果需要保持与前面行相同的格式）
+      copyRowFormatting(sheet, formatRow, currentRow + index);
 
-    // 设置单元格样式（可选，如果需要保持与前面行相同的格式）
-    copyRowFormatting(sheet, 5, currentRow + index);
-
-    row.commit();
+      row.commit();
+    });
   });
 
   console.log('数据插入完成');
 
   // 导出更新后的 Excel 文件
-  exportExcel(workbook);
+  exportExcel(workbook, fileName);
 };
 
-// 传入antd table数据 导出excel
-const handleAntdTableData = async (tableData: any[]) => {
+// 测试 -传入antd table数据 导出excel
+const handleAntdTableData = async (tableData: any[], fileName?: string) => {
   console.log('开始处理Table数据');
 
   // 1. 创建空的Excel工作簿
@@ -252,7 +228,7 @@ const handleAntdTableData = async (tableData: any[]) => {
     });
   });
   // 6. 导出工作簿
-  exportExcel(workbook);
+  exportExcel(workbook, fileName);
 };
 
 export { handleFormData, handleAntdTableData };

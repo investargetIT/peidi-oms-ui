@@ -1,4 +1,11 @@
-import React, { forwardRef, useContext, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { Form, Input, message, Table } from 'antd';
 import './editTable.scss';
 import { financeObaPage, financeObaUpdate } from '@/services/ant-design-pro/api';
@@ -109,6 +116,8 @@ const EditTable = (props, ref) => {
     };
   });
 
+  const [tableLoading, setTableLoading] = useState(true);
+
   /**
    * OBA模板数据结构说明：
    * id: 记录ID
@@ -142,36 +151,36 @@ const EditTable = (props, ref) => {
    */
   // 表格数据源状态
   const [dataSource, setDataSource] = useState([
-    {
-      id: 600,
-      month: '2025-10',
-      rowStatus: '正常',
-      lineId: 1001,
-      type: '销售订单',
-      documentNum: 'SO202510001',
-      date: '2025-10-15',
-      shopId: 'C001',
-      shopName: '测试客户A',
-      priceIncludesTax: 'True',
-      taxRate: '13%',
-      salesman: '张三',
-      department: '销售部',
-      lineStatus: '已确认',
-      lineNumber: '1000',
-      u9No: '50402.0362',
-      brand: '品牌A',
-      goodsNo: 'G001',
-      goodsName: '测试商品A',
-      specification: '标准规格',
-      unitPrice: 2.2725,
-      invoiceNum: 8,
-      remark: '常规订单',
-      invoiceAmount: '18.1800',
-      planLineStatus: '待发货',
-      subLineNumber: '10',
-      deliveryDate: '2025-10-20',
-      supplyType: '当前组织出货',
-    },
+    // {
+    //   id: 600,
+    //   month: '2025-10',
+    //   rowStatus: '正常',
+    //   lineId: 1001,
+    //   type: '销售订单',
+    //   documentNum: 'SO202510001',
+    //   date: '2025-10-15',
+    //   shopId: 'C001',
+    //   shopName: '测试客户A',
+    //   priceIncludesTax: 'True',
+    //   taxRate: '13%',
+    //   salesman: '张三',
+    //   department: '销售部',
+    //   lineStatus: '已确认',
+    //   lineNumber: '1000',
+    //   u9No: '50402.0362',
+    //   brand: '品牌A',
+    //   goodsNo: 'G001',
+    //   goodsName: '测试商品A',
+    //   specification: '标准规格',
+    //   unitPrice: 2.2725,
+    //   invoiceNum: 8,
+    //   remark: '常规订单',
+    //   invoiceAmount: '18.1800',
+    //   planLineStatus: '待发货',
+    //   subLineNumber: '10',
+    //   deliveryDate: '2025-10-20',
+    //   supplyType: '当前组织出货',
+    // },
   ]);
 
   // 表格列配置
@@ -206,7 +215,6 @@ const EditTable = (props, ref) => {
       editable: true,
       width: 80,
     },
-
     {
       title: '日期',
       dataIndex: 'date',
@@ -219,14 +227,12 @@ const EditTable = (props, ref) => {
       editable: true,
       width: 60,
     },
-
     {
       title: '客户名称',
       dataIndex: 'shopName',
       editable: true,
       width: 80,
     },
-
     {
       title: '价格含税',
       dataIndex: 'priceIncludesTax',
@@ -340,7 +346,7 @@ const EditTable = (props, ref) => {
       },
       dataIndex: 'invoiceAmount',
       editable: true,
-      width: 80,
+      width: 100,
     },
     {
       title: () => {
@@ -372,9 +378,8 @@ const EditTable = (props, ref) => {
       title: '供应类型',
       dataIndex: 'supplyType',
       editable: true,
-      width: 'auto',
+      width: 140,
     },
-
     {
       title: '月份',
       dataIndex: 'month',
@@ -382,7 +387,6 @@ const EditTable = (props, ref) => {
       width: 100,
       hidden: true,
     },
-
     {
       title: '合计',
       dataIndex: 'invoiceAmount',
@@ -471,6 +475,7 @@ const EditTable = (props, ref) => {
       console.log('分页获取oba模板数据', res);
       if (res.code === 200) {
         setDataSource(res.data?.records || []);
+        setTableLoading(false);
       }
     } catch (error) {
       console.log(error);
@@ -478,7 +483,7 @@ const EditTable = (props, ref) => {
   };
 
   return (
-    <div>
+    <div className="peidi-edit-table-container">
       {/* 渲染表格 */}
       <Table
         components={components} // 自定义组件
@@ -487,7 +492,11 @@ const EditTable = (props, ref) => {
         dataSource={dataSource} // 数据源
         columns={columns} // 列配置
         size="small"
-        scroll={{ x: 'max-content', y: 600 }}
+        scroll={{ x: 'max-content', y: 670 }}
+        pagination={{
+          defaultPageSize: 100,
+        }}
+        loading={tableLoading}
       />
     </div>
   );
