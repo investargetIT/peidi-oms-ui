@@ -59,6 +59,7 @@
     "dingtalk-jsapi": "^3.0.38",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
+    "jszip": "^3.10.1",
     "lodash": "^4.17.21",
     "omit.js": "^2.0.2",
     "querystring": "^0.2.1",

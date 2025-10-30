@@ -148,6 +148,8 @@ const EditTable = (props, ref) => {
    * subLineNumber: 子行号
    * deliveryDate: 交期
    * supplyType: 销售订单行为单行行优先类型
+   * org: 组织
+   * sortRow: 排序行号
    */
   // 表格数据源状态
   const [dataSource, setDataSource] = useState([

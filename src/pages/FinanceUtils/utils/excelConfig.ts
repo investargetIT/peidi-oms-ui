@@ -32,22 +32,15 @@ export const EXCEL_CONFIG = [
     dataIndex: 'priceIncludesTax',
   },
   {
-    title: '税组合',
-    dataIndex: 'taxRate',
-  },
-  {
     title: '业务员',
     dataIndex: 'salesman',
-    editable: true,
-    width: 80,
   },
-
   {
     title: '部门',
     dataIndex: 'department',
   },
   {
-    title: '单行 行状态',
+    title: '单行.行状态',
     dataIndex: 'lineStatus',
   },
   {
@@ -83,15 +76,19 @@ export const EXCEL_CONFIG = [
     dataIndex: 'invoiceNum',
   },
   {
-    title: '销售订单行 免费品类型',
+    title: '销售订单行.免费品类型',
     dataIndex: 'remark',
   },
   {
-    title: '销售订单行 价税合计',
+    title: '销售订单行.价税合计',
     dataIndex: 'invoiceAmount',
   },
   {
-    title: '计划行 行状态',
+    title: '销售订单行.税组合',
+    dataIndex: 'taxRate',
+  },
+  {
+    title: '计划行.行状态',
     dataIndex: 'planLineStatus',
   },
   {
@@ -103,7 +100,7 @@ export const EXCEL_CONFIG = [
     dataIndex: 'deliveryDate',
   },
   {
-    title: '供应类型',
+    title: '销售订单行_订单子行.供应类型',
     dataIndex: 'supplyType',
-  },
+  }
 ];

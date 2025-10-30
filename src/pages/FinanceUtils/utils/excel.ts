@@ -1,6 +1,7 @@
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { EXCEL_CONFIG } from './excelConfig';
+import JSZip from 'jszip';
 
 // 示例数据
 const newData = [
@@ -135,6 +136,26 @@ const exportExcel = async (workbook: ExcelJS.Workbook, fileName: string = '测�
   saveAs(blob, `${fileName}.xlsx`);
 };
 
+// 导出excel return blob
+const exportExcelReturnBlob = async (workbook: ExcelJS.Workbook, fileName: string = '测试') => {
+  console.log('开始导出blob');
+
+  // 使用更安全的写入选项
+  const buffer = await workbook.xlsx.writeBuffer({
+    useStyles: true,
+    useSharedStrings: true,
+  });
+
+  // 生成 Excel 文件
+  // const buffer = await workbook.xlsx.writeBuffer();
+
+  // 保存文件
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  return { name: `${fileName}.xlsx`, blob };
+};
+
 // 辅助函数：复制行格式
 const copyRowFormatting = (
   worksheet: ExcelJS.Worksheet,
@@ -186,21 +207,21 @@ const handleFormData = async (tableData: any[], fileName?: string) => {
     throw new Error('工作表不存在');
   }
 
-  const formatRow = 19; // 假设第5行是格式行
-  const currentRow = 25; // 从第25行开始写入数据
+  // const formatRow = 19; // 假设第5行是格式行
+  // const currentRow = 25; // 从第25行开始写入数据
 
-  const dataIndexList = EXCEL_CONFIG.map((item) => item.dataIndex);
-  tableData.forEach((item, index) => {
-    const row = sheet.getRow(index + currentRow); // 第一行是title 所以从第二行开始
-    dataIndexList.forEach((dataIndex, colIndex) => {
-      row.getCell(colIndex + 1).value = item[dataIndex];
+  // const dataIndexList = EXCEL_CONFIG.map((item) => item.dataIndex);
+  // tableData.forEach((item, index) => {
+  //   const row = sheet.getRow(index + currentRow); // 第一行是title 所以从第二行开始
+  //   dataIndexList.forEach((dataIndex, colIndex) => {
+  //     row.getCell(colIndex + 1).value = item[dataIndex];
 
-      // 设置单元格样式（可选，如果需要保持与前面行相同的格式）
-      copyRowFormatting(sheet, formatRow, currentRow + index);
+  //     // 设置单元格样式（可选，如果需要保持与前面行相同的格式）
+  //     copyRowFormatting(sheet, formatRow, currentRow + index);
 
-      row.commit();
-    });
-  });
+  //     row.commit();
+  //   });
+  // });
 
   console.log('数据插入完成');
 
@@ -208,27 +229,65 @@ const handleFormData = async (tableData: any[], fileName?: string) => {
   exportExcel(workbook, fileName);
 };
 
-// 测试 -传入antd table数据 导出excel
+// 业务逻辑 -传入antd table数据 导出excel
 const handleAntdTableData = async (tableData: any[], fileName?: string) => {
   console.log('开始处理Table数据');
 
-  // 1. 创建空的Excel工作簿
+  // 创建空的Excel工作簿
   const workbook = new ExcelJS.Workbook();
-  // 2. 在工作簿中创建工作表命名为sheet1
+  // 在工作簿中创建工作表命名为sheet1
   const sheet = workbook.addWorksheet('sheet1');
-  // 3. 把sheet第一行设置成EXCEL_CONFIG的title
+  // 设置工作表默认缩放比例为75%
+  sheet.views = [
+    {
+      zoomScale: 75,
+    },
+  ];
+  // 设置工作表列宽
+  EXCEL_CONFIG.forEach((item, index) => {
+    sheet.getColumn(index + 1).width = 5;
+  });
+  // 把sheet第一行设置成EXCEL_CONFIG的title
   sheet.getRow(1).values = EXCEL_CONFIG.map((item) => item.title);
-  // 4. 遍历EXCEL_CONFIG 把dataIndex按顺序存在数组里
+  // 遍历EXCEL_CONFIG 把dataIndex按顺序存在数组里
   const dataIndexList = EXCEL_CONFIG.map((item) => item.dataIndex);
-  // 5. 遍历tableData 按dataIndexList的顺序 把数据存在sheet的对应行里
+  // 遍历tableData 按dataIndexList的顺序 把数据存在sheet的对应行里
   tableData.forEach((item, index) => {
     const row = sheet.getRow(index + 2); // 第一行是title 所以从第二行开始
     dataIndexList.forEach((dataIndex, colIndex) => {
       row.getCell(colIndex + 1).value = item[dataIndex];
     });
   });
-  // 6. 导出工作簿
-  exportExcel(workbook, fileName);
+  // 导出工作簿
+  // exportExcel(workbook, fileName);
+  // 导出工作簿 blob
+  return exportExcelReturnBlob(workbook, fileName);
 };
 
-export { handleFormData, handleAntdTableData };
+// 业务逻辑 -压缩多个blob文件并导出
+const handleCompressBlobs = async (
+  blobLists: { name: string; blob: Blob }[],
+  zipFileName: string = 'test.zip',
+) => {
+  console.log('开始压缩blob文件');
+
+  const zip = new JSZip();
+  blobLists.forEach((blobItem) => {
+    zip.file(blobItem.name, blobItem.blob);
+  });
+
+  zip.generateAsync({ type: 'blob' }).then((blob) => {
+    saveAs(blob, zipFileName);
+  });
+};
+
+// 业务逻辑 - 导出OBA数据模板Excel文件
+const exportObaDataTemplateExcel = async (fileName: string = '') => {
+  // const workbook = await importExcel();
+  // return exportExcelReturnBlob(workbook, 'OBA销售模板');
+  const response = await fetch('/static/OBA销售模板.xlsx');
+  const blob = await response.blob();
+  return { name: `OBA销售模板${fileName ? `-${fileName}` : ''}.xlsx`, blob };
+};
+
+export { handleFormData, handleAntdTableData, handleCompressBlobs, exportObaDataTemplateExcel };

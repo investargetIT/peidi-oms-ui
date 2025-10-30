@@ -68,12 +68,12 @@ export default [
     path: '/repurchaseRate',
     component: './RepurchaseRate',
   },
-    {
-    name: 'debug',
-    icon: 'creditCard',
-    path: '/debug',
-    component: './Debug',
-  },
+  // {
+  //   name: 'debug',
+  //   icon: 'creditCard',
+  //   path: '/debug',
+  //   component: './Debug',
+  // },
   // {
   //   name: 'goodsCategory',
   //   icon: 'apartment',
