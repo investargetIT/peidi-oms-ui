@@ -163,9 +163,9 @@ export async function salesOutDetailsRepeatPage(params: API.PageParams) {
 }
 
 /** 分页获取oba模板数据 GET /finance/oba/page **/
-export async function financeObaPage(params: { month: string, pageNo: number, pageSize: number }) {
-  const { month, pageNo, pageSize } = params;
-  return await request(`/finance/oba/page?month=${month}&pageNo=${pageNo}&pageSize=${pageSize}`);
+export async function financeObaPage(params: { month: string, pageNo: number, pageSize: number, path:string }) {
+  const { month, pageNo, pageSize, path } = params;
+  return await request(`/finance/oba/page?month=${month}&pageNo=${pageNo}&pageSize=${pageSize}&path=${path}`);
 }
 
 /** 修改oba模板 POST /finance/oba/update */

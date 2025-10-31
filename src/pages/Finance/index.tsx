@@ -5,6 +5,7 @@ import { Button, message, Upload, Progress, Card, Row, Col, Typography, Tabs } f
 import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import Reprocess from './reprocess';
+import ReprocessForShop from './reprocessForShop';
 
 const { Dragger } = Upload;
 const { Title } = Typography;
@@ -19,7 +20,17 @@ const UploadComponent: React.FC<{
   isUploading: boolean;
   setIsUploading: (isUploading: boolean) => void;
   onUploadSuccess: () => void; // 新增的属性
-}> = ({ title, action, fileList, setFileList, percent, setPercent, isUploading, setIsUploading, onUploadSuccess }) => {
+}> = ({
+  title,
+  action,
+  fileList,
+  setFileList,
+  percent,
+  setPercent,
+  isUploading,
+  setIsUploading,
+  onUploadSuccess,
+}) => {
   const props: UploadProps = {
     name: 'file',
     multiple: false,
@@ -109,7 +120,7 @@ const App: React.FC = () => {
 
   // 用于保存接口返回的数据
   const [uploadFileNames, setUploadFileNames] = useState<string[]>([]);
-  const [executeFileNames , setExecuteFileNames ] = useState<string[]>([]);
+  const [executeFileNames, setExecuteFileNames] = useState<string[]>([]);
   const [executeStatus, setExecuteStatus] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
@@ -120,12 +131,13 @@ const App: React.FC = () => {
         const response = await axios.get(`${process.env.BASE_URL}/finance/date/execute`, {
           headers: { Authorization: localStorage.getItem('token') },
         });
-        const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } = response.data.data;
+        const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } =
+          response.data.data;
         setUploadFileNames(uploadFileNames);
         setExecuteFileNames(executeFileNames);
         setExecuteStatus(executeStatus);
         setUploadStatus(uploadStatus);
-        console.log(executeStatus)
+        console.log(executeStatus);
       } catch (error) {
         console.error('Failed to fetch execute status:', error);
       }
@@ -152,9 +164,13 @@ const App: React.FC = () => {
 
   const execute = async () => {
     try {
-      await axios.post(`${process.env.BASE_URL}/finance/date/execute`, {}, {
-        headers: { Authorization: localStorage.getItem('token') },
-      });
+      await axios.post(
+        `${process.env.BASE_URL}/finance/date/execute`,
+        {},
+        {
+          headers: { Authorization: localStorage.getItem('token') },
+        },
+      );
       // 成功后可以选择重新获取状态信息
     } catch (error) {
       // console.error('Failed to execute finance processing:', error);
@@ -201,7 +217,7 @@ const App: React.FC = () => {
                   财务数据处理
                 </Button>
                 {/* 增加执行文件列表 */}
-                <h3 style={{marginTop: 16}}>执行文件:</h3>
+                <h3 style={{ marginTop: 16 }}>执行文件:</h3>
                 <ul>
                   {executeFileNames && executeFileNames.length > 0 ? (
                     executeFileNames.map((fileName, index) => (
@@ -314,7 +330,7 @@ const App: React.FC = () => {
     {
       key: '2',
       label: '销售单文件上传',
-      children: <Reprocess />,
+      children: <ReprocessForShop />,
     },
   ];
 

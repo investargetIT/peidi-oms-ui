@@ -251,11 +251,53 @@ const handleAntdTableData = async (tableData: any[], fileName?: string) => {
   sheet.getRow(1).values = EXCEL_CONFIG.map((item) => item.title);
   // 遍历EXCEL_CONFIG 把dataIndex按顺序存在数组里
   const dataIndexList = EXCEL_CONFIG.map((item) => item.dataIndex);
+
+  // 插入逻辑
+  let typeStatus = false; // 单据类型状态 是否需要插入Insert
+  let idTemp = -1; // id编号
+
   // 遍历tableData 按dataIndexList的顺序 把数据存在sheet的对应行里
   tableData.forEach((item, index) => {
     const row = sheet.getRow(index + 2); // 第一行是title 所以从第二行开始
+
+    // 如果taxRate是空值，排除0，则设置行背景色为红色
+    if (item.taxRate === null || item.taxRate === undefined) {
+      row.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFF0000' },
+      };
+    }
+
+    // 先记录有没有单据类型
+    if (item.type) {
+      typeStatus = true;
+    } else {
+      typeStatus = false;
+    }
     dataIndexList.forEach((dataIndex, colIndex) => {
-      row.getCell(colIndex + 1).value = item[dataIndex];
+      // typeStatus为true时需要插入Insert
+      if (
+        dataIndex === 'rowStatus' ||
+        dataIndex === 'lineStatus' ||
+        dataIndex === 'planLineStatus'
+      ) {
+        if (typeStatus) {
+          row.getCell(colIndex + 1).value = 'Insert';
+        }
+      }
+      // typeStatus为true时需要插入ID
+      else if (dataIndex === 'lineId') {
+        if (typeStatus) {
+          row.getCell(colIndex + 1).value = idTemp--;
+        }
+      }
+      // 如果是shopId-客户则清除前空格
+      else if (dataIndex === 'shopId') {
+        row.getCell(colIndex + 1).value = item[dataIndex] ? item[dataIndex].trim() : '';
+      } else {
+        row.getCell(colIndex + 1).value = item[dataIndex];
+      }
     });
   });
   // 导出工作簿
