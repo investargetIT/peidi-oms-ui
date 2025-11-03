@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Input, Select, Space, Table, Tag } from 'antd';
+import { Button, Col, Input, Row, Select, Space, Table, Tag } from 'antd';
 import type { TableProps } from 'antd';
 import Icon, { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { DeleteOutlined } from './icon';
@@ -107,70 +107,67 @@ const CustomerInfo: React.FC = () => {
   return (
     <PageContainer>
       {/* 操作栏 */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 16,
-        }}
-      >
-        <Input
-          placeholder="搜索购买方名称或税号..."
-          prefix={<SearchOutlined style={{ color: '#737373' }} />}
-          style={{ maxWidth: 500 }}
-          onChange={(e) => setSearchText(e.target.value)}
-        />
-        <Select
-          defaultValue="全部渠道"
-          style={{ width: 150 }}
-          options={[
-            { value: '全部渠道', label: '全部渠道' },
-            { value: '线上', label: '线上' },
-            { value: '线下', label: '线下' },
-          ]}
-          onChange={(value) => setChannel(value)}
-        />
-        <Select
-          defaultValue="全部发票要求"
-          style={{ width: 200 }}
-          options={[
-            { value: '全部发票要求', label: '全部发票要求' },
-            { value: '数电发票（普通发票）', label: '数电发票（普通发票）' },
-          ]}
-          onChange={(value) => setInvoiceRequirement(value)}
-        />
-        <Select
-          defaultValue="全部种类"
-          style={{ width: 150 }}
-          options={[
-            { value: '全部种类', label: '全部种类' },
-            { value: '普票', label: '普票' },
-            { value: '专票', label: '专票' },
-          ]}
-          onChange={(value) => setInvoiceType(value)}
-        />
-        <Button type="primary" onClick={() => setTableData(data)}>
-          查询
-        </Button>
-        <Button
-          onClick={() => {
-            setSearchText('');
-            setChannel('全部渠道');
-            setInvoiceRequirement('全部发票要求');
-            setInvoiceType('全部种类');
-          }}
-        >
-          重置
-        </Button>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => customerInfoModalRef.current?.showModal()}
-        >
-          新增客户
-        </Button>
-      </div>
+      <Row style={{ marginBottom: 16 }}>
+        <Col span={22}>
+          <Input
+            placeholder="搜索购买方名称或税号..."
+            prefix={<SearchOutlined style={{ color: '#737373' }} />}
+            style={{ maxWidth: 500, marginRight: 16 }}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <Select
+            defaultValue="全部渠道"
+            style={{ width: 150, marginRight: 16 }}
+            options={[
+              { value: '全部渠道', label: '全部渠道' },
+              { value: '线上', label: '线上' },
+              { value: '线下', label: '线下' },
+            ]}
+            onChange={(value) => setChannel(value)}
+          />
+          <Select
+            defaultValue="全部发票要求"
+            style={{ width: 200, marginRight: 16 }}
+            options={[
+              { value: '全部发票要求', label: '全部发票要求' },
+              { value: '数电发票（普通发票）', label: '数电发票（普通发票）' },
+            ]}
+            onChange={(value) => setInvoiceRequirement(value)}
+          />
+          <Select
+            defaultValue="全部种类"
+            style={{ width: 150, marginRight: 16 }}
+            options={[
+              { value: '全部种类', label: '全部种类' },
+              { value: '普票', label: '普票' },
+              { value: '专票', label: '专票' },
+            ]}
+            onChange={(value) => setInvoiceType(value)}
+          />
+          <Button style={{ marginRight: 16 }} type="primary" onClick={() => setTableData(data)}>
+            查询
+          </Button>
+          <Button
+            onClick={() => {
+              setSearchText('');
+              setChannel('全部渠道');
+              setInvoiceRequirement('全部发票要求');
+              setInvoiceType('全部种类');
+            }}
+          >
+            重置
+          </Button>
+        </Col>
+        <Col span={2} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => customerInfoModalRef.current?.showModal()}
+          >
+            新增客户
+          </Button>
+        </Col>
+      </Row>
       <Table<DataType> columns={columns} dataSource={tableData} />
       <CustomerInfoModal ref={customerInfoModalRef} />
     </PageContainer>
