@@ -311,10 +311,10 @@ const Invoice: React.FC = () => {
       <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
         <div style={{ color: '#737373' }}>
           <span>
-            已选择{' '}
+            已选择
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
               {selectedRows.length}
-            </span>{' '}
+            </span>
             项
           </span>
           <span style={{ marginLeft: 16 }}>
@@ -339,6 +339,7 @@ const Invoice: React.FC = () => {
         columns={columns}
         dataSource={tableData}
         scroll={{ x: 'max-content' }}
+        pagination={{ showTotal: (total, range) => `共 ${total} 条` }}
       />
       {/* 开票申请弹窗 */}
       <InvoiceModal ref={invoiceModalRef} selectedRows={selectedRows} />

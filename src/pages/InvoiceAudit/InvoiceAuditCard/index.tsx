@@ -5,9 +5,10 @@ import {
   DownloadOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import { Button, Card, Flex, Table, TableColumnsType, Tag } from 'antd';
+import { Button, Card, Checkbox, Flex, Table, TableColumnsType, Tag } from 'antd';
 import React, { useState } from 'react';
 import type { DataType } from '@/pages/Invoice/index';
+import type { InvoiceModalRef } from '../Modal';
 
 const columns: TableColumnsType<DataType> = [
   {
@@ -159,40 +160,64 @@ const data: DataType[] = [
 
 // props 定义
 interface InvoiceAuditCardProps {
-  // 类型 -枚举：待审核warning 已通过success
-  type: 'warning' | 'success';
+  // 类型 -枚举：待审核warning 已通过success 已下载info
+  type: 'warning' | 'success' | 'info';
+  // 父组件传递的 ref
+  modalRef: React.RefObject<InvoiceModalRef>;
 }
 
-const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({ type }) => {
+const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({ type, modalRef }) => {
+  // 审核通过
+  const handleOk = () => {
+    if (modalRef.current) {
+      modalRef.current.showModal('approve');
+    }
+  };
+  // 审核驳回
+  const handleCancel = () => {
+    if (modalRef.current) {
+      modalRef.current.showModal('reject');
+    }
+  };
   return (
     <Card>
       {/* 头部信息 */}
       <Flex align="center" justify="space-between">
         {/* 左侧 */}
-        <div>
-          <Flex align="center">
-            <div
-              style={{ color: '#0a0a0a', fontSize: '18px', fontWeight: 'bold', marginRight: 10 }}
-            >
-              申请编号: APP001
+        <Flex align="flex-start">
+          <Checkbox
+            disabled={type === 'warning'}
+            style={{ marginTop: 2, marginRight: 15 }}
+          ></Checkbox>
+          <div>
+            <Flex align="center">
+              <div
+                style={{ color: '#0a0a0a', fontSize: '18px', fontWeight: 'bold', marginRight: 10 }}
+              >
+                申请编号: APP001
+              </div>
+              <div>
+                {type === 'warning' && (
+                  <>
+                    <Tag icon={<ClockCircleOutlined />} color="warning">
+                      待审核
+                    </Tag>
+                    <span style={{ color: '#737373' }}>(需审核通过后才能开票)</span>
+                  </>
+                )}
+                {type === 'success' && (
+                  <Tag icon={<CheckCircleOutlined />} color="success">
+                    已通过
+                  </Tag>
+                )}
+                {type === 'info' && <Tag icon={<DownloadOutlined />}>已下载</Tag>}
+              </div>
+            </Flex>
+            <div style={{ color: '#737373', marginTop: 5 }}>
+              提交时间: 2025.10.22 14:30 | 提交人: 张三
             </div>
-            <div>
-              {type === 'warning' && (
-                <Tag icon={<ClockCircleOutlined />} color="warning">
-                  待审核
-                </Tag>
-              )}
-              {type === 'success' && (
-                <Tag icon={<CheckCircleOutlined />} color="success">
-                  已通过
-                </Tag>
-              )}
-            </div>
-          </Flex>
-          <div style={{ color: '#737373', marginTop: 5 }}>
-            提交时间: 2025.10.22 14:30 | 提交人: 张三
           </div>
-        </div>
+        </Flex>
         {/* 右侧 */}
         <Flex justify="flex-end" align="flex-end" vertical>
           <div style={{ color: '#737373' }}>开票客户</div>
@@ -219,14 +244,20 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({ type }) => {
       />
       {/* 操作按钮 */}
       <Flex justify="flex-end" align="center" style={{ marginTop: 24 }}>
-        {type === 'success' && <Button icon={<DownloadOutlined />}>下载开票模板</Button>}
+        {(type === 'success' || type === 'info') && (
+          <Button icon={<DownloadOutlined />}>下载开票模板</Button>
+        )}
 
         {type === 'warning' && (
           <>
-            <Button icon={<CloseCircleOutlined />} style={{ marginRight: 12 }}>
+            <Button
+              icon={<CloseCircleOutlined />}
+              style={{ marginRight: 12 }}
+              onClick={() => handleCancel()}
+            >
               驳回
             </Button>
-            <Button icon={<CheckCircleOutlined />} type="primary">
+            <Button icon={<CheckCircleOutlined />} type="primary" onClick={() => handleOk()}>
               通过
             </Button>
           </>

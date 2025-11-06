@@ -36,7 +36,7 @@ const HistoricalRecords: React.FC = () => {
       </div>
       {/* 卡片 */}
       <div>
-        <InvoiceAuditCard type="success" />
+        <InvoiceAuditCard type="info" />
       </div>
     </>
   );

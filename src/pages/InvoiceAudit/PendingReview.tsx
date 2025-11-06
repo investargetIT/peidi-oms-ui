@@ -1,13 +1,22 @@
 import React from 'react';
 import InvoiceAuditCard from './InvoiceAuditCard';
-import { ExclamationCircleOutlined, SearchOutlined } from '@ant-design/icons';
-import { Input, Select } from 'antd';
+import {
+  DownloadOutlined,
+  ExclamationCircleOutlined,
+  FileTextOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
+import { Button, Checkbox, Flex, Input, Select } from 'antd';
+import InvoiceAuditModal from './Modal';
+import type { InvoiceModalRef } from './Modal';
 
 const PendingReview: React.FC = () => {
+  const modalRef = React.useRef<InvoiceModalRef>(null);
+
   return (
     <>
       {/* 操作栏 */}
-      <div style={{ marginBottom: 12, display: 'flex' }}>
+      <div style={{ marginBottom: 32, display: 'flex' }}>
         <Input
           placeholder="搜搜索申请编号、客户或提交人..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
@@ -26,7 +35,7 @@ const PendingReview: React.FC = () => {
         />
       </div>
       {/* 提示信息 */}
-      <div
+      {/* <div
         style={{
           color: '#737373',
           border: '1px solid #73737350',
@@ -38,11 +47,33 @@ const PendingReview: React.FC = () => {
       >
         <ExclamationCircleOutlined style={{ marginRight: 8, color: '#000000' }} />
         只有审核通过的申请才能勾选开票。请先审核通过申请后再进行开票操作。
-      </div>
+      </div> */}
+      {/* 批量下载信息栏 */}
+      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
+        <div style={{ color: '#737373' }}>
+          <span style={{ color: '#000', marginRight: 16 }}>
+            <Checkbox /> 全选已通过申请
+          </span>
+          <span>
+            已选择
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>1</span>个申请
+          </span>
+          <span style={{ marginLeft: 16 }}>
+            合计金额：
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>¥850.00</span>
+          </span>
+        </div>
+        <Button type="primary" icon={<DownloadOutlined />}>
+          批量下载开票模板
+        </Button>
+      </Flex>
       {/* 卡片 */}
       <div>
-        <InvoiceAuditCard type="warning" />
+        <InvoiceAuditCard type="warning" modalRef={modalRef} />
+        <div style={{ marginBottom: 12 }}></div>
+        <InvoiceAuditCard type="success" modalRef={modalRef} />
       </div>
+      <InvoiceAuditModal ref={modalRef} />
     </>
   );
 };

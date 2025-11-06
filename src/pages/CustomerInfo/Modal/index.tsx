@@ -10,7 +10,7 @@ export interface CustomerInfoModalRef {
 type FieldType = {
   name?: string;
   channel?: string;
-  invoiceRequirement?: string;
+  // invoiceRequirement?: string;
   invoiceType?: string;
   taxNumber?: string;
 };
@@ -79,13 +79,13 @@ const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | un
             ]}
           />
         </Form.Item>
-        <Form.Item<FieldType> label="发票要求" name="invoiceRequirement">
+        {/* <Form.Item<FieldType> label="发票要求" name="invoiceRequirement">
           <Select
             defaultValue="数电发票（普通发票）"
             style={{ width: 200 }}
             options={[{ value: '数电发票（普通发票）', label: '数电发票（普通发票）' }]}
           />
-        </Form.Item>
+        </Form.Item> */}
         <Form.Item<FieldType> label="发票种类" name="invoiceType">
           <Select
             defaultValue="普票"
@@ -99,7 +99,18 @@ const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | un
         <Form.Item<FieldType>
           label="税号"
           name="taxNumber"
-          rules={[{ required: true, message: '请输入税号' }]}
+          dependencies={['name']}
+          // 如果购买方名称为"个人",则税号不用必填 用dependencies联动name实现
+          rules={[
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (getFieldValue('name') === '个人') {
+                  return Promise.resolve();
+                }
+                return Promise.reject(new Error('请输入税号'));
+              },
+            }),
+          ]}
         >
           <Input placeholder="请输入税号" />
         </Form.Item>

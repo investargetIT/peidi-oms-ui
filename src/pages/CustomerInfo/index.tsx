@@ -31,6 +31,7 @@ const columns: TableProps<DataType>['columns'] = [
     title: '发票要求',
     dataIndex: 'invoiceRequirement',
     key: 'invoiceRequirement',
+    hidden: true,
   },
   {
     title: '发票种类',
@@ -125,7 +126,7 @@ const CustomerInfo: React.FC = () => {
             ]}
             onChange={(value) => setChannel(value)}
           />
-          <Select
+          {/* <Select
             defaultValue="全部发票要求"
             style={{ width: 200, marginRight: 16 }}
             options={[
@@ -133,7 +134,7 @@ const CustomerInfo: React.FC = () => {
               { value: '数电发票（普通发票）', label: '数电发票（普通发票）' },
             ]}
             onChange={(value) => setInvoiceRequirement(value)}
-          />
+          /> */}
           <Select
             defaultValue="全部种类"
             style={{ width: 150, marginRight: 16 }}
