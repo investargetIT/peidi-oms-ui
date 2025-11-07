@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import InvoiceAuditCard from './InvoiceAuditCard';
 import {
   DownloadOutlined,
@@ -6,23 +6,265 @@ import {
   FileTextOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { Button, Checkbox, Flex, Input, Select } from 'antd';
+import { Button, Checkbox, Flex, Input, message, Select } from 'antd';
 import InvoiceAuditModal from './Modal';
 import type { InvoiceModalRef } from './Modal';
+import InvoiceApi from '@/services/invoiceApi';
+import type { PageParams } from '@/services/invoiceApi';
+import type { DataType as InvoiceDataType } from '@/pages/Invoice/index';
+import { useDebounceSearch } from '@/hooks/useDebounce';
+
+export interface InvoiceAuditItem {
+  /** 已核算金额 */
+  accountedAmount: number;
+
+  /** 已核算数量 */
+  accountedQty: number;
+
+  /** 核算日期 */
+  accountingDate: string;
+
+  /** 实际出库数量 */
+  actualOutQty: number;
+
+  /** 申请编号 */
+  appNo: string;
+
+  /** 申请时间 */
+  appTime: string;
+
+  /** 申请人 */
+  appUser: string | null;
+
+  /** 批次号 */
+  batchNumber: string;
+
+  /** 品牌名称 */
+  brandName: string;
+
+  /** 成本单位 */
+  costUnit: number;
+
+  /** 创建人 */
+  createdBy: string;
+
+  /** 客户代码 */
+  customerCode: string;
+
+  /** 日期 */
+  date: string;
+
+  /** 单据编号 */
+  documentNumber: string;
+
+  /** 单据类型 */
+  documentType: string;
+
+  /** 最终价格 */
+  finalPrice: number;
+
+  /** 唯一标识ID */
+  id: number;
+
+  /** 库存单位 */
+  inventoryUnit: string;
+
+  /** 物料代码 */
+  materialCode: string;
+
+  /** 物料形式 */
+  materialForm: string;
+
+  /** 物料名称 */
+  materialName: string;
+
+  /** 商家SKU */
+  merchantSku: string;
+
+  /** 组织名称 */
+  organizationName: string;
+
+  /** 出库数量 */
+  outboundQty: number;
+
+  /** 采购类别 */
+  procurementCategory: string;
+
+  /** 产品代码 */
+  productCode: string;
+
+  /** 记录列表 */
+  recordList: InvoiceDataType[];
+
+  /** 销售单位 */
+  salesUnit: string;
+
+  /** 源单据 */
+  sourceDocument: string;
+
+  /** 状态 (1: 待审核, 其他状态根据实际情况定义) */
+  status: number;
+
+  /** 出库数量 */
+  stockOutQty: number;
+
+  /** 存储位置 */
+  storageLocation: string;
+
+  /** 总税额 */
+  totalTaxAmount: number;
+}
 
 const PendingReview: React.FC = () => {
   const modalRef = React.useRef<InvoiceModalRef>(null);
+  // 数据列表
+  const [dataSource, setDataSource] = useState<InvoiceAuditItem[]>([]);
+  //#region 选择已通过申请逻辑
+  // 记录已经勾选的数据
+  const [selectedDataList, setSelectedDataList] = useState<InvoiceAuditItem[]>([]);
+  // 处理勾选事件
+  const handleCheckboxChange = (checked: boolean, record: InvoiceAuditItem) => {
+    if (checked) {
+      setSelectedDataList([...selectedDataList, record]);
+    } else {
+      setSelectedDataList(selectedDataList.filter((item) => item.id !== record.id));
+    }
+  };
+  // 全选已通过申请
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedDataList(dataSource.filter((item) => item.status === 2));
+    } else {
+      setSelectedDataList([]);
+    }
+  };
+  // 批量下载开票模板
+  const handleDownload = () => {
+    const dataTemp: InvoiceDataType[] = [];
+    selectedDataList.forEach((item: InvoiceAuditItem) => {
+      dataTemp.push(...item.recordList);
+    });
+    postInvoiceApp(dataTemp, 3);
+  };
+  //#endregion
+
+  //#region 筛选逻辑
+  // Input搜索使用通用防抖钩子
+  const [searchAppNoText, showSearchAppNoText, handleSearchAppNoText] = useDebounceSearch('');
+  const [searchCustomerCodeText, showSearchCustomerCodeText, handleSearchCustomerCodeText] =
+    useDebounceSearch('');
+  const [searchAppUserText, showSearchAppUserText, handleSearchAppUserText] = useDebounceSearch('');
+
+  // 处理筛选参数方法
+  const getSearchStr = () => {
+    const searchParams = [];
+    searchParams.push({
+      searchName: 'status',
+      searchType: 'equals',
+      searchValue: '1&#&2',
+    });
+    if (searchAppNoText) {
+      searchParams.push({
+        searchName: 'appNo',
+        searchType: 'like',
+        searchValue: searchAppNoText,
+      });
+    }
+    if (searchCustomerCodeText) {
+      searchParams.push({
+        searchName: 'customerCode',
+        searchType: 'like',
+        searchValue: searchCustomerCodeText,
+      });
+    }
+    if (searchAppUserText) {
+      searchParams.push({
+        searchName: 'appUser',
+        searchType: 'like',
+        searchValue: searchAppUserText,
+      });
+    }
+
+    return JSON.stringify(searchParams);
+  };
+  //#endregion
+
+  //#region 请求逻辑
+  // 筛选触发时查询
+  useEffect(() => {
+    refreshPagination();
+  }, [searchAppNoText, searchCustomerCodeText, searchAppUserText]);
+  // 分页获取开票审核
+  const getInvoiceAppPage = async (params: PageParams) => {
+    const res = await InvoiceApi.getInvoiceAppPage(params);
+    if (res.code === 200) {
+      console.log('获取开票审核成功', res.data.records || []);
+      // setDataSource(res.data.records || []);
+      // FIXME: 先自己做一遍筛选，只保留status为1或2的
+      setDataSource(
+        res.data.records.filter((item) => item.status === 1 || item.status === 2) || [],
+      );
+      //  清空选中数据列表
+      setSelectedDataList([]);
+    }
+  };
+  // 刷新分页方法  可复用
+  const refreshPagination = () => {
+    getInvoiceAppPage({
+      pageNo: 1,
+      pageSize: 1000,
+      search: getSearchStr(),
+    });
+  };
+
+  // 修改开票状态方法  传入选中的开票申请数据，状态
+  const postInvoiceApp = async (data: InvoiceDataType[], status: number) => {
+    console.log('开票申请数据', data);
+    // 把data里的每个status都设为status
+    // return;
+    const res = await InvoiceApi.postInvoiceApp(data.map((item) => ({ ...item, status })));
+    if (res.code === 200) {
+      if (status === 0) {
+        message.success('驳回成功');
+      }
+      if (status === 2) {
+        message.success('申请已通过');
+      }
+      if (status === 3) {
+        message.success('开票模板已生成');
+      }
+      modalRef.current?.handleCancel();
+      refreshPagination();
+    }
+  };
+  //#endregion
 
   return (
     <>
       {/* 操作栏 */}
       <div style={{ marginBottom: 32, display: 'flex' }}>
         <Input
-          placeholder="搜搜索申请编号、客户或提交人..."
+          value={showSearchAppNoText}
+          onChange={(e) => handleSearchAppNoText(e.target.value)}
+          placeholder="搜索申请编号..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
           style={{ marginRight: 16 }}
         />
-        <Select
+        <Input
+          value={showSearchCustomerCodeText}
+          onChange={(e) => handleSearchCustomerCodeText(e.target.value)}
+          placeholder="搜索客户..."
+          prefix={<SearchOutlined style={{ color: '#737373' }} />}
+          style={{ marginRight: 16 }}
+        />
+        <Input
+          value={showSearchAppUserText}
+          onChange={(e) => handleSearchAppUserText(e.target.value)}
+          placeholder="搜索提交人..."
+          prefix={<SearchOutlined style={{ color: '#737373' }} />}
+          style={{ marginRight: 16 }}
+        />
+        {/* <Select
           defaultValue="全部客户"
           style={{ width: 150 }}
           options={[
@@ -32,7 +274,7 @@ const PendingReview: React.FC = () => {
             { value: '绵阳国', label: '绵阳国' },
             { value: '鲍珂坷', label: '鲍珂坷' },
           ]}
-        />
+        /> */}
       </div>
       {/* 提示信息 */}
       {/* <div
@@ -52,28 +294,56 @@ const PendingReview: React.FC = () => {
       <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
         <div style={{ color: '#737373' }}>
           <span style={{ color: '#000', marginRight: 16 }}>
-            <Checkbox /> 全选已通过申请
+            <Checkbox
+              checked={selectedDataList.length > 0}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+            />{' '}
+            全选已通过申请
           </span>
           <span>
             已选择
-            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>1</span>个申请
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
+              {selectedDataList.length}
+            </span>
+            个申请
           </span>
           <span style={{ marginLeft: 16 }}>
             合计金额：
-            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>¥850.00</span>
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
+              ¥{selectedDataList.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)}
+            </span>
           </span>
         </div>
-        <Button type="primary" icon={<DownloadOutlined />}>
+        <Button
+          disabled={selectedDataList.length === 0}
+          type="primary"
+          icon={<DownloadOutlined />}
+          onClick={() => handleDownload()}
+        >
           批量下载开票模板
         </Button>
       </Flex>
       {/* 卡片 */}
       <div>
-        <InvoiceAuditCard type="warning" modalRef={modalRef} />
-        <div style={{ marginBottom: 12 }}></div>
-        <InvoiceAuditCard type="success" modalRef={modalRef} />
+        {dataSource.map((item) => (
+          <>
+            <InvoiceAuditCard
+              key={item.id}
+              // 1: 待审核 2: 已开票
+              type={item.status === 1 ? 'warning' : 'success'}
+              modalRef={modalRef}
+              dataSource={item}
+              // 处理勾选事件
+              onCheckboxChange={handleCheckboxChange}
+              // 告诉卡片需要勾选状态
+              checkedInvoice={selectedDataList.some((selectedItem) => selectedItem.id === item.id)}
+              postInvoiceApp={postInvoiceApp}
+            />
+            <div style={{ marginBottom: 12 }}></div>
+          </>
+        ))}
       </div>
-      <InvoiceAuditModal ref={modalRef} />
+      <InvoiceAuditModal ref={modalRef} postInvoiceApp={postInvoiceApp} />
     </>
   );
 };

@@ -1,122 +1,271 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Col, Input, Row, Select, Space, Table, Tag } from 'antd';
+import { Button, Col, Input, Modal, Row, Select, Space, Table, Tag, message } from 'antd';
 import type { TableProps } from 'antd';
-import Icon, { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import Icon, { ExclamationCircleFilled, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { DeleteOutlined } from './icon';
 import { PageContainer } from '@ant-design/pro-components';
 import CustomerInfoModal from './Modal';
 import type { CustomerInfoModalRef } from './Modal';
+import InvoiceApi from '@/services/invoiceApi';
+import type { InvoiceCustomer, PageParams, PageResponse } from '@/services/invoiceApi';
+import _ from 'lodash';
 
 interface DataType {
-  key: string;
-  name: string;
+  id: number;
   channel: string;
-  invoiceRequirement: string;
-  invoiceType: string;
-  taxNumber: string;
+  customerName: string;
+  tax: string;
+  type: string;
 }
-
-const columns: TableProps<DataType>['columns'] = [
-  {
-    title: '购买方名称',
-    dataIndex: 'name',
-    key: 'name',
-  },
-  {
-    title: '渠道',
-    dataIndex: 'channel',
-    key: 'channel',
-  },
-  {
-    title: '发票要求',
-    dataIndex: 'invoiceRequirement',
-    key: 'invoiceRequirement',
-    hidden: true,
-  },
-  {
-    title: '发票种类',
-    key: 'invoiceType',
-    dataIndex: 'invoiceType',
-  },
-  {
-    title: '税号',
-    dataIndex: 'taxNumber',
-    key: 'taxNumber',
-  },
-  {
-    title: '操作',
-    key: 'action',
-    render: (_, record) => (
-      <Space size="middle">
-        <Button color="default" variant="text">
-          <Icon component={DeleteOutlined} style={{ color: '#e7000b', width: 16, height: 16 }} />
-        </Button>
-      </Space>
-    ),
-  },
-];
 
 const data: DataType[] = [
   {
-    key: '1',
-    name: '浙江郡园酒店管理有限公司',
+    id: 1,
     channel: '线上',
-    invoiceRequirement: '数电发票（普通发票）',
-    invoiceType: '普票',
-    taxNumber: '91330482MA2JGL1921',
-  },
-  {
-    key: '2',
-    name: '贝达药业股份有限公司',
-    channel: '线下',
-    invoiceRequirement: '数电发票（普通发票）',
-    invoiceType: '普票',
-    taxNumber: '913301007463034461',
+    customerName: '浙江郡园酒店管理有限公司',
+    tax: '91321322MA269Y5BXN',
+    type: 'pc',
   },
 ];
 
 const CustomerInfo: React.FC = () => {
+  const columns: TableProps<DataType>['columns'] = [
+    {
+      title: '购买方名称',
+      dataIndex: 'customerName',
+      key: 'customerName',
+    },
+    {
+      title: '渠道',
+      dataIndex: 'channel',
+      key: 'channel',
+    },
+    {
+      title: '发票种类',
+      key: 'type',
+      dataIndex: 'type',
+      render: (type) => {
+        if (type === 'pc') {
+          return '数电普票（电子）';
+        }
+        if (type === 'bs') {
+          return '数电专票（电子）';
+        }
+        return type;
+      },
+    },
+    {
+      title: '税号',
+      dataIndex: 'tax',
+      key: 'tax',
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_, record) => (
+        <Space size="middle">
+          <Button color="default" variant="text" onClick={() => handleDeleteClick(record)}>
+            <Icon component={DeleteOutlined} style={{ color: '#e7000b', width: 16, height: 16 }} />
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+  const customerInfoModalRef = useRef<CustomerInfoModalRef>(null);
   // 表格数据
-  const [tableData, setTableData] = useState(data);
+  const [tableData, setTableData] = useState<DataType[]>([]);
 
   //#region 筛选逻辑
   const [searchText, setSearchText] = useState('');
+  const [showSearchText, setShowSearchText] = useState('');
   const [channel, setChannel] = useState('全部渠道');
-  const [invoiceRequirement, setInvoiceRequirement] = useState('全部发票要求');
-  const [invoiceType, setInvoiceType] = useState('全部种类');
+  const [type, setType] = useState('全部种类');
+  const [taxSearchText, setTaxSearchText] = useState('');
+  const [showTaxSearchText, setShowTaxSearchText] = useState('');
 
-  useEffect(() => {
-    const filteredData = data.filter((item) => {
-      const nameMatch = item.name.includes(searchText);
-      const taxNumberMatch = item.taxNumber.includes(searchText);
-      const channelMatch = channel === '全部渠道' || item.channel === channel;
-      const invoiceRequirementMatch =
-        invoiceRequirement === '全部发票要求' || item.invoiceRequirement === invoiceRequirement;
-      const invoiceTypeMatch = invoiceType === '全部种类' || item.invoiceType === invoiceType;
+  const handleSearchText = (value: string) => {
+    setShowSearchText(value);
+    debouncedSearchText(value); // 防抖处理
+  };
+  // 使用useRef保持防抖函数的稳定性
+  const debouncedSearchText = useRef(
+    _.debounce((value) => {
+      setSearchText(value);
+    }, 500),
+  ).current;
 
-      return (
-        nameMatch && taxNumberMatch && channelMatch && invoiceRequirementMatch && invoiceTypeMatch
-      );
-    });
-    // console.log('filteredData', filteredData);
-    setTableData(filteredData);
-  }, [searchText, channel, invoiceRequirement, invoiceType]);
+  const handleTaxSearchText = (value: string) => {
+    setShowTaxSearchText(value);
+    debouncedTaxSearchText(value); // 防抖处理
+  };
+  // 使用useRef保持防抖函数的稳定性
+  const debouncedTaxSearchText = useRef(
+    _.debounce((value) => {
+      setTaxSearchText(value);
+    }, 500),
+  ).current;
+
+  // 处理筛选参数方法
+  const getSearchStr = () => {
+    const searchParams = [];
+    if (channel !== '全部渠道') {
+      searchParams.push({
+        searchName: 'channel',
+        searchType: 'equals',
+        searchValue: `\"${channel}\"`,
+      });
+    }
+    if (type !== '全部种类') {
+      searchParams.push({
+        searchName: 'type',
+        searchType: 'equals',
+        searchValue: `\"${type}\"`,
+      });
+    }
+    if (searchText) {
+      searchParams.push({
+        searchName: 'customerName',
+        searchType: 'like',
+        searchValue: `${searchText}`,
+      });
+    }
+    if (taxSearchText) {
+      searchParams.push({
+        searchName: 'tax',
+        searchType: 'like',
+        searchValue: `${taxSearchText}`,
+      });
+    }
+    return JSON.stringify(searchParams);
+  };
+  // 处理重置
+  const handleReset = () => {
+    setSearchText('');
+    setShowSearchText('');
+    setTaxSearchText('');
+    setShowTaxSearchText('');
+    setChannel('全部渠道');
+    setType('全部种类');
+  };
   //#endregion
 
-  const customerInfoModalRef = useRef<CustomerInfoModalRef>(null);
+  //#region 分页逻辑
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+  });
+  const [total, setTotal] = useState(0);
 
+  const handlePaginationChange = (page: number, pageSize: number) => {
+    setPagination({
+      current: page,
+      pageSize,
+    });
+  };
+  //#endregion
+
+  //#region 请求逻辑
+  // 筛选触发时查询  页面变化时查询
+  useEffect(() => {
+    refreshPagination();
+    return () => {
+      // 组件卸载时取消防抖
+      debouncedSearchText.cancel();
+      debouncedTaxSearchText.cancel();
+    };
+  }, [channel, type, searchText, taxSearchText, pagination]);
+
+  // 获取客户信息分页列表方法
+  const getInvoiceCustomerPage = (params: PageParams) => {
+    InvoiceApi.getInvoiceCustomerPage(params).then((res: PageResponse<any>) => {
+      // 如果当前页大于总页数，重置为第一页 排除总页数为0的情况
+      if (res.data?.current > res.data?.pages && res.data?.total !== 0) {
+        setPagination({
+          current: res.data?.pages,
+          pageSize: pagination.pageSize,
+        });
+        return;
+      }
+      setTableData(res.data?.records || []);
+      setTotal(res.data?.total || 0);
+    });
+  };
+  // 刷新分页方法  可复用
+  const refreshPagination = () => {
+    getInvoiceCustomerPage({
+      pageNo: pagination.current,
+      pageSize: pagination.pageSize,
+      searchStr: getSearchStr(),
+    });
+  };
+
+  // 新增客户信息方法
+  const postInvoiceCustomerNew = (data: InvoiceCustomer) => {
+    InvoiceApi.postInvoiceCustomerNew(data).then((res: any) => {
+      if (res.code === 200) {
+        message.success('新增客户成功');
+        // // 关闭弹窗
+        customerInfoModalRef.current?.handleCancel();
+        // 新增成功后刷新列表
+        refreshPagination();
+      }
+    });
+  };
+
+  // 删除客户信息方法
+  const postInvoiceCustomerDelete = (idList: number[]) => {
+    InvoiceApi.postInvoiceCustomerDelete(idList).then((res: any) => {
+      if (res.code === 200) {
+        message.success('删除客户成功');
+        // 删除成功后刷新列表
+        refreshPagination();
+      }
+    });
+  };
+  //#endregion
+
+  // 处理删除点击事件
+  const handleDeleteClick = (record: DataType) => {
+    // console.log('点击删除', record);
+    Modal.confirm({
+      title: `确认删除客户 ${record.customerName} 吗？`,
+      icon: <ExclamationCircleFilled />,
+      // content: 'Some descriptions',
+      okText: '确定',
+      okType: 'danger',
+      cancelText: '取消',
+      closable: true,
+      maskClosable: true,
+      onOk() {
+        // console.log('OK');
+        postInvoiceCustomerDelete([record.id]);
+      },
+      onCancel() {
+        // console.log('Cancel');
+      },
+    });
+  };
   return (
     <PageContainer>
       {/* 操作栏 */}
       <Row style={{ marginBottom: 16 }}>
         <Col span={22}>
           <Input
-            placeholder="搜索购买方名称或税号..."
+            value={showSearchText}
+            placeholder="搜索购买方名称..."
             prefix={<SearchOutlined style={{ color: '#737373' }} />}
-            style={{ maxWidth: 500, marginRight: 16 }}
-            onChange={(e) => setSearchText(e.target.value)}
+            style={{ maxWidth: 250, marginRight: 16 }}
+            onChange={(e) => handleSearchText(e.target.value)}
+          />
+          <Input
+            value={showTaxSearchText}
+            placeholder="搜索税号..."
+            prefix={<SearchOutlined style={{ color: '#737373' }} />}
+            style={{ maxWidth: 250, marginRight: 16 }}
+            onChange={(e) => handleTaxSearchText(e.target.value)}
           />
           <Select
+            value={channel}
             defaultValue="全部渠道"
             style={{ width: 150, marginRight: 16 }}
             options={[
@@ -126,38 +275,21 @@ const CustomerInfo: React.FC = () => {
             ]}
             onChange={(value) => setChannel(value)}
           />
-          {/* <Select
-            defaultValue="全部发票要求"
+          <Select
+            value={type}
+            defaultValue="全部种类"
             style={{ width: 200, marginRight: 16 }}
             options={[
-              { value: '全部发票要求', label: '全部发票要求' },
-              { value: '数电发票（普通发票）', label: '数电发票（普通发票）' },
-            ]}
-            onChange={(value) => setInvoiceRequirement(value)}
-          /> */}
-          <Select
-            defaultValue="全部种类"
-            style={{ width: 150, marginRight: 16 }}
-            options={[
               { value: '全部种类', label: '全部种类' },
-              { value: '普票', label: '普票' },
-              { value: '专票', label: '专票' },
+              { value: 'pc', label: '数电普票（电子）' },
+              { value: 'bs', label: '数电专票（电子）' },
             ]}
-            onChange={(value) => setInvoiceType(value)}
+            onChange={(value) => setType(value)}
           />
-          <Button style={{ marginRight: 16 }} type="primary" onClick={() => setTableData(data)}>
+          {/* <Button style={{ marginRight: 16 }} type="primary" onClick={() => handleSearch()}>
             查询
-          </Button>
-          <Button
-            onClick={() => {
-              setSearchText('');
-              setChannel('全部渠道');
-              setInvoiceRequirement('全部发票要求');
-              setInvoiceType('全部种类');
-            }}
-          >
-            重置
-          </Button>
+          </Button> */}
+          <Button onClick={() => handleReset()}>重置</Button>
         </Col>
         <Col span={2} style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button
@@ -169,8 +301,18 @@ const CustomerInfo: React.FC = () => {
           </Button>
         </Col>
       </Row>
-      <Table<DataType> columns={columns} dataSource={tableData} />
-      <CustomerInfoModal ref={customerInfoModalRef} />
+      <Table<DataType>
+        columns={columns}
+        dataSource={tableData}
+        pagination={{
+          defaultPageSize: 10,
+          current: pagination.current,
+          total,
+          pageSizeOptions: [10],
+          onChange: (page, pageSize) => handlePaginationChange(page, pageSize),
+        }}
+      />
+      <CustomerInfoModal ref={customerInfoModalRef} onOk={postInvoiceCustomerNew} />
     </PageContainer>
   );
 };

@@ -26,6 +26,8 @@ export async function getInitialState(): Promise<{
       const msg = await queryCurrentUser({
         skipErrorHandler: true,
       });
+      // 存入localStorage
+      localStorage.setItem('user-check', JSON.stringify(msg.data));
       return { ...msg.data, name: msg.data.username + '' };
     } catch (error) {
       history.push(loginPath);

@@ -2,9 +2,15 @@ import React, { useImperativeHandle, useState } from 'react';
 import { Form, Modal, Select } from 'antd';
 import type { FormProps } from 'antd';
 import { Input } from 'antd';
+import type { InvoiceCustomer } from '@/services/invoiceApi';
 
 export interface CustomerInfoModalRef {
   showModal: () => void;
+  handleCancel: () => void;
+}
+
+interface CustomerInfoModalProps {
+  onOk: (data: InvoiceCustomer) => void;
 }
 
 type FieldType = {
@@ -15,7 +21,10 @@ type FieldType = {
   taxNumber?: string;
 };
 
-const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | undefined) => {
+const CustomerInfoModal = (
+  props: CustomerInfoModalProps,
+  ref: React.Ref<CustomerInfoModalRef> | undefined,
+) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
 
@@ -28,8 +37,14 @@ const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | un
     form
       .validateFields()
       .then((values) => {
-        setIsModalOpen(false);
-        console.log('提交成功', values);
+        // setIsModalOpen(false);
+        // console.log('提交成功', values);
+        props.onOk({
+          channel: values.channel,
+          customerName: values.name,
+          tax: values.taxNumber,
+          type: values.invoiceType,
+        });
       })
       .catch((err) => console.log('校验失败', err));
   };
@@ -40,6 +55,7 @@ const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | un
 
   useImperativeHandle(ref, () => ({
     showModal,
+    handleCancel,
   }));
 
   return (
@@ -61,6 +77,12 @@ const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | un
         style={{ maxWidth: 600, marginTop: 24 }}
         labelCol={{ span: 8, style: { fontWeight: 'bold' } }}
         wrapperCol={{ span: 16 }}
+        initialValues={{
+          name: '',
+          channel: '线上',
+          invoiceType: 'pc',
+          taxNumber: '',
+        }}
       >
         <Form.Item<FieldType>
           label="购买方名称"
@@ -71,28 +93,19 @@ const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | un
         </Form.Item>
         <Form.Item<FieldType> label="渠道" name="channel">
           <Select
-            defaultValue="线上"
-            style={{ width: 150 }}
+            style={{ width: 200 }}
             options={[
               { value: '线上', label: '线上' },
               { value: '线下', label: '线下' },
             ]}
           />
         </Form.Item>
-        {/* <Form.Item<FieldType> label="发票要求" name="invoiceRequirement">
-          <Select
-            defaultValue="数电发票（普通发票）"
-            style={{ width: 200 }}
-            options={[{ value: '数电发票（普通发票）', label: '数电发票（普通发票）' }]}
-          />
-        </Form.Item> */}
         <Form.Item<FieldType> label="发票种类" name="invoiceType">
           <Select
-            defaultValue="普票"
-            style={{ width: 150 }}
+            style={{ width: 200 }}
             options={[
-              { value: '普票', label: '普票' },
-              { value: '专票', label: '专票' },
+              { value: 'pc', label: '数电普票（电子）' },
+              { value: 'bs', label: '数电专票（电子）' },
             ]}
           />
         </Form.Item>
@@ -104,7 +117,11 @@ const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | un
           rules={[
             ({ getFieldValue }) => ({
               validator(_, value) {
-                if (getFieldValue('name') === '个人') {
+                // 包含"个人"时,税号可以为空
+                if (getFieldValue('name')?.includes('个人')) {
+                  return Promise.resolve();
+                }
+                if (value && value.trim() !== '') {
                   return Promise.resolve();
                 }
                 return Promise.reject(new Error('请输入税号'));
@@ -119,4 +136,5 @@ const CustomerInfoModal = (props: any, ref: React.Ref<CustomerInfoModalRef> | un
   );
 };
 
-export default React.forwardRef<CustomerInfoModalRef>(CustomerInfoModal);
+// ... existing code ...
+export default React.forwardRef<CustomerInfoModalRef, CustomerInfoModalProps>(CustomerInfoModal);

@@ -5,10 +5,12 @@ import type { DataType } from '../index';
 
 export interface InvoiceModalRef {
   showModal: () => void;
+  handleCancel: () => void;
 }
 
 interface InvoiceModalProps {
   selectedRows: DataType[];
+  onOk: (data: any[]) => void;
 }
 
 const InvoiceModal = React.forwardRef<InvoiceModalRef, InvoiceModalProps>(
@@ -42,14 +44,14 @@ const InvoiceModal = React.forwardRef<InvoiceModalRef, InvoiceModalProps>(
           value: `￥${
             props.selectedRows.length > 0
               ? props.selectedRows
-                  .reduce((acc, cur) => acc + Number(cur.totalPrice.replace('¥', '')), 0)
-                  .toFixed(2)
-              : '0.00'
+                  .reduce((acc, cur) => acc + Number(cur.totalTaxAmount), 0)
+                  .toString()
+              : '0'
           }`,
         },
         {
           label: '开票客户',
-          value: props.selectedRows[0]?.custom,
+          value: props.selectedRows[0]?.customerCode || '',
         },
       ]);
     }, [props.selectedRows]);
@@ -59,7 +61,8 @@ const InvoiceModal = React.forwardRef<InvoiceModalRef, InvoiceModalProps>(
     };
 
     const handleOk = () => {
-      setIsModalOpen(false);
+      props.onOk(props.selectedRows);
+      // setIsModalOpen(false);
     };
 
     const handleCancel = () => {
@@ -68,6 +71,7 @@ const InvoiceModal = React.forwardRef<InvoiceModalRef, InvoiceModalProps>(
 
     useImperativeHandle(ref, () => ({
       showModal,
+      handleCancel,
     }));
 
     return (
