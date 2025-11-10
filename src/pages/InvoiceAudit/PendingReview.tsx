@@ -14,6 +14,7 @@ import type { PageParams } from '@/services/invoiceApi';
 import type { DataType as InvoiceDataType } from '@/pages/Invoice/index';
 import { useDebounceSearch } from '@/hooks/useDebounce';
 import { handleFormData } from './utils/excel';
+import dayjs from 'dayjs';
 
 export interface InvoiceAuditItem {
   /** 已核算金额 */
@@ -141,6 +142,11 @@ const PendingReview: React.FC = () => {
   };
   // 批量下载开票模板
   const handleDownload = () => {
+    // 存储客户信息
+    const customerInfo: any = [];
+    // 存储开票税务信息
+    const invoiceTaxInfo: any = [];
+
     console.log('selectedDataList', selectedDataList);
     // 遍历selectedDataList，获取所有客户编码customerCode进行拼接，用&#&隔开
     const customerCodes = selectedDataList.map((item) => `\"${item.customerCode}\"`).join('&#&');
@@ -159,12 +165,36 @@ const PendingReview: React.FC = () => {
     }).then((res) => {
       if (res.code === 200) {
         console.log('获取客户信息成功', res.data || []);
+        customerInfo.push(...res.data.records);
         const dataTemp: InvoiceDataType[] = [];
         selectedDataList.forEach((item: InvoiceAuditItem) => {
           dataTemp.push(...item.recordList);
         });
-        handleFormData(dataTemp, '测试', res.data.records);
-        postInvoiceApp(dataTemp, 3);
+
+        const goodsList: any[] = [];
+        dataTemp.forEach((item) => {
+          goodsList.push({
+            u9No: item.materialCode,
+          });
+        });
+
+        // 再请求回来开票税务信息
+        InvoiceApi.postInvoiceAppTax(goodsList).then((res) => {
+          if (res.code === 200) {
+            console.log('获取开票税务信息成功', res.data || {});
+            invoiceTaxInfo.push(...res.data);
+            handleFormData(
+              dataTemp,
+              customerInfo,
+              invoiceTaxInfo,
+              `发票信息${dayjs().format('YYYYMMDDHHmmss')}`,
+            );
+            postInvoiceApp(dataTemp, 3);
+          } else {
+            console.log('获取开票税务信息失败', res.data || {});
+            message.error('获取开票税务信息失败');
+          }
+        });
       } else {
         message.error('获取客户信息失败');
       }

@@ -45,19 +45,24 @@ const exportExcel = async (workbook: ExcelJS.Workbook, fileName: string = '发�
   saveAs(blob, `${fileName}.xlsx`);
 };
 
-// 业务逻辑辅助方法-根据客户编码获取客户信息
+// 业务逻辑辅助方法 -根据客户编码获取客户信息
 const getCustomerInfoByCode = (
   customerCode: string,
   customerInfo?: InvoiceCustomerInfo[],
 ): InvoiceCustomerInfo | undefined => {
   return customerInfo?.find((item) => item.customerName === customerCode);
 };
+// 业务逻辑辅助方法 -在taxInfo根据料号获取开票税务信息
+const getTaxInfoByU9No = (u9No: string, taxInfo?: any[]): any | undefined => {
+  return taxInfo?.find((item) => item.u9No === u9No);
+};
 
 // 业务逻辑-表单数据处理
 const handleFormData = async (
   formData: InvoiceDataType[],
+  customerInfo: InvoiceCustomerInfo[],
+  taxInfo: any[],
   fileName?: string,
-  customerInfo?: InvoiceCustomerInfo[],
 ) => {
   console.log('开始处理表单数据', formData, customerInfo);
 
@@ -73,20 +78,24 @@ const handleFormData = async (
   formData.forEach((item, index) => {
     const customerInfoItem = getCustomerInfoByCode(item.customerCode, customerInfo);
     console.log('customerInfoItem', customerInfoItem);
+    const taxInfoItem = getTaxInfoByU9No(item.materialCode, taxInfo);
+    console.log('taxInfoItem', taxInfoItem);
     const row = sheet.getRow(index + currentRow); // 第一行是title 所以从第二行开始
     row.getCell('A').value = item.appNo;
     row.getCell('B').value = customerInfoItem?.type || '';
     row.getCell('C').value = item.customerCode;
     row.getCell('D').value = customerInfoItem?.tax || ''; // D列
-    // row.getCell('M').value = "备注"; // M列
+    row.getCell('M').value = item.documentNumber; // M列
     row.getCell('N').value = item.materialName;
-    // row.getCell('O').value = '税率';
+    //做个防呆
+    row.getCell('O').value =
+      taxInfoItem?.taxRate && taxInfoItem?.taxRate > 0 ? taxInfoItem?.taxRate / 100 : '';
     row.getCell('P').value = item.productCode;
     row.getCell('Q').value = item.salesUnit;
     row.getCell('R').value = item.outboundQty;
     // row.getCell('S').value = '单价';
     row.getCell('T').value = item.totalTaxAmount;
-    // row.getCell('V').value = '税收分类编码';
+    row.getCell('V').value = taxInfoItem?.taxNo || '';
     // row.getCell('AA').value = '折扣金额';
   });
   //#endregion

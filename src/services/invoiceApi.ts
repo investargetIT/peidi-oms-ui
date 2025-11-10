@@ -96,6 +96,13 @@ export class InvoiceApi {
       },
     });
   }
+
+  /**
+   * 获取开票税务信息
+   */
+  static async postInvoiceAppTax(data: any): Promise<ResponseData<any>> {
+    return invoiceRequest.post('/app/tax', data);
+  }
 }
 
 // 默认导出实例

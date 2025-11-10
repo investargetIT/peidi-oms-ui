@@ -149,6 +149,12 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
   };
   // 下载开票模板
   const handleDownload = () => {
+    console.log('下载开票模板', dataSource);
+    // 存储客户信息
+    const customerInfo: any = [];
+    // 存储开票税务信息
+    const invoiceTaxInfo: any = [];
+
     // 先请求回来客户信息数据
     InvoiceApi.getInvoiceCustomerPage({
       pageNo: 1,
@@ -163,9 +169,34 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
     }).then((res) => {
       if (res.code === 200) {
         console.log('获取客户信息成功', res.data || {});
-        handleFormData(dataSource.recordList, '测试', res.data.records);
-        if (!postInvoiceApp) return;
-        postInvoiceApp(dataSource.recordList, 3);
+        customerInfo.push(...res.data.records);
+
+        const goodsList: any[] = [];
+        dataSource.recordList.forEach((item) => {
+          goodsList.push({
+            u9No: item.materialCode,
+          });
+        });
+
+        console.log('料号列表', goodsList);
+        // 再请求回来开票税务信息
+        InvoiceApi.postInvoiceAppTax(goodsList).then((res) => {
+          if (res.code === 200) {
+            console.log('获取开票税务信息成功', res.data || {});
+            invoiceTaxInfo.push(...res.data);
+            handleFormData(
+              dataSource.recordList,
+              customerInfo,
+              invoiceTaxInfo,
+              `发票信息${dayjs().format('YYYYMMDDHHmmss')}`,
+            );
+            if (!postInvoiceApp) return;
+            postInvoiceApp(dataSource.recordList, 3);
+          } else {
+            console.log('获取开票税务信息失败', res.data || {});
+            message.error('获取开票税务信息失败');
+          }
+        });
       } else {
         console.log('获取客户信息失败', res.data || {});
         message.error('获取客户信息失败');
