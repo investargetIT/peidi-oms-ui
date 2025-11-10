@@ -10,7 +10,7 @@ import InvoiceApi from '@/services/invoiceApi';
 import type { InvoiceCustomer, PageParams, PageResponse } from '@/services/invoiceApi';
 import _ from 'lodash';
 
-interface DataType {
+export interface DataType {
   id: number;
   channel: string;
   customerName: string;

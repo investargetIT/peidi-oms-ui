@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import InvoiceAuditCard from './InvoiceAuditCard';
-import { Input, Select } from 'antd';
+import { Input, Pagination, Select } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { InvoiceAuditItem } from './PendingReview';
 import { InvoiceApi, type PageParams } from '@/services/invoiceApi';
@@ -51,27 +51,51 @@ const HistoricalRecords: React.FC = () => {
   };
   //#endregion
 
+  //#region 分页逻辑
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 2,
+  });
+  const [total, setTotal] = useState(0);
+
+  const handlePaginationChange = (page: number, pageSize: number) => {
+    setPagination({
+      current: page,
+      pageSize,
+    });
+  };
+  //#endregion
+
   //#region 请求逻辑
   // 筛选触发时查询
   useEffect(() => {
     refreshPagination();
-  }, [searchAppNoText, searchCustomerCodeText, searchAppUserText]);
+  }, [searchAppNoText, searchCustomerCodeText, searchAppUserText, pagination]);
   // 分页获取开票审核
   const getInvoiceAppPage = async (params: PageParams) => {
     const res = await InvoiceApi.getInvoiceAppPage(params);
     if (res.code === 200) {
       console.log('获取开票审核成功', res.data.records || []);
-      // setDataSource(res.data.records || []);
+      // 如果当前页大于总页数，重置为第一页 排除总页数为0的情况
+      if (res.data?.current > res.data?.pages && res.data?.total !== 0) {
+        setPagination({
+          current: res.data?.pages,
+          pageSize: pagination.pageSize,
+        });
+        return;
+      }
+      setDataSource(res.data.records || []);
+      setTotal(res.data?.total || 0);
       // FIXME: 先自己做一遍筛选，只保留status为3的
-      setDataSource(res.data.records.filter((item) => item.status === 3) || []);
+      // setDataSource(res.data.records.filter((item) => item.status === 3) || []);
     }
   };
   // 刷新分页方法  可复用
   const refreshPagination = () => {
     getInvoiceAppPage({
-      pageNo: 1,
-      pageSize: 1000,
-      search: getSearchStr(),
+      pageNo: pagination.current,
+      pageSize: pagination.pageSize,
+      searchStr: getSearchStr(),
     });
   };
   //#endregion
@@ -121,6 +145,18 @@ const HistoricalRecords: React.FC = () => {
           ]}
         /> */}
       </div>
+      {/* 分页 */}
+      <Pagination
+        style={{ marginBottom: 12 }}
+        align="end"
+        showTotal={(total, range) => `共 ${total} 条`}
+        current={pagination.current}
+        defaultPageSize={2}
+        total={total}
+        pageSizeOptions={[2, 10, 50]}
+        onChange={handlePaginationChange}
+        showSizeChanger
+      />
       {/* 卡片 */}
       <div>
         {dataSource.map((item) => (

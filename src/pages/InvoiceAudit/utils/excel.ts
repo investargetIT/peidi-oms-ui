@@ -1,6 +1,7 @@
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import type { DataType as InvoiceDataType } from '@/pages/Invoice/index';
+import type { DataType as InvoiceCustomerInfo } from '@/pages/CustomerInfo/index';
 
 // 导入excel return出整个workbook
 const importExcel = async () => {
@@ -44,9 +45,21 @@ const exportExcel = async (workbook: ExcelJS.Workbook, fileName: string = '发�
   saveAs(blob, `${fileName}.xlsx`);
 };
 
+// 业务逻辑辅助方法-根据客户编码获取客户信息
+const getCustomerInfoByCode = (
+  customerCode: string,
+  customerInfo?: InvoiceCustomerInfo[],
+): InvoiceCustomerInfo | undefined => {
+  return customerInfo?.find((item) => item.customerName === customerCode);
+};
+
 // 业务逻辑-表单数据处理
-const handleFormData = async (formData: InvoiceDataType[], fileName?: string) => {
-  console.log('开始处理表单数据');
+const handleFormData = async (
+  formData: InvoiceDataType[],
+  fileName?: string,
+  customerInfo?: InvoiceCustomerInfo[],
+) => {
+  console.log('开始处理表单数据', formData, customerInfo);
 
   const workbook = await importExcel();
   const sheet = workbook.getWorksheet('发票信息');
@@ -56,23 +69,25 @@ const handleFormData = async (formData: InvoiceDataType[], fileName?: string) =>
 
   //#region 业务逻辑
   //从28行开始写入数据
-  const currentRow = 28;
+  const currentRow = 4;
   formData.forEach((item, index) => {
+    const customerInfoItem = getCustomerInfoByCode(item.customerCode, customerInfo);
+    console.log('customerInfoItem', customerInfoItem);
     const row = sheet.getRow(index + currentRow); // 第一行是title 所以从第二行开始
-    row.getCell(1).value = item.appNo;
-    row.getCell(2).value = '发票种类';
-    row.getCell(3).value = item.customerCode;
-    row.getCell(4).value = '税号'; // D列
-    // row.getCell(13).value = "备注"; // M列
-    row.getCell(14).value = item.materialName;
-    row.getCell(15).value = '税率';
-    row.getCell(16).value = item.productCode;
-    row.getCell(17).value = item.salesUnit;
-    row.getCell(18).value = item.outboundQty;
-    row.getCell(19).value = '单价';
-    row.getCell(20).value = item.totalTaxAmount;
-    row.getCell(21).value = '税收分类编码';
-    row.getCell(22).value = '折扣金额';
+    row.getCell('A').value = item.appNo;
+    row.getCell('B').value = customerInfoItem?.type || '';
+    row.getCell('C').value = item.customerCode;
+    row.getCell('D').value = customerInfoItem?.tax || ''; // D列
+    // row.getCell('M').value = "备注"; // M列
+    row.getCell('N').value = item.materialName;
+    // row.getCell('O').value = '税率';
+    row.getCell('P').value = item.productCode;
+    row.getCell('Q').value = item.salesUnit;
+    row.getCell('R').value = item.outboundQty;
+    // row.getCell('S').value = '单价';
+    row.getCell('T').value = item.totalTaxAmount;
+    // row.getCell('V').value = '税收分类编码';
+    // row.getCell('AA').value = '折扣金额';
   });
   //#endregion
 

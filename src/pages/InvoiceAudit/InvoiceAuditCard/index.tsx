@@ -11,6 +11,7 @@ import {
   Checkbox,
   CheckboxChangeEvent,
   Flex,
+  message,
   Table,
   TableColumnsType,
   Tag,
@@ -21,6 +22,7 @@ import type { InvoiceModalRef } from '../Modal';
 import type { InvoiceAuditItem } from '../PendingReview';
 import dayjs from 'dayjs';
 import { handleFormData } from '@/pages/InvoiceAudit/utils/excel';
+import InvoiceApi from '@/services/invoiceApi';
 
 const columns: TableColumnsType<DataType> = [
   {
@@ -147,9 +149,28 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
   };
   // 下载开票模板
   const handleDownload = () => {
-    handleFormData(dataSource.recordList, '测试');
-    if (!postInvoiceApp) return;
-    postInvoiceApp(dataSource.recordList, 3);
+    // 先请求回来客户信息数据
+    InvoiceApi.getInvoiceCustomerPage({
+      pageNo: 1,
+      pageSize: 1000,
+      searchStr: JSON.stringify([
+        {
+          searchName: 'customerName',
+          searchType: 'equals',
+          searchValue: `\"${dataSource.customerCode}\"`,
+        },
+      ]),
+    }).then((res) => {
+      if (res.code === 200) {
+        console.log('获取客户信息成功', res.data || {});
+        handleFormData(dataSource.recordList, '测试', res.data.records);
+        if (!postInvoiceApp) return;
+        postInvoiceApp(dataSource.recordList, 3);
+      } else {
+        console.log('获取客户信息失败', res.data || {});
+        message.error('获取客户信息失败');
+      }
+    });
   };
   return (
     <Card>

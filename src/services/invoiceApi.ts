@@ -30,6 +30,10 @@ export interface InvoiceCustomer {
 const invoiceRequest = createRequest(`${process.env.BASE_URL}/invoice`, {
   timeout: 15000, // 发票服务可以设置更长的超时时间
 });
+// 测试环境使用
+// const invoiceRequest = createRequest(`http://12.18.1.12:8085/oms/invoice`, {
+//   timeout: 15000, // 发票服务可以设置更长的超时时间
+// });
 
 // 简洁的财务开票API类
 export class InvoiceApi {

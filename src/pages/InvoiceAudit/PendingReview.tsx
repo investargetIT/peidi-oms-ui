@@ -13,6 +13,7 @@ import InvoiceApi from '@/services/invoiceApi';
 import type { PageParams } from '@/services/invoiceApi';
 import type { DataType as InvoiceDataType } from '@/pages/Invoice/index';
 import { useDebounceSearch } from '@/hooks/useDebounce';
+import { handleFormData } from './utils/excel';
 
 export interface InvoiceAuditItem {
   /** 已核算金额 */
@@ -140,11 +141,34 @@ const PendingReview: React.FC = () => {
   };
   // 批量下载开票模板
   const handleDownload = () => {
-    const dataTemp: InvoiceDataType[] = [];
-    selectedDataList.forEach((item: InvoiceAuditItem) => {
-      dataTemp.push(...item.recordList);
+    console.log('selectedDataList', selectedDataList);
+    // 遍历selectedDataList，获取所有客户编码customerCode进行拼接，用&#&隔开
+    const customerCodes = selectedDataList.map((item) => `\"${item.customerCode}\"`).join('&#&');
+    console.log('customerCodes', customerCodes);
+    // 先请求回来客户信息数据
+    InvoiceApi.getInvoiceCustomerPage({
+      pageNum: 1,
+      pageSize: 1000,
+      searchStr: JSON.stringify([
+        {
+          searchName: 'customerName',
+          searchType: 'equals',
+          searchValue: `${customerCodes}`,
+        },
+      ]),
+    }).then((res) => {
+      if (res.code === 200) {
+        console.log('获取客户信息成功', res.data || []);
+        const dataTemp: InvoiceDataType[] = [];
+        selectedDataList.forEach((item: InvoiceAuditItem) => {
+          dataTemp.push(...item.recordList);
+        });
+        handleFormData(dataTemp, '测试', res.data.records);
+        postInvoiceApp(dataTemp, 3);
+      } else {
+        message.error('获取客户信息失败');
+      }
     });
-    postInvoiceApp(dataTemp, 3);
   };
   //#endregion
 
@@ -199,11 +223,11 @@ const PendingReview: React.FC = () => {
     const res = await InvoiceApi.getInvoiceAppPage(params);
     if (res.code === 200) {
       console.log('获取开票审核成功', res.data.records || []);
-      // setDataSource(res.data.records || []);
+      setDataSource(res.data.records || []);
       // FIXME: 先自己做一遍筛选，只保留status为1或2的
-      setDataSource(
-        res.data.records.filter((item) => item.status === 1 || item.status === 2) || [],
-      );
+      // setDataSource(
+      //   res.data.records.filter((item) => item.status === 1 || item.status === 2) || [],
+      // );
       //  清空选中数据列表
       setSelectedDataList([]);
     }
@@ -213,7 +237,7 @@ const PendingReview: React.FC = () => {
     getInvoiceAppPage({
       pageNo: 1,
       pageSize: 1000,
-      search: getSearchStr(),
+      searchStr: getSearchStr(),
     });
   };
 
