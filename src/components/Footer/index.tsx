@@ -7,6 +7,7 @@ const Footer: React.FC = () => {
     <DefaultFooter
       style={{
         background: 'none',
+        fontSize: 12,
       }}
       copyright="佩蒂智创（杭州）宠物科技有限公司"
       links={[
