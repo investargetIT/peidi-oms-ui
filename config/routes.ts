@@ -18,12 +18,12 @@ export default [
       {
         name: 'login',
         path: '/user/login',
-        component: './User/Login',
+        component: './User/UnifiedLogin',
       },
       {
         name: 'DDLoginFree',
         path: '/user/dd',
-        component: './User/DDLoginFree',
+        component: './User/UnifiedLogin',
       },
     ],
   },

@@ -262,7 +262,9 @@ const ReprocessForShop = () => {
               <span style={{ color: isFileExported(url) ? '#999' : '#1890FF' }}>
                 {url.split('/').pop()}
               </span>
+              {/* a标签的点击事件不要冒泡 */}
               <a
+                onClick={(e) => e.stopPropagation()}
                 style={{ fontSize: 12, marginLeft: 5 }}
                 href={`${process.env.BASE_URL}/finance/download?objectName=${
                   url.split('&')[1]
