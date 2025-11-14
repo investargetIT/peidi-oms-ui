@@ -79,6 +79,7 @@ export default [
     icon: 'fileText',
     path: '/invoiceAudit',
     component: './InvoiceAudit',
+    access: 'canInvoiceAudit',
   },
   // {
   //   name: 'repurchaseRate',

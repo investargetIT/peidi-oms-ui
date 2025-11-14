@@ -218,11 +218,15 @@ const Invoice: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<DataType[]>([]);
   // 已经选择的项的金额合计
   const [totalPrice, setTotalPrice] = useState('0');
+  // 已经选择的项的数量合计
+  const [totalQuantity, setTotalQuantity] = useState(0);
 
-  // 金额统计
+  // 金额和数量合计统计
   useEffect(() => {
     const total = selectedRows.reduce((acc, cur) => acc + Number(cur.totalTaxAmount), 0);
     setTotalPrice(total.toString());
+    const totalQuantity = selectedRows.reduce((acc, cur) => acc + Number(cur.outboundQty), 0);
+    setTotalQuantity(totalQuantity);
   }, [selectedRows]);
   //#endregion
 
@@ -283,6 +287,7 @@ const Invoice: React.FC = () => {
       // 重置选中项
       setSelectedRows([]);
       setTotalPrice('0');
+      setTotalQuantity(0);
     }
   };
   // 刷新分页方法  可复用
@@ -391,6 +396,12 @@ const Invoice: React.FC = () => {
             合计金额：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
               ¥{totalPrice}
+            </span>
+          </span>
+          <span style={{ marginLeft: 16 }}>
+            合计出库数量：
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
+              {totalQuantity}
             </span>
           </span>
         </div>

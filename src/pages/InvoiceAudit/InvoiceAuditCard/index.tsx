@@ -260,8 +260,12 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
           {dataSource.recordList?.length || 0} 个
         </div>
         <div style={{ color: '#737373', marginRight: 5 }}>合计金额:</div>
+        <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
+          ¥{dataSource.recordList?.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)}
+        </div>
+        <div style={{ color: '#737373', marginRight: 5 }}>合计出库数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold' }}>
-          ¥{dataSource.totalTaxAmount}
+          {dataSource.recordList?.reduce((acc, cur) => acc + cur.outboundQty, 0)} 个
         </div>
       </Flex>
       {/* 表格 */}

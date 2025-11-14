@@ -364,7 +364,22 @@ const PendingReview: React.FC = () => {
           <span style={{ marginLeft: 16 }}>
             合计金额：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
-              ¥{selectedDataList.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)}
+              {/* 需要算selectedDataList每个recordList的totalTaxAmount */}¥
+              {selectedDataList.reduce(
+                (acc, cur) =>
+                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.totalTaxAmount, 0),
+                0,
+              )}
+            </span>
+          </span>
+          <span style={{ marginLeft: 16 }}>
+            合计出库数量：
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
+              {selectedDataList.reduce(
+                (acc, cur) =>
+                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.outboundQty, 0),
+                0,
+              )}
             </span>
           </span>
         </div>
