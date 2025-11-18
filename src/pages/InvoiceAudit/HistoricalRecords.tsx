@@ -151,7 +151,7 @@ const HistoricalRecords: React.FC = () => {
         align="end"
         showTotal={(total, range) => `共 ${total} 条`}
         current={pagination.current}
-        defaultPageSize={2}
+        pageSize={pagination.pageSize}
         total={total}
         pageSizeOptions={[2, 10, 50]}
         onChange={handlePaginationChange}

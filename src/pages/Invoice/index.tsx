@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Col,
+  DatePicker,
   Flex,
   Input,
   message,
@@ -19,6 +20,7 @@ import type { InvoiceModalRef } from './Modal';
 import InvoiceApi from '@/services/invoiceApi';
 import type { PageParams } from '@/services/invoiceApi';
 import { useDebounceSearch } from '@/hooks/useDebounce';
+import dayjs from 'dayjs';
 
 export interface DataType {
   /** 主键ID */
@@ -174,6 +176,19 @@ const Invoice: React.FC = () => {
   // 表格数据
   const [tableData, setTableData] = useState<DataType[]>([]);
 
+  //#region 时间选择逻辑
+  // 默认当月
+  const [dateRange, setDateRange] = useState<any>([
+    dayjs().startOf('month'),
+    dayjs().endOf('month'),
+  ]);
+  // 处理时间选择变化
+  const handleDateRangeChange = (value: any) => {
+    // console.log('dateRange', value);
+    setDateRange(value);
+  };
+  //#endregion
+
   //#region 筛选逻辑
   // Input搜索使用通用防抖钩子
   const [searchDocumentNumberText, showSearchDocumentNumberText, handleSearchDocumentNumberText] =
@@ -187,7 +202,14 @@ const Invoice: React.FC = () => {
 
   // 处理筛选参数方法
   const getSearchStr = () => {
-    const searchParams = [];
+    // 默认添加时间选择参数
+    const searchParams = [
+      {
+        searchName: 'date',
+        searchType: 'betweenStr',
+        searchValue: dateRange.map((item: dayjs.Dayjs) => item.format('YYYY-MM-DD')).join(','),
+      },
+    ];
     if (searchDocumentNumberText) {
       searchParams.push({
         searchName: 'documentNumber',
@@ -214,17 +236,17 @@ const Invoice: React.FC = () => {
   //#endregion
 
   //#region 表格状态逻辑
-  // 已经选择的项
+  // 已经选择的项 -历史选择项 包含翻页后的数据
   const [selectedRows, setSelectedRows] = useState<DataType[]>([]);
   // 已经选择的项的金额合计
-  const [totalPrice, setTotalPrice] = useState('0');
+  const [totalPrice, setTotalPrice] = useState(0);
   // 已经选择的项的数量合计
   const [totalQuantity, setTotalQuantity] = useState(0);
 
   // 金额和数量合计统计
   useEffect(() => {
     const total = selectedRows.reduce((acc, cur) => acc + Number(cur.totalTaxAmount), 0);
-    setTotalPrice(total.toString());
+    setTotalPrice(total);
     const totalQuantity = selectedRows.reduce((acc, cur) => acc + Number(cur.outboundQty), 0);
     setTotalQuantity(totalQuantity);
   }, [selectedRows]);
@@ -235,6 +257,7 @@ const Invoice: React.FC = () => {
     onChange: (selectedRowKeys: React.Key[], selectedRows: DataType[]) => {
       console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
       setSelectedRows(selectedRows);
+
       // 检查是否有多个客户
       const uniqueCustomers = new Set(selectedRows.map((item) => item.customerCode));
       setShowTip(uniqueCustomers.size > 1);
@@ -243,6 +266,7 @@ const Invoice: React.FC = () => {
       // disabled: record.key === 'Disabled User', // Column configuration not to be checked
       name: record.date,
     }),
+    preserveSelectedRowKeys: true, // 当数据被删除时仍然保留选项的 key
   };
 
   //#region 分页逻辑
@@ -264,7 +288,13 @@ const Invoice: React.FC = () => {
   // 筛选触发时查询  页面变化时查询
   useEffect(() => {
     refreshPagination();
-  }, [pagination, searchDocumentNumberText, searchCustomerCodeText, searchMaterialNameText]);
+  }, [
+    pagination,
+    searchDocumentNumberText,
+    searchCustomerCodeText,
+    searchMaterialNameText,
+    dateRange,
+  ]);
   // 分页获取开票申请方法
   const getInvoiceNoAppPage = async (params: PageParams) => {
     const res = await InvoiceApi.getInvoiceNoAppPage(params);
@@ -284,10 +314,10 @@ const Invoice: React.FC = () => {
       }));
       setTableData(dataWithKey);
       setTotal(res.data?.total || 0);
-      // 重置选中项
-      setSelectedRows([]);
-      setTotalPrice('0');
-      setTotalQuantity(0);
+      // 重置选中项 因为要记录历史选中信息，不重置
+      // setSelectedRows([]);
+      // setTotalPrice(0);
+      // setTotalQuantity(0);
     }
   };
   // 刷新分页方法  可复用
@@ -321,8 +351,17 @@ const Invoice: React.FC = () => {
 
   return (
     <PageContainer>
-      {/* 操作栏 */}
-      <div style={{ marginBottom: 24, display: 'flex' }}>
+      {/* 数据日期范围 */}
+      <div>
+        <DatePicker.RangePicker
+          style={{ marginBottom: 12 }}
+          allowClear={false}
+          value={dateRange}
+          onChange={handleDateRangeChange}
+        />
+      </div>
+      {/* 筛选栏 */}
+      <div style={{ marginBottom: 12, display: 'flex' }}>
         <Input
           value={showSearchDocumentNumberText}
           placeholder="搜索单据编号..."
@@ -375,7 +414,7 @@ const Invoice: React.FC = () => {
             border: '1px solid #e5e5e5',
             borderRadius: 8,
             padding: 12,
-            marginBottom: 16,
+            marginBottom: 12,
           }}
         >
           <ExclamationCircleOutlined color="#e7000b" style={{ marginRight: 8 }} />
@@ -383,7 +422,7 @@ const Invoice: React.FC = () => {
         </div>
       )}
       {/* 表格状态栏 */}
-      <Flex justify="space-between" align="center" style={{ marginBottom: 16 }}>
+      <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
         <div style={{ color: '#737373' }}>
           <span>
             已选择
@@ -395,13 +434,13 @@ const Invoice: React.FC = () => {
           <span style={{ marginLeft: 16 }}>
             合计金额：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
-              ¥{totalPrice}
+              ¥{totalPrice.toLocaleString()}
             </span>
           </span>
           <span style={{ marginLeft: 16 }}>
             合计出库数量：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
-              {totalQuantity}
+              {totalQuantity.toLocaleString()}
             </span>
           </span>
         </div>
@@ -425,9 +464,10 @@ const Invoice: React.FC = () => {
           showTotal: (total, range) => `共 ${total} 条`,
           current: pagination.current,
           total,
-          defaultPageSize: 15,
+          pageSize: pagination.pageSize,
           pageSizeOptions: [15, 50, 100],
           onChange: (page, pageSize) => handlePaginationChange(page, pageSize),
+          showSizeChanger: true,
         }}
       />
       {/* 开票申请弹窗 */}

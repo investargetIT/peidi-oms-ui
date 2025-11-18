@@ -305,7 +305,7 @@ const CustomerInfo: React.FC = () => {
         columns={columns}
         dataSource={tableData}
         pagination={{
-          defaultPageSize: 10,
+          pageSize: 10,
           current: pagination.current,
           total,
           pageSizeOptions: [10],

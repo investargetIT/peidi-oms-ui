@@ -117,6 +117,12 @@ interface InvoiceAuditCardProps {
   postInvoiceApp?: (data: any[], status: number) => void;
 }
 
+//#region 权限逻辑
+const ddUserInfo = JSON.parse(localStorage.getItem('ddUserInfo') || '{}');
+const ddDeptIds = ddUserInfo?.dept_id_list || [];
+const canInvoiceAudit = ddDeptIds.length > 0 && ddDeptIds[0] !== 934791329; // 销售综合部
+//#endregion
+
 const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
   type,
   modalRef,
@@ -261,7 +267,7 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
         </div>
         <div style={{ color: '#737373', marginRight: 5 }}>合计金额:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
-          ¥{dataSource.recordList?.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)}
+          ¥{dataSource.recordList?.reduce((acc, cur) => acc + cur.totalTaxAmount, 0).toLocaleString()}
         </div>
         <div style={{ color: '#737373', marginRight: 5 }}>合计出库数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold' }}>
@@ -291,10 +297,16 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
               icon={<CloseCircleOutlined />}
               style={{ marginRight: 12 }}
               onClick={() => handleCancel()}
+              disabled={!canInvoiceAudit}
             >
               驳回
             </Button>
-            <Button icon={<CheckCircleOutlined />} type="primary" onClick={() => handleOk()}>
+            <Button
+              icon={<CheckCircleOutlined />}
+              type="primary"
+              onClick={() => handleOk()}
+              disabled={!canInvoiceAudit}
+            >
               通过
             </Button>
           </>
