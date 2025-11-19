@@ -26,6 +26,11 @@ import InvoiceApi from '@/services/invoiceApi';
 
 const columns: TableColumnsType<DataType> = [
   {
+    title: ' 序号 ',
+    render: (text, record, index) => `${index + 1}`, //每一页都从1开始
+    fixed: 'left', // 固定在左侧
+  },
+  {
     title: '单据日期',
     dataIndex: 'date',
   },
@@ -267,7 +272,10 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
         </div>
         <div style={{ color: '#737373', marginRight: 5 }}>合计金额:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
-          ¥{dataSource.recordList?.reduce((acc, cur) => acc + cur.totalTaxAmount, 0).toLocaleString()}
+          ¥
+          {dataSource.recordList
+            ?.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)
+            .toLocaleString()}
         </div>
         <div style={{ color: '#737373', marginRight: 5 }}>合计出库数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold' }}>
@@ -278,8 +286,8 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
       <Table<DataType>
         columns={columns}
         dataSource={dataSource.recordList || []}
-        scroll={{ x: 'max-content' }}
-        pagination={{ position: ['none'] }}
+        scroll={{ x: 'max-content', y: 55 * 6 }}
+        pagination={{ position: ['none'], defaultPageSize: 1000 }}
         size="small"
         style={{ border: '1px solid #e8e8e8', borderRadius: 8 }}
       />

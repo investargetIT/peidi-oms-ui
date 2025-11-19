@@ -187,6 +187,15 @@ const Invoice: React.FC = () => {
     // console.log('dateRange', value);
     setDateRange(value);
   };
+  useEffect(() => {
+    // 时间选择变化时需要重置选中项;
+    setSelectedRows([]);
+    setTotalPrice(0);
+    setTotalQuantity(0);
+    // console.log('selectedRowKeys', selectedRowKeys);
+    setSelectedRowKeys([]);
+    setShowTip(false);
+  }, [dateRange]);
   //#endregion
 
   //#region 筛选逻辑
@@ -236,6 +245,8 @@ const Invoice: React.FC = () => {
   //#endregion
 
   //#region 表格状态逻辑
+  // 用于存储选中的行Key 和selectedRows不同， selectedRows存的是数据，要读取使用的，而selectedRowKeys用于来清空表格记录的历史选择项，因为提交表单后我不要再记录选中项了
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   // 已经选择的项 -历史选择项 包含翻页后的数据
   const [selectedRows, setSelectedRows] = useState<DataType[]>([]);
   // 已经选择的项的金额合计
@@ -257,6 +268,7 @@ const Invoice: React.FC = () => {
     onChange: (selectedRowKeys: React.Key[], selectedRows: DataType[]) => {
       console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
       setSelectedRows(selectedRows);
+      setSelectedRowKeys(selectedRowKeys);
 
       // 检查是否有多个客户
       const uniqueCustomers = new Set(selectedRows.map((item) => item.customerCode));
@@ -267,6 +279,7 @@ const Invoice: React.FC = () => {
       name: record.date,
     }),
     preserveSelectedRowKeys: true, // 当数据被删除时仍然保留选项的 key
+    selectedRowKeys: selectedRowKeys,
   };
 
   //#region 分页逻辑
@@ -314,7 +327,7 @@ const Invoice: React.FC = () => {
       }));
       setTableData(dataWithKey);
       setTotal(res.data?.total || 0);
-      // 重置选中项 因为要记录历史选中信息，不重置
+      // 重置选中项 因为要记录历史选中信息，这里不重置
       // setSelectedRows([]);
       // setTotalPrice(0);
       // setTotalQuantity(0);
@@ -345,6 +358,11 @@ const Invoice: React.FC = () => {
       invoiceModalRef.current?.handleCancel();
       // 刷新分页
       refreshPagination();
+      // 重置选中项
+      setSelectedRows([]);
+      setTotalPrice(0);
+      setTotalQuantity(0);
+      setSelectedRowKeys([]);
     }
   };
   //#endregion
