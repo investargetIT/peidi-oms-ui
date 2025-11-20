@@ -87,6 +87,10 @@ const columns: TableColumnsType<DataType> = [
     dataIndex: 'finalPrice',
   },
   {
+    title: '不含税合计',
+    dataIndex: 'taxExcludedAmount',
+  },
+  {
     title: '价税合计',
     dataIndex: 'totalTaxAmount',
   },
@@ -125,7 +129,9 @@ interface InvoiceAuditCardProps {
 //#region 权限逻辑
 const ddUserInfo = JSON.parse(localStorage.getItem('ddUserInfo') || '{}');
 const ddDeptIds = ddUserInfo?.dept_id_list || [];
-const canInvoiceAudit = ddDeptIds.length > 0 && ddDeptIds[0] !== 934791329; // 销售综合部
+// 开发环境下返回true
+const canInvoiceAudit =
+  process.env.NODE_ENV === 'development' || (ddDeptIds.length > 0 && ddDeptIds[0] !== 934791329); // 销售综合部
 //#endregion
 
 const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
@@ -265,17 +271,24 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
         </Flex>
       </Flex>
       {/* 表格状态 */}
-      <Flex style={{ marginTop: 16, marginBottom: 16 }} justify="flex-start" align="center">
+      <Flex style={{ marginTop: 16, marginBottom: 16 }} justify="flex-start" align="flex-end">
         <div style={{ color: '#737373', marginRight: 5 }}>订单数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
           {dataSource.recordList?.length || 0} 个
         </div>
-        <div style={{ color: '#737373', marginRight: 5 }}>合计金额:</div>
+        <div style={{ color: '#737373', marginRight: 5 }}>不含税合计:</div>
+        <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
+          ¥
+          {dataSource.recordList
+            ?.reduce((acc, cur) => acc + cur.taxExcludedAmount, 0)
+            .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </div>
+        <div style={{ color: '#737373', marginRight: 5 }}>价税合计:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
           ¥
           {dataSource.recordList
             ?.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)
-            .toLocaleString()}
+            .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>
         <div style={{ color: '#737373', marginRight: 5 }}>合计出库数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold' }}>

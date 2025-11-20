@@ -113,6 +113,9 @@ export interface InvoiceAuditItem {
   /** 存储位置 */
   storageLocation: string;
 
+  /** 不含税合计 */
+  taxExcludedAmount: number;
+
   /** 总税额 */
   totalTaxAmount: number;
 }
@@ -370,14 +373,27 @@ const PendingReview: React.FC = () => {
             个申请
           </span>
           <span style={{ marginLeft: 16 }}>
-            合计金额：
+            不含税合计：
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
+              {/* 需要算selectedDataList每个recordList的taxExcludedAmount */}¥
+              {selectedDataList.reduce(
+                (acc, cur) =>
+                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.taxExcludedAmount, 0),
+                0,
+              )
+              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </span>
+          <span style={{ marginLeft: 16 }}>
+            价税合计：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
               {/* 需要算selectedDataList每个recordList的totalTaxAmount */}¥
               {selectedDataList.reduce(
                 (acc, cur) =>
                   acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.totalTaxAmount, 0),
                 0,
-              )}
+              )
+              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </span>
           <span style={{ marginLeft: 16 }}>

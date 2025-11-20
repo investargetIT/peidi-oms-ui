@@ -69,6 +69,12 @@ export default [
     component: './CustomerInfo',
   },
   {
+    name: 'taxNo',
+    icon: 'dollarOutlined',
+    path: '/taxNo',
+    component: './TaxNo',
+  },
+  {
     name: 'invoice',
     icon: 'fileText',
     path: '/invoice',

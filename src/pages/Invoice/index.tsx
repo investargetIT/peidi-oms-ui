@@ -55,6 +55,8 @@ export interface DataType {
   salesUnit: string;
   /** 最终价 */
   finalPrice: number;
+  /** 不含税合计 */
+  taxExcludedAmount: number;
   /** 价税合计(本币) */
   totalTaxAmount: number;
   /** 批号 */
@@ -149,6 +151,10 @@ const columns: TableColumnsType<DataType> = [
     dataIndex: 'finalPrice',
   },
   {
+    title: '不含税合计',
+    dataIndex: 'taxExcludedAmount',
+  },
+  {
     title: '价税合计',
     dataIndex: 'totalTaxAmount',
   },
@@ -190,6 +196,7 @@ const Invoice: React.FC = () => {
   useEffect(() => {
     // 时间选择变化时需要重置选中项;
     setSelectedRows([]);
+    setTotalTaxExcludedAmount(0);
     setTotalPrice(0);
     setTotalQuantity(0);
     // console.log('selectedRowKeys', selectedRowKeys);
@@ -249,6 +256,8 @@ const Invoice: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   // 已经选择的项 -历史选择项 包含翻页后的数据
   const [selectedRows, setSelectedRows] = useState<DataType[]>([]);
+  // 已经选择的项的不含税合计合计
+  const [totalTaxExcludedAmount, setTotalTaxExcludedAmount] = useState(0);
   // 已经选择的项的金额合计
   const [totalPrice, setTotalPrice] = useState(0);
   // 已经选择的项的数量合计
@@ -256,6 +265,11 @@ const Invoice: React.FC = () => {
 
   // 金额和数量合计统计
   useEffect(() => {
+    const totalTaxExcludedAmount = selectedRows.reduce(
+      (acc, cur) => acc + Number(cur.taxExcludedAmount),
+      0,
+    );
+    setTotalTaxExcludedAmount(totalTaxExcludedAmount);
     const total = selectedRows.reduce((acc, cur) => acc + Number(cur.totalTaxAmount), 0);
     setTotalPrice(total);
     const totalQuantity = selectedRows.reduce((acc, cur) => acc + Number(cur.outboundQty), 0);
@@ -360,6 +374,7 @@ const Invoice: React.FC = () => {
       refreshPagination();
       // 重置选中项
       setSelectedRows([]);
+      setTotalTaxExcludedAmount(0);
       setTotalPrice(0);
       setTotalQuantity(0);
       setSelectedRowKeys([]);
@@ -450,9 +465,15 @@ const Invoice: React.FC = () => {
             项
           </span>
           <span style={{ marginLeft: 16 }}>
-            合计金额：
+            不含税合计：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
-              ¥{totalPrice.toLocaleString()}
+              ¥{totalTaxExcludedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </span>
+          <span style={{ marginLeft: 16 }}>
+            价税合计：
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
+              ¥{totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </span>
           <span style={{ marginLeft: 16 }}>

@@ -37,7 +37,11 @@ const InvoiceAuditModal = React.forwardRef(
         value: '',
       },
       {
-        label: '合计金额',
+        label: '不含税合计',
+        value: '',
+      },
+      {
+        label: '价税合计',
         value: '',
       },
     ]);
@@ -57,6 +61,7 @@ const InvoiceAuditModal = React.forwardRef(
 
     // 初始化数据方法
     const initData = (dataSource: InvoiceAuditItem) => {
+      console.log('currentDataSource', currentDataSource);
       setCurrentDataSource(dataSource);
     };
 
@@ -77,8 +82,16 @@ const InvoiceAuditModal = React.forwardRef(
             value: `${currentDataSource.recordList?.length || 0}个`,
           },
           {
-            label: '合计金额',
-            value: `￥${currentDataSource.totalTaxAmount || 0.0}`,
+            label: '不含税合计',
+            value: `￥${currentDataSource.recordList
+              ?.reduce((acc, cur) => acc + cur.taxExcludedAmount, 0)
+              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          },
+          {
+            label: '价税合计',
+            value: `￥${currentDataSource.recordList
+              ?.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)
+              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           },
         ]);
       }

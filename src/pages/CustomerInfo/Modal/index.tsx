@@ -86,7 +86,7 @@ const CustomerInfoModal = (
         layout="vertical"
         requiredMark={false}
         style={{ maxWidth: 600, marginTop: 24 }}
-        labelCol={{ span: 8, style: { fontWeight: 'bold' } }}
+        labelCol={{ span: 24, style: { fontWeight: 'bold' } }}
         wrapperCol={{ span: 16 }}
         initialValues={{
           name: '',
@@ -120,36 +120,36 @@ const CustomerInfoModal = (
             ]}
           />
         </Form.Item>
+        {/* <Checkbox style={{ marginTop: 8, marginBottom: 8 }} onChange={handleIsPersonalChange}>
+          个人（个人需要填写身份证号）
+        </Checkbox> */}
         <Form.Item<FieldType>
-          label="税号/身份证号"
+          label="税号/身份证号（个人需要填写身份证号）"
           name="taxNumber"
-          dependencies={['name']}
+          // dependencies={['name']}
           // 如果购买方名称为"个人",则税号不用必填 用dependencies联动name实现
           rules={[
-            ({ getFieldValue }) => ({
-              validator(_, value) {
-                // // 包含"个人"时,税号可以为空
-                // if (getFieldValue('name')?.includes('个人')) {
-                //   return Promise.resolve();
-                // }
-                // if (value && value.trim() !== '') {
-                //   return Promise.resolve();
-                // }
-                // return Promise.reject(new Error('请输入税号'));
+            // ({ getFieldValue }) => ({
+            //   validator(_, value) {
+            //     // // 包含"个人"时,税号可以为空
+            //     // if (getFieldValue('name')?.includes('个人')) {
+            //     //   return Promise.resolve();
+            //     // }
+            //     // if (value && value.trim() !== '') {
+            //     //   return Promise.resolve();
+            //     // }
+            //     // return Promise.reject(new Error('请输入税号'));
 
-                if (value && value.trim() !== '') {
-                  return Promise.resolve();
-                }
-                return Promise.reject(new Error('请输入税号或身份证号'));
-              },
-            }),
+            //     if (value && value.trim() !== '') {
+            //       return Promise.resolve();
+            //     }
+            //     return Promise.reject(new Error('请输入税号或身份证号'));
+            //   },
+            // }),
+            { required: true, message: '请输入税号或身份证号' },
           ]}
         >
-          <Checkbox onChange={handleIsPersonalChange}>个人（个人需要填写身份证号）</Checkbox>
-          <Input
-            placeholder={isPersonal ? '请输入身份证号' : '请输入税号'}
-            style={{ marginTop: 12 }}
-          />
+          <Input placeholder={'请输入税号或身份证号'} style={{ marginTop: 12 }} />
         </Form.Item>
       </Form>
     </Modal>
