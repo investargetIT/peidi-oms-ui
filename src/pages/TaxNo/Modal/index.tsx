@@ -110,16 +110,16 @@ const TaxNoModal = (props: TaxNoModalProps, ref: React.Ref<TaxNoModalRef> | unde
         <Form.Item<FieldType>
           label="商品名称"
           name="goodsName"
-          rules={[{ required: true, message: '请输入商品名称' }]}
+          rules={[{ required: false, message: '请输入商品名称' }]}
         >
-          <Input placeholder="请输入商品名称" />
+          <Input placeholder="请输入商品名称" disabled/>
         </Form.Item>
         <Form.Item<FieldType>
           label="U9编号"
           name="u9No"
-          rules={[{ required: true, message: '请输入U9编号' }]}
+          rules={[{ required: false, message: '请输入U9编号' }]}
         >
-          <Input placeholder="请输入U9编号" />
+          <Input placeholder="请输入U9编号" disabled/>
         </Form.Item>
         <Form.Item<FieldType>
           label="税收编码"

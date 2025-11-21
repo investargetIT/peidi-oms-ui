@@ -24,6 +24,7 @@ export interface TaxNoItem {
 }
 
 const TaxNo: React.FC = () => {
+  const taxNoModalRef = React.useRef<TaxNoModalRef>(null);
   // 表格列定义
   const columns: TableProps<TaxNoItem>['columns'] = [
     {
@@ -60,7 +61,6 @@ const TaxNo: React.FC = () => {
       ),
     },
   ];
-  const taxNoModalRef = React.useRef<TaxNoModalRef>(null);
   // 表格数据
   const [tableData, setTableData] = useState<TaxNoItem[]>([]);
 
@@ -185,7 +185,7 @@ const TaxNo: React.FC = () => {
   const handleDeleteClick = (record: TaxNoItem) => {
     // console.log('点击删除', record);
     Modal.confirm({
-      title: `确认删除税收编码 ${record.taxNo} 吗？`,
+      title: `确认删除U9编号 ${record.u9No} 的税收编码吗？`,
       icon: <ExclamationCircleFilled />,
       // content: 'Some descriptions',
       okText: '确定',
@@ -231,18 +231,18 @@ const TaxNo: React.FC = () => {
           />
         </div>
 
-        <Button
+        {/* <Button
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => taxNoModalRef.current?.showModal('add')}
         >
           新增税收编码
-        </Button>
+        </Button> */}
       </Flex>
       <Table
         columns={columns}
         dataSource={tableData}
-        rowKey="id"
+        size="small"
         pagination={{
           current: pagination.current,
           pageSize: pagination.pageSize,
