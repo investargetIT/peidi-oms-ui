@@ -20,6 +20,7 @@ export async function getInitialState(): Promise<{
   currentUser?: API.CurrentUser;
   loading?: boolean;
   fetchUserInfo?: () => Promise<API.CurrentUser | undefined>;
+  ddUserInfo?: any;
 }> {
   const fetchUserInfo = async () => {
     try {
@@ -38,10 +39,17 @@ export async function getInitialState(): Promise<{
   const { location } = history;
   if (location.pathname !== loginPath && location.pathname !== dingTalkLoginFree) {
     const currentUser = await fetchUserInfo();
+
+    //#region 权限逻辑
+    //尝试获取ddUserInfo
+    const ddUserInfo = JSON.parse(localStorage.getItem('ddUserInfo') || '{}');
+    //#endregion
+
     return {
       fetchUserInfo,
       currentUser,
       settings: defaultSettings as Partial<LayoutSettings>,
+      ddUserInfo,
     };
   }
   return {

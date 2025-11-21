@@ -40,11 +40,23 @@ const InvoiceModal = React.forwardRef<InvoiceModalRef, InvoiceModalProps>(
           value: `${props.selectedRows.length}个`,
         },
         {
-          label: '合计金额',
+          label: '不含税合计',
+          value: `￥${
+            props.selectedRows.length > 0
+              ? props.selectedRows
+                  .reduce((acc, cur) => acc + Number(cur.taxExcludedAmount), 0)
+                  .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  .toString()
+              : '0'
+          }`,
+        },
+        {
+          label: '价税合计',
           value: `￥${
             props.selectedRows.length > 0
               ? props.selectedRows
                   .reduce((acc, cur) => acc + Number(cur.totalTaxAmount), 0)
+                  .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                   .toString()
               : '0'
           }`,

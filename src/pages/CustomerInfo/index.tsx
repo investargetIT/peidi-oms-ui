@@ -204,7 +204,7 @@ const CustomerInfo: React.FC = () => {
     InvoiceApi.postInvoiceCustomerNew(data).then((res: any) => {
       if (res.code === 200) {
         message.success('新增客户成功');
-        // // 关闭弹窗
+        // 关闭弹窗
         customerInfoModalRef.current?.handleCancel();
         // 新增成功后刷新列表
         refreshPagination();
@@ -305,7 +305,7 @@ const CustomerInfo: React.FC = () => {
         columns={columns}
         dataSource={tableData}
         pagination={{
-          defaultPageSize: 10,
+          pageSize: 10,
           current: pagination.current,
           total,
           pageSizeOptions: [10],

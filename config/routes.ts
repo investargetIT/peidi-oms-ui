@@ -18,12 +18,12 @@ export default [
       {
         name: 'login',
         path: '/user/login',
-        component: './User/Login',
+        component: './User/UnifiedLogin',
       },
       {
         name: 'DDLoginFree',
         path: '/user/dd',
-        component: './User/DDLoginFree',
+        component: './User/UnifiedLogin',
       },
     ],
   },
@@ -69,6 +69,12 @@ export default [
     component: './CustomerInfo',
   },
   {
+    name: 'taxNo',
+    icon: 'dollarOutlined',
+    path: '/taxNo',
+    component: './TaxNo',
+  },
+  {
     name: 'invoice',
     icon: 'fileText',
     path: '/invoice',
@@ -79,6 +85,7 @@ export default [
     icon: 'fileText',
     path: '/invoiceAudit',
     component: './InvoiceAudit',
+    access: 'canInvoiceAudit',
   },
   // {
   //   name: 'repurchaseRate',

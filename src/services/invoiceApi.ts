@@ -26,6 +26,14 @@ export interface InvoiceCustomer {
   type: string;
 }
 
+export interface InvoiceTaxNo {
+  id: number;
+  goodsName: string;
+  taxNo: string;
+  taxRate: string;
+  u9No: string;
+}
+
 // 创建发票服务的axios实例
 const invoiceRequest = createRequest(`${process.env.BASE_URL}/invoice`, {
   timeout: 15000, // 发票服务可以设置更长的超时时间
@@ -102,6 +110,40 @@ export class InvoiceApi {
    */
   static async postInvoiceAppTax(data: any): Promise<ResponseData<any>> {
     return invoiceRequest.post('/app/tax', data);
+  }
+
+  /**
+   * 分页获取税收编码
+   */
+  static async getTaxNoPage(params: PageParams): Promise<PageResponse<any>> {
+    return invoiceRequest.get('/tax-no/page', {
+      params: {
+        pageNo: params.pageNo || 1,
+        pageSize: params.pageSize || 10,
+        ...params,
+      },
+    });
+  }
+
+  /**
+   * 增加税收编码
+   */
+  static async postInvoiceTaxNoNew(data: InvoiceTaxNo): Promise<ResponseData<any>> {
+    return invoiceRequest.post('/tax-no/new', data);
+  }
+
+  /**
+   * 删除税收编码
+   */
+  static async postInvoiceTaxNoDelete(data: number[]): Promise<ResponseData<any>> {
+    return invoiceRequest.post('/tax-no/delete', data);
+  }
+
+  /**
+   * 修改税收编码
+   */
+  static async postInvoiceTaxNoUpdate(data: InvoiceTaxNo): Promise<ResponseData<any>> {
+    return invoiceRequest.post('/tax-no/update', data);
   }
 }
 

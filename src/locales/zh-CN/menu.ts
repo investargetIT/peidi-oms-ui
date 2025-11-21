@@ -57,6 +57,7 @@ export default {
   'menu.finance': '财务销售订单及发票',
   'menu.repurchaseRate': '用户复购率',
   'menu.customerInfo': '客户信息维护',
+  'menu.taxNo': '税收编码维护',
   'menu.invoice': '开票申请',
   'menu.invoiceAudit': '开票审核',
 };

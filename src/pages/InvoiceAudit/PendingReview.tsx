@@ -6,7 +6,7 @@ import {
   FileTextOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { Button, Checkbox, Flex, Input, message, Select } from 'antd';
+import { Button, Checkbox, Flex, Input, message, Select, Spin } from 'antd';
 import InvoiceAuditModal from './Modal';
 import type { InvoiceModalRef } from './Modal';
 import InvoiceApi from '@/services/invoiceApi';
@@ -113,11 +113,17 @@ export interface InvoiceAuditItem {
   /** 存储位置 */
   storageLocation: string;
 
+  /** 不含税合计 */
+  taxExcludedAmount: number;
+
   /** 总税额 */
   totalTaxAmount: number;
 }
 
 const PendingReview: React.FC = () => {
+  // 数据请求中
+  const [loading, setLoading] = useState(false);
+
   const modalRef = React.useRef<InvoiceModalRef>(null);
   // 数据列表
   const [dataSource, setDataSource] = useState<InvoiceAuditItem[]>([]);
@@ -250,6 +256,7 @@ const PendingReview: React.FC = () => {
   }, [searchAppNoText, searchCustomerCodeText, searchAppUserText]);
   // 分页获取开票审核
   const getInvoiceAppPage = async (params: PageParams) => {
+    setLoading(true);
     const res = await InvoiceApi.getInvoiceAppPage(params);
     if (res.code === 200) {
       console.log('获取开票审核成功', res.data.records || []);
@@ -260,6 +267,10 @@ const PendingReview: React.FC = () => {
       // );
       //  清空选中数据列表
       setSelectedDataList([]);
+      setLoading(false);
+    } else {
+      message.error('获取开票审核失败');
+      setLoading(false);
     }
   };
   // 刷新分页方法  可复用
@@ -362,9 +373,37 @@ const PendingReview: React.FC = () => {
             个申请
           </span>
           <span style={{ marginLeft: 16 }}>
-            合计金额：
+            不含税合计：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
-              ¥{selectedDataList.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)}
+              {/* 需要算selectedDataList每个recordList的taxExcludedAmount */}¥
+              {selectedDataList.reduce(
+                (acc, cur) =>
+                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.taxExcludedAmount, 0),
+                0,
+              )
+              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </span>
+          <span style={{ marginLeft: 16 }}>
+            价税合计：
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
+              {/* 需要算selectedDataList每个recordList的totalTaxAmount */}¥
+              {selectedDataList.reduce(
+                (acc, cur) =>
+                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.totalTaxAmount, 0),
+                0,
+              )
+              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </span>
+          <span style={{ marginLeft: 16 }}>
+            合计出库数量：
+            <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
+              {selectedDataList.reduce(
+                (acc, cur) =>
+                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.outboundQty, 0),
+                0,
+              )}
             </span>
           </span>
         </div>
@@ -379,6 +418,19 @@ const PendingReview: React.FC = () => {
       </Flex>
       {/* 卡片 */}
       <div>
+        {loading ? (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Spin tip="数据请求中..." size="large">
+              <div style={{ padding: 50, background: 'rgba(0, 0, 0, 0.05)', borderRadius: 4 }} />
+            </Spin>
+          </div>
+        ) : null}
         {dataSource.map((item) => (
           <>
             <InvoiceAuditCard

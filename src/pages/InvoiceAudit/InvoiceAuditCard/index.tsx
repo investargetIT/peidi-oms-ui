@@ -26,6 +26,11 @@ import InvoiceApi from '@/services/invoiceApi';
 
 const columns: TableColumnsType<DataType> = [
   {
+    title: ' 序号 ',
+    render: (text, record, index) => `${index + 1}`, //每一页都从1开始
+    fixed: 'left', // 固定在左侧
+  },
+  {
     title: '单据日期',
     dataIndex: 'date',
   },
@@ -82,6 +87,10 @@ const columns: TableColumnsType<DataType> = [
     dataIndex: 'finalPrice',
   },
   {
+    title: '不含税合计',
+    dataIndex: 'taxExcludedAmount',
+  },
+  {
     title: '价税合计',
     dataIndex: 'totalTaxAmount',
   },
@@ -116,6 +125,14 @@ interface InvoiceAuditCardProps {
   // 修改开票状态方法
   postInvoiceApp?: (data: any[], status: number) => void;
 }
+
+//#region 权限逻辑
+const ddUserInfo = JSON.parse(localStorage.getItem('ddUserInfo') || '{}');
+const ddDeptIds = ddUserInfo?.dept_id_list || [];
+// 开发环境下返回true
+const canInvoiceAudit =
+  process.env.NODE_ENV === 'development' || (ddDeptIds.length > 0 && ddDeptIds[0] !== 934791329); // 销售综合部
+//#endregion
 
 const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
   type,
@@ -254,22 +271,36 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
         </Flex>
       </Flex>
       {/* 表格状态 */}
-      <Flex style={{ marginTop: 16, marginBottom: 16 }} justify="flex-start" align="center">
+      <Flex style={{ marginTop: 16, marginBottom: 16 }} justify="flex-start" align="flex-end">
         <div style={{ color: '#737373', marginRight: 5 }}>订单数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
           {dataSource.recordList?.length || 0} 个
         </div>
-        <div style={{ color: '#737373', marginRight: 5 }}>合计金额:</div>
+        <div style={{ color: '#737373', marginRight: 5 }}>不含税合计:</div>
+        <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
+          ¥
+          {dataSource.recordList
+            ?.reduce((acc, cur) => acc + cur.taxExcludedAmount, 0)
+            .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </div>
+        <div style={{ color: '#737373', marginRight: 5 }}>价税合计:</div>
+        <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
+          ¥
+          {dataSource.recordList
+            ?.reduce((acc, cur) => acc + cur.totalTaxAmount, 0)
+            .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </div>
+        <div style={{ color: '#737373', marginRight: 5 }}>合计出库数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold' }}>
-          ¥{dataSource.totalTaxAmount}
+          {dataSource.recordList?.reduce((acc, cur) => acc + cur.outboundQty, 0)} 个
         </div>
       </Flex>
       {/* 表格 */}
       <Table<DataType>
         columns={columns}
         dataSource={dataSource.recordList || []}
-        scroll={{ x: 'max-content' }}
-        pagination={{ position: ['none'] }}
+        scroll={{ x: 'max-content', y: 55 * 6 }}
+        pagination={{ position: ['none'], defaultPageSize: 1000 }}
         size="small"
         style={{ border: '1px solid #e8e8e8', borderRadius: 8 }}
       />
@@ -287,10 +318,16 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
               icon={<CloseCircleOutlined />}
               style={{ marginRight: 12 }}
               onClick={() => handleCancel()}
+              disabled={!canInvoiceAudit}
             >
               驳回
             </Button>
-            <Button icon={<CheckCircleOutlined />} type="primary" onClick={() => handleOk()}>
+            <Button
+              icon={<CheckCircleOutlined />}
+              type="primary"
+              onClick={() => handleOk()}
+              disabled={!canInvoiceAudit}
+            >
               通过
             </Button>
           </>
