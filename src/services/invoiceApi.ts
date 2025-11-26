@@ -36,7 +36,7 @@ export interface InvoiceTaxNo {
 
 // 创建发票服务的axios实例
 const invoiceRequest = createRequest(`${process.env.BASE_URL}/invoice`, {
-  timeout: 15000, // 发票服务可以设置更长的超时时间
+  timeout: 1000 * 60 * 5, // 发票服务可以设置更长的超时时间
 });
 // 测试环境使用
 // const invoiceRequest = createRequest(`http://12.18.1.12:8085/oms/invoice`, {

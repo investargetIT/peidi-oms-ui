@@ -25,9 +25,17 @@ const UnifiedLogin: React.FC = () => {
 
   // 账号密码登录，所有登录方式都调用这个函数
   const fetchLogin = (username: string, password: string) => {
+    const params = new URLSearchParams();
+    params.append('username', username);
+    params.append('password', password);
+
     return request(process.env.USER_AUTH_BASE_URL + '/user/login/password', {
       method: 'POST',
-      data: `username=${username}&password=${password}`,
+      // data: `username=${username}&password=${password}`,
+      data: params.toString(),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     }).then((res) => {
       if (res) {
         if (res.success) {
@@ -38,6 +46,7 @@ const UnifiedLogin: React.FC = () => {
         } else {
           message.error('用户登录失败：' + JSON.stringify(res));
           // 不是钉钉环境，退回登录页
+          // return;
           if (!navigator.userAgent.includes('DingTalk'))
             window.location.href = `https://login.peidigroup.cn/#/login?source=${encryptMessage(
               window.location.href,
@@ -110,7 +119,7 @@ const UnifiedLogin: React.FC = () => {
     let ddUserEmail = '';
     let userInfoInDingTalk: any = {
       username: '',
-      password: process.env.DINGTALK_LOGIN_FREE_DEFAULT_PASSWORD,
+      password: process.env.DINGTALK_LOGIN_FREE_DEFAULT_PASSWORD_ENCRYPTED,
     };
     dd.runtime.permission.requestAuthCode({
       corpId: process.env.DINGTALK_CORP_ID || '', // 企业id
