@@ -6,6 +6,7 @@ import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import Reprocess from './reprocess';
 import ReprocessForShop from './reprocessForShop';
+import AuxiliaryOperation from './auxiliaryOperation';
 
 const { Dragger } = Upload;
 const { Title } = Typography;
@@ -331,6 +332,11 @@ const App: React.FC = () => {
       key: '2',
       label: '销售单文件上传',
       children: <ReprocessForShop />,
+    },
+    {
+      key: '3',
+      label: '数据维护',
+      children: <AuxiliaryOperation />,
     },
   ];
 
