@@ -304,6 +304,7 @@ const CustomerInfo: React.FC = () => {
       <Table<DataType>
         columns={columns}
         dataSource={tableData}
+        size="small"
         pagination={{
           pageSize: 10,
           current: pagination.current,

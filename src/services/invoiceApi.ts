@@ -145,6 +145,17 @@ export class InvoiceApi {
   static async postInvoiceTaxNoUpdate(data: InvoiceTaxNo): Promise<ResponseData<any>> {
     return invoiceRequest.post('/tax-no/update', data);
   }
+
+  /**
+   * 获取字段列表
+   */
+  static async getInvoiceNoAppFieldList(params: { field: string }): Promise<PageResponse<any>> {
+    return invoiceRequest.get('/noApp/field-list', {
+      params: {
+        field: params.field || '',
+      },
+    });
+  }
 }
 
 // 默认导出实例

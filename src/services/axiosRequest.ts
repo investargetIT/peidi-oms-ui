@@ -30,7 +30,7 @@ export class AxiosRequest {
     this.baseURL = baseURL || '';
     this.instance = axios.create({
       baseURL: this.baseURL,
-      timeout: 10000,
+      timeout: 1000 * 60,
       headers: {
         'Content-Type': 'application/json',
       },

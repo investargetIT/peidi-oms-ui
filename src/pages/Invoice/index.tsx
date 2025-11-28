@@ -1,4 +1,10 @@
-import { ExclamationCircleOutlined, FileTextOutlined, SearchOutlined } from '@ant-design/icons';
+import {
+  DownloadOutlined,
+  ExclamationCircleOutlined,
+  FileTextOutlined,
+  SearchOutlined,
+  UploadOutlined,
+} from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import {
   Button,
@@ -10,6 +16,7 @@ import {
   message,
   Row,
   Select,
+  Space,
   Table,
   TableColumnsType,
   TableProps,
@@ -21,6 +28,8 @@ import InvoiceApi from '@/services/invoiceApi';
 import type { PageParams } from '@/services/invoiceApi';
 import { useDebounceSearch } from '@/hooks/useDebounce';
 import dayjs from 'dayjs';
+// 添加导出工具导入
+import { exportInvoiceDataToExcel, exportSelectedRowsToExcel } from './utils';
 
 export interface DataType {
   /** 主键ID */
@@ -206,12 +215,19 @@ const Invoice: React.FC = () => {
   //#endregion
 
   //#region 筛选逻辑
+  // 精确筛选  客户编码
+  // 客户编码筛选列表
+  const [searchCustomerCodeList, setSearchCustomerCodeList] = useState<any[]>([]);
+  const [searchCustomerCodeSelect, setSearchCustomerCodeSelect] = useState();
+
   // Input搜索使用通用防抖钩子
   const [searchDocumentNumberText, showSearchDocumentNumberText, handleSearchDocumentNumberText] =
     useDebounceSearch('');
   const [searchCustomerCodeText, showSearchCustomerCodeText, handleSearchCustomerCodeText] =
     useDebounceSearch('');
   const [searchMaterialNameText, showSearchMaterialNameText, handleSearchMaterialNameText] =
+    useDebounceSearch('');
+  const [searchSourceDocumentText, showSearchSourceDocumentText, handleSearchSourceDocumentText] =
     useDebounceSearch('');
   // const [type, setType] = useState('全部类型');
   // const [custom, setCustom] = useState('全部客户');
@@ -233,18 +249,32 @@ const Invoice: React.FC = () => {
         searchValue: `${searchDocumentNumberText}`,
       });
     }
-    if (searchCustomerCodeText) {
+    if (searchCustomerCodeSelect) {
       searchParams.push({
         searchName: 'customerCode',
-        searchType: 'like',
-        searchValue: `${searchCustomerCodeText}`,
+        searchType: 'equals',
+        searchValue: `\"${searchCustomerCodeSelect}\"`,
       });
     }
-    if (searchMaterialNameText) {
+    // if (searchCustomerCodeText) {
+    //   searchParams.push({
+    //     searchName: 'customerCode',
+    //     searchType: 'like',
+    //     searchValue: `${searchCustomerCodeText}`,
+    //   });
+    // }
+    // if (searchMaterialNameText) {
+    //   searchParams.push({
+    //     searchName: 'materialName',
+    //     searchType: 'like',
+    //     searchValue: `${searchMaterialNameText}`,
+    //   });
+    // }
+    if (searchSourceDocumentText) {
       searchParams.push({
-        searchName: 'materialName',
+        searchName: 'sourceDocument',
         searchType: 'like',
-        searchValue: `${searchMaterialNameText}`,
+        searchValue: `${searchSourceDocumentText}`,
       });
     }
     return JSON.stringify(searchParams);
@@ -312,16 +342,23 @@ const Invoice: React.FC = () => {
   //#endregion
 
   //#region 请求逻辑
+  // 客户编码筛选列表 初始化时获取
+  useEffect(() => {
+    getInvoiceNoAppFieldList('customerCode');
+  }, []);
   // 筛选触发时查询  页面变化时查询
   useEffect(() => {
     refreshPagination();
   }, [
     pagination,
     searchDocumentNumberText,
-    searchCustomerCodeText,
-    searchMaterialNameText,
+    searchCustomerCodeSelect,
+    // searchCustomerCodeText,
+    // searchMaterialNameText,
+    searchSourceDocumentText,
     dateRange,
   ]);
+
   // 分页获取开票申请方法
   const getInvoiceNoAppPage = async (params: PageParams) => {
     const res = await InvoiceApi.getInvoiceNoAppPage(params);
@@ -380,6 +417,34 @@ const Invoice: React.FC = () => {
       setSelectedRowKeys([]);
     }
   };
+
+  // 获取字段列表
+  const getInvoiceNoAppFieldList = async (field: string) => {
+    const res = await InvoiceApi.getInvoiceNoAppFieldList({ field });
+    if (res.code === 200) {
+      // console.log('字段列表', res.data || []);
+      // 根据field做个筛选 只要field为customerCode的
+      const fieldList =
+        res.data.map((item: any) => ({ value: item[field], label: item[field] })) || [];
+      // console.log('customerCode字段列表', fieldList);
+      setSearchCustomerCodeList(fieldList);
+    }
+  };
+  //#endregion
+
+  //#region 导出功能
+  // 导出所有数据
+  const handleExportAllData = async () => {
+    const temp = [
+      {
+        searchName: 'date',
+        searchType: 'betweenStr',
+        searchValue: dateRange.map((item: dayjs.Dayjs) => item.format('YYYY-MM-DD')).join(','),
+      },
+    ];
+
+    await exportInvoiceDataToExcel(JSON.stringify(temp));
+  };
   //#endregion
 
   return (
@@ -394,27 +459,48 @@ const Invoice: React.FC = () => {
         />
       </div>
       {/* 筛选栏 */}
-      <div style={{ marginBottom: 12, display: 'flex' }}>
+      <div
+        style={{
+          marginBottom: 12,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
+          alignItems: 'center',
+        }}
+      >
+        <Select
+          value={searchCustomerCodeSelect}
+          onChange={(value) => setSearchCustomerCodeSelect(value)}
+          showSearch
+          placeholder="搜索客户..."
+          options={searchCustomerCodeList}
+          allowClear
+        />
         <Input
           value={showSearchDocumentNumberText}
           placeholder="搜索单据编号..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
-          style={{ marginRight: 16 }}
           onChange={(e) => handleSearchDocumentNumberText(e.target.value)}
         />
-        <Input
+        {/* <Input
           value={showSearchCustomerCodeText}
           placeholder="搜索客户..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
           style={{ marginRight: 16 }}
           onChange={(e) => handleSearchCustomerCodeText(e.target.value)}
-        />
-        <Input
+        /> */}
+        {/* <Input
           value={showSearchMaterialNameText}
           placeholder="搜索料品名称..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
           style={{ marginRight: 16 }}
           onChange={(e) => handleSearchMaterialNameText(e.target.value)}
+        /> */}
+        <Input
+          value={showSearchSourceDocumentText}
+          placeholder="搜索来源单据号..."
+          prefix={<SearchOutlined style={{ color: '#737373' }} />}
+          onChange={(e) => handleSearchSourceDocumentText(e.target.value)}
         />
         {/* <Select
           defaultValue="全部类型"
@@ -467,13 +553,21 @@ const Invoice: React.FC = () => {
           <span style={{ marginLeft: 16 }}>
             不含税合计：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
-              ¥{totalTaxExcludedAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ¥
+              {totalTaxExcludedAmount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </span>
           </span>
           <span style={{ marginLeft: 16 }}>
             价税合计：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
-              ¥{totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ¥
+              {totalPrice.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </span>
           </span>
           <span style={{ marginLeft: 16 }}>
@@ -483,18 +577,28 @@ const Invoice: React.FC = () => {
             </span>
           </span>
         </div>
-        <Button
-          disabled={showTip || selectedRows.length === 0}
-          type="primary"
-          icon={<FileTextOutlined />}
-          onClick={() => invoiceModalRef.current?.showModal()}
-        >
-          提交开票申请
-        </Button>
+        <Space size={24}>
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            style={{ background: '#217346', borderColor: '#217346' }}
+            onClick={handleExportAllData}
+          >
+            导出未开票数据
+          </Button>
+          <Button
+            disabled={showTip || selectedRows.length === 0}
+            type="primary"
+            icon={<FileTextOutlined />}
+            onClick={() => invoiceModalRef.current?.showModal()}
+          >
+            提交开票申请
+          </Button>
+        </Space>
       </Flex>
       {/* 表格 */}
       <Table<DataType>
-        rowSelection={{ type: 'checkbox', ...rowSelection }}
+        rowSelection={{ type: 'checkbox', ...rowSelection, fixed: true }}
         columns={columns}
         dataSource={tableData}
         scroll={{ x: 'max-content' }}
@@ -504,7 +608,7 @@ const Invoice: React.FC = () => {
           current: pagination.current,
           total,
           pageSize: pagination.pageSize,
-          pageSizeOptions: [15, 50, 100],
+          pageSizeOptions: [15, 50, 100, 300],
           onChange: (page, pageSize) => handlePaginationChange(page, pageSize),
           showSizeChanger: true,
         }}
