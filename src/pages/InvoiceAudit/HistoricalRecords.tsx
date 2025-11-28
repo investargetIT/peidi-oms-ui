@@ -179,10 +179,10 @@ const HistoricalRecords: React.FC = () => {
           </div>
         ) : (
           dataSource.map((item) => (
-            <>
-              <InvoiceAuditCard key={item.id} type="info" dataSource={item} />
+            <React.Fragment key={item.id}>
+              <InvoiceAuditCard type="info" dataSource={item} />
               <div style={{ marginBottom: 12 }}></div>
-            </>
+            </React.Fragment>
           ))
         )}
       </div>
