@@ -57,10 +57,10 @@ const UploadComponent: React.FC<{
 }) => {
   const props: UploadProps = {
     name: 'file',
-    multiple: false,
+    multiple: true,
     accept: '.xlsx',
     showUploadList: false,
-    maxCount: 1,
+    // maxCount: 1,
     headers: {
       Authorization: localStorage.getItem('token') || '',
     },

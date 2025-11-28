@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import InvoiceAuditCard from './InvoiceAuditCard';
-import { Input, Pagination, Select } from 'antd';
+import { Input, message, Pagination, Select, Spin } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { InvoiceAuditItem } from './PendingReview';
 import { InvoiceApi, type PageParams } from '@/services/invoiceApi';
 import { useDebounceSearch } from '@/hooks/useDebounce';
 
 const HistoricalRecords: React.FC = () => {
+  // 数据请求中
+  const [loading, setLoading] = useState(false);
   // 数据列表
   const [dataSource, setDataSource] = useState<InvoiceAuditItem[]>([]);
 
@@ -73,6 +75,7 @@ const HistoricalRecords: React.FC = () => {
   }, [searchAppNoText, searchCustomerCodeText, searchAppUserText, pagination]);
   // 分页获取开票审核
   const getInvoiceAppPage = async (params: PageParams) => {
+    setLoading(true);
     const res = await InvoiceApi.getInvoiceAppPage(params);
     if (res.code === 200) {
       console.log('获取开票审核成功', res.data.records || []);
@@ -88,7 +91,10 @@ const HistoricalRecords: React.FC = () => {
       setTotal(res.data?.total || 0);
       // FIXME: 先自己做一遍筛选，只保留status为3的
       // setDataSource(res.data.records.filter((item) => item.status === 3) || []);
+    } else {
+      message.error('获取开票审核失败');
     }
+    setLoading(false);
   };
   // 刷新分页方法  可复用
   const refreshPagination = () => {
@@ -159,12 +165,26 @@ const HistoricalRecords: React.FC = () => {
       />
       {/* 卡片 */}
       <div>
-        {dataSource.map((item) => (
-          <>
-            <InvoiceAuditCard key={item.id} type="info" dataSource={item} />
-            <div style={{ marginBottom: 12 }}></div>
-          </>
-        ))}
+        {loading ? (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Spin tip="数据请求中..." size="large">
+              <div style={{ padding: 50, background: 'rgba(0, 0, 0, 0.05)', borderRadius: 4 }} />
+            </Spin>
+          </div>
+        ) : (
+          dataSource.map((item) => (
+            <>
+              <InvoiceAuditCard key={item.id} type="info" dataSource={item} />
+              <div style={{ marginBottom: 12 }}></div>
+            </>
+          ))
+        )}
       </div>
     </>
   );

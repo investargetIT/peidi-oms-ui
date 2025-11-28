@@ -123,6 +123,8 @@ export interface InvoiceAuditItem {
 const PendingReview: React.FC = () => {
   // 数据请求中
   const [loading, setLoading] = useState(false);
+  // 批量下载请求中
+  const [downloadLoading, setDownloadLoading] = useState<boolean>(false);
 
   const modalRef = React.useRef<InvoiceModalRef>(null);
   // 数据列表
@@ -148,6 +150,7 @@ const PendingReview: React.FC = () => {
   };
   // 批量下载开票模板
   const handleDownload = () => {
+    setDownloadLoading(true);
     // 存储客户信息
     const customerInfo: any = [];
     // 存储开票税务信息
@@ -155,23 +158,40 @@ const PendingReview: React.FC = () => {
 
     console.log('selectedDataList', selectedDataList);
     // 遍历selectedDataList，获取所有客户编码customerCode进行拼接，用&#&隔开
-    const customerCodes = selectedDataList.map((item) => `\"${item.customerCode}\"`).join('&#&');
+    const customerCodesList = selectedDataList.map((item) => `\"${item.customerCode}\"`);
+    const customerCodes = customerCodesList.join('&#&');
+
     console.log('customerCodes', customerCodes);
+
     // 先请求回来客户信息数据
-    InvoiceApi.getInvoiceCustomerPage({
-      pageNum: 1,
-      pageSize: 1000,
-      searchStr: JSON.stringify([
-        {
-          searchName: 'customerName',
-          searchType: 'equals',
-          searchValue: `${customerCodes}`,
-        },
-      ]),
-    }).then((res) => {
-      if (res.code === 200) {
-        console.log('获取客户信息成功', res.data || []);
-        customerInfo.push(...res.data.records);
+    // customerCodesList太长，需要分批次请求，每次请求15个，用Promise.all
+    const chunkSize = 15;
+    const chunks = [];
+    for (let i = 0; i < customerCodesList.length; i += chunkSize) {
+      chunks.push(customerCodesList.slice(i, i + chunkSize));
+    }
+    Promise.all(
+      chunks.map((chunk) => {
+        return InvoiceApi.getInvoiceCustomerPage({
+          pageNum: 1,
+          pageSize: 1000,
+          searchStr: JSON.stringify([
+            {
+              searchName: 'customerName',
+              searchType: 'equals',
+              searchValue: `${chunk.join('&#&')}`,
+            },
+          ]),
+        });
+      }),
+    )
+      .then((res: any) => {
+        console.log('获取客户信息', res);
+        // 拼接回来的客户信息
+        res.map((item: any) => {
+          customerInfo.push(...(item?.data?.records || []));
+        });
+
         const dataTemp: InvoiceDataType[] = [];
         selectedDataList.forEach((item: InvoiceAuditItem) => {
           dataTemp.push(...item.recordList);
@@ -185,26 +205,87 @@ const PendingReview: React.FC = () => {
         });
 
         // 再请求回来开票税务信息
-        InvoiceApi.postInvoiceAppTax(goodsList).then((res) => {
-          if (res.code === 200) {
-            console.log('获取开票税务信息成功', res.data || {});
-            invoiceTaxInfo.push(...res.data);
-            handleFormData(
-              dataTemp,
-              customerInfo,
-              invoiceTaxInfo,
-              `发票信息${dayjs().format('YYYYMMDDHHmmss')}`,
-            );
-            postInvoiceApp(dataTemp, 3);
-          } else {
-            console.log('获取开票税务信息失败', res.data || {});
-            message.error('获取开票税务信息失败');
-          }
-        });
-      } else {
-        message.error('获取客户信息失败');
-      }
-    });
+        InvoiceApi.postInvoiceAppTax(goodsList)
+          .then((res) => {
+            if (res.code === 200) {
+              // return;
+              console.log('获取开票税务信息成功', res.data || {});
+              invoiceTaxInfo.push(...res.data);
+              handleFormData(
+                dataTemp,
+                customerInfo,
+                invoiceTaxInfo,
+                `发票信息${dayjs().format('YYYYMMDDHHmmss')}`,
+              );
+              postInvoiceApp(dataTemp, 3);
+              setDownloadLoading(false);
+            } else {
+              console.log('获取开票税务信息失败', res.data || {});
+              message.error('获取开票税务信息失败');
+              setDownloadLoading(false);
+            }
+          })
+          .catch((err) => {
+            console.log('获取开票税务信息失败', err);
+            message.error('获取开票税务信息失败:' + err.message);
+            setDownloadLoading(false);
+          });
+      })
+      .catch((err) => {
+        console.log('获取客户信息失败', err);
+        message.error('获取客户信息失败:' + err.message);
+        setDownloadLoading(false);
+      });
+
+    return;
+    // // 先请求回来客户信息数据
+    // InvoiceApi.getInvoiceCustomerPage({
+    //   pageNum: 1,
+    //   pageSize: 1000,
+    //   searchStr: JSON.stringify([
+    //     {
+    //       searchName: 'customerName',
+    //       searchType: 'equals',
+    //       searchValue: `${customerCodes}`,
+    //     },
+    //   ]),
+    // }).then((res) => {
+    //   if (res.code === 200) {
+    //     console.log('获取客户信息成功', res.data || []);
+    //     customerInfo.push(...res.data.records);
+    //     const dataTemp: InvoiceDataType[] = [];
+    //     selectedDataList.forEach((item: InvoiceAuditItem) => {
+    //       dataTemp.push(...item.recordList);
+    //     });
+
+    //     const goodsList: any[] = [];
+    //     dataTemp.forEach((item) => {
+    //       goodsList.push({
+    //         u9No: item.materialCode,
+    //       });
+    //     });
+
+    //     // 再请求回来开票税务信息
+    //     InvoiceApi.postInvoiceAppTax(goodsList).then((res) => {
+    //       if (res.code === 200) {
+    //         console.log('获取开票税务信息成功', res.data || {});
+    //         invoiceTaxInfo.push(...res.data);
+    //         handleFormData(
+    //           dataTemp,
+    //           customerInfo,
+    //           invoiceTaxInfo,
+    //           `发票信息${dayjs().format('YYYYMMDDHHmmss')}`,
+    //         );
+    //         postInvoiceApp(dataTemp, 3);
+    //       } else {
+    //         console.log('获取开票税务信息失败', res.data || {});
+    //         message.error('获取开票税务信息失败');
+    //       }
+    //     });
+    //   } else {
+    //     message.error('获取客户信息失败');
+    //   }
+    // });
   };
   //#endregion
 
@@ -376,38 +457,43 @@ const PendingReview: React.FC = () => {
             不含税合计：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
               {/* 需要算selectedDataList每个recordList的taxExcludedAmount */}¥
-              {selectedDataList.reduce(
-                (acc, cur) =>
-                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.taxExcludedAmount, 0),
-                0,
-              )
-              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {selectedDataList
+                .reduce(
+                  (acc, cur) =>
+                    acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.taxExcludedAmount, 0),
+                  0,
+                )
+                .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </span>
           <span style={{ marginLeft: 16 }}>
             价税合计：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
               {/* 需要算selectedDataList每个recordList的totalTaxAmount */}¥
-              {selectedDataList.reduce(
-                (acc, cur) =>
-                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.totalTaxAmount, 0),
-                0,
-              )
-              .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {selectedDataList
+                .reduce(
+                  (acc, cur) =>
+                    acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.totalTaxAmount, 0),
+                  0,
+                )
+                .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </span>
           <span style={{ marginLeft: 16 }}>
             合计出库数量：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
-              {selectedDataList.reduce(
-                (acc, cur) =>
-                  acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.outboundQty, 0),
-                0,
-              )}
+              {selectedDataList
+                .reduce(
+                  (acc, cur) =>
+                    acc + cur.recordList?.reduce((acc2, cur2) => acc2 + cur2.outboundQty, 0),
+                  0,
+                )
+                .toLocaleString()}
             </span>
           </span>
         </div>
         <Button
+          loading={downloadLoading}
           disabled={selectedDataList.length === 0}
           type="primary"
           icon={<DownloadOutlined />}

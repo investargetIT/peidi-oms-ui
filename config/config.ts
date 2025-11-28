@@ -159,5 +159,6 @@ export default defineConfig({
     'process.env.PYTHON_BASE_URL': process.env.PYTHON_BASE_URL,
     'process.env.DINGTALK_CORP_ID': process.env.DINGTALK_CORP_ID,
     'process.env.DINGTALK_LOGIN_FREE_DEFAULT_PASSWORD': process.env.DINGTALK_LOGIN_FREE_DEFAULT_PASSWORD,
+    'process.env.DINGTALK_LOGIN_FREE_DEFAULT_PASSWORD_ENCRYPTED': process.env.DINGTALK_LOGIN_FREE_DEFAULT_PASSWORD_ENCRYPTED,
   }
 });
