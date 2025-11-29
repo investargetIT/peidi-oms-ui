@@ -23,7 +23,7 @@ import {
   TableProps,
   Tooltip,
 } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import InvoiceModal from './Modal';
 import type { InvoiceModalRef } from './Modal';
 import InvoiceApi from '@/services/invoiceApi';
@@ -313,15 +313,34 @@ const Invoice: React.FC = () => {
 
   // rowSelection object indicates the need for row selection
   const rowSelection: TableProps<DataType>['rowSelection'] = {
-    onChange: (selectedRowKeys: React.Key[], selectedRows: DataType[]) => {
-      console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
-      setSelectedRows(selectedRows);
-      setSelectedRowKeys(selectedRowKeys);
+    onChange: useCallback(
+      (selectedRowKeys: React.Key[], selectedRows: DataType[]) => {
+        console.log(`selectedRowKeys: ${selectedRowKeys}`, 'selectedRows: ', selectedRows);
+        setSelectedRows(selectedRows);
+        setSelectedRowKeys(selectedRowKeys);
 
-      // 检查是否有多个客户
-      const uniqueCustomers = new Set(selectedRows.map((item) => item.customerCode));
-      setShowTip(uniqueCustomers.size > 1);
-    },
+        // 检查是否有多个客户
+        // const uniqueCustomers = new Set(selectedRows.map((item) => item.customerCode));
+        // setShowTip(uniqueCustomers.size > 1);
+
+        // 优化客户检查逻辑，使用更高效的方法
+        let hasMultipleCustomers = false;
+        let firstCustomerCode = '';
+
+        for (let i = 0; i < selectedRows.length; i++) {
+          const customerCode = selectedRows[i].customerCode;
+          if (i === 0) {
+            firstCustomerCode = customerCode;
+          } else if (customerCode !== firstCustomerCode) {
+            hasMultipleCustomers = true;
+            break; // 发现多个客户立即退出循环
+          }
+        }
+
+        setShowTip(hasMultipleCustomers);
+      },
+      [setSelectedRows, setSelectedRowKeys, setShowTip],
+    ),
     getCheckboxProps: (record: DataType) => ({
       // disabled: record.key === 'Disabled User', // Column configuration not to be checked
       name: record.date,
