@@ -1,4 +1,5 @@
 import {
+  ClearOutlined,
   DownloadOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
@@ -20,6 +21,7 @@ import {
   Table,
   TableColumnsType,
   TableProps,
+  Tooltip,
 } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import InvoiceModal from './Modal';
@@ -30,6 +32,8 @@ import { useDebounceSearch } from '@/hooks/useDebounce';
 import dayjs from 'dayjs';
 // 添加导出工具导入
 import { exportInvoiceDataToExcel, exportSelectedRowsToExcel } from './utils';
+// 导入localStorage配置管理
+import configManager, { ConfigKeys } from '@/utils/localStorageConfig';
 
 export interface DataType {
   /** 主键ID */
@@ -327,13 +331,18 @@ const Invoice: React.FC = () => {
   };
 
   //#region 分页逻辑
+  const initialPageSize =
+    configManager.get<{ pageSize: number }>(ConfigKeys.INVOICE_PAGINATION)?.pageSize || 15;
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 15,
+    pageSize: initialPageSize,
   });
   const [total, setTotal] = useState(0);
 
   const handlePaginationChange = (page: number, pageSize: number) => {
+    // 保存新的pageSize到localStorage
+    configManager.set(ConfigKeys.INVOICE_PAGINATION, { pageSize });
+
     setPagination({
       current: page,
       pageSize,
@@ -447,6 +456,18 @@ const Invoice: React.FC = () => {
   };
   //#endregion
 
+  // 清空所有选择项
+  const handleClearSelection = () => {
+    setSelectedRows([]);
+    // setTotalTaxExcludedAmount(0);
+    // setTotalPrice(0);
+    // setTotalQuantity(0);
+    setSelectedRowKeys([]);
+    setShowTip(false);
+    // 注意：totalTaxExcludedAmount、totalPrice、totalQuantity 会通过 useEffect 自动重置
+    // 因为它们依赖于 selectedRows，当 selectedRows 为空时，计算结果为 0
+  };
+
   return (
     <PageContainer>
       {/* 数据日期范围 */}
@@ -550,6 +571,17 @@ const Invoice: React.FC = () => {
             </span>
             项
           </span>
+          {selectedRows.length > 0 && (
+            <Tooltip title="清空所有选择项">
+              <Button
+                type="text"
+                size="small"
+                icon={<ClearOutlined />}
+                onClick={handleClearSelection}
+                style={{ color: '#ff4d4f', border: '1px solid #ff4d4f', marginLeft: 12 }}
+              ></Button>
+            </Tooltip>
+          )}
           <span style={{ marginLeft: 16 }}>
             不含税合计：
             <span style={{ color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' }}>
