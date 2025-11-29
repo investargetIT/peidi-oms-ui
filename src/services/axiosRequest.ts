@@ -19,6 +19,21 @@ export interface ResponseData<T = any> {
   [key: string]: any;
 }
 
+// 从全局对象获取进度条管理函数
+const getProgressFunctions = () => {
+  if (typeof window !== 'undefined' && (window as any).__nprogress) {
+    return {
+      startLoading: (window as any).__nprogress.startLoading,
+      stopLoading: (window as any).__nprogress.stopLoading,
+    };
+  }
+  // 如果全局对象不存在，返回空函数
+  return {
+    startLoading: () => {},
+    stopLoading: () => {},
+  };
+};
+
 /**
  * 优雅的Axios请求封装类
  */
@@ -56,10 +71,29 @@ export class AxiosRequest {
           config.headers.Authorization = `${token}`;
         }
 
+        // 根据配置决定是否显示进度条（默认显示）
+        const requestConfig = config as RequestConfig;
+        const showLoading = requestConfig?.showLoading !== false; // 默认显示
+
+        if (showLoading) {
+          const { startLoading } = getProgressFunctions();
+          startLoading(); // 开始显示进度条
+        }
+
         return config;
       },
       (error) => {
         console.error('❌ 请求拦截器错误:', error);
+
+        // 请求出错时也要停止进度条
+        const requestConfig = error.config as RequestConfig;
+        const showLoading = requestConfig?.showLoading !== false;
+
+        if (showLoading) {
+          const { stopLoading } = getProgressFunctions();
+          stopLoading(); // 停止显示进度条
+        }
+
         return Promise.reject(error);
       },
     );
@@ -72,6 +106,14 @@ export class AxiosRequest {
         // 统一处理响应数据格式
         const { data } = response;
         const config = response.config as RequestConfig;
+
+        // 根据配置决定是否停止进度条（默认显示）
+        const showLoading = config?.showLoading !== false; // 默认显示
+
+        if (showLoading) {
+          const { stopLoading } = getProgressFunctions();
+          stopLoading(); // 停止显示进度条
+        }
 
         // 如果后端返回的数据格式是 { code, msg, data } 或 { success, msg, data }
         if (data && typeof data === 'object') {
@@ -109,6 +151,14 @@ export class AxiosRequest {
       (error) => {
         console.error('❌ 请求失败:', error);
         const config = error.config as RequestConfig;
+
+        // 根据配置决定是否停止进度条
+        const showLoading = config?.showLoading !== false;
+
+        if (showLoading) {
+          const { stopLoading } = getProgressFunctions();
+          stopLoading(); // 停止显示进度条
+        }
 
         // 统一错误处理
         if (error.response) {

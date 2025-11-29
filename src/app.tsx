@@ -7,10 +7,49 @@ import { history, Link } from '@umijs/max';
 import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
 import { currentUser as queryCurrentUser } from '@/services/ant-design-pro/api';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { NProgress } from '@tanem/react-nprogress';
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
 const dingTalkLoginFree = '/user/dd';
+
+// 创建全局请求状态管理（不导出，通过事件监听）
+let requestCount = 0;
+let lastRequestTime = 0;
+const requestListeners: Array<(loading: boolean) => void> = [];
+
+// 进度条状态管理函数（不导出）
+const startLoading = () => {
+  const now = Date.now();
+  // 如果距离上次请求超过500ms，认为是新请求，重置进度
+  if (now - lastRequestTime > 500) {
+    requestCount = 0;
+  }
+  lastRequestTime = now;
+
+  requestCount++;
+  if (requestCount === 1) {
+    requestListeners.forEach((listener) => listener(true));
+  }
+};
+
+const stopLoading = () => {
+  requestCount = Math.max(0, requestCount - 1);
+  if (requestCount === 0) {
+    // 延迟300ms再隐藏进度条，确保完成动画能播放
+    setTimeout(() => {
+      requestListeners.forEach((listener) => listener(false));
+    }, 300);
+  }
+};
+
+// 将进度条管理函数挂载到全局对象，供外部使用
+if (typeof window !== 'undefined') {
+  (window as any).__nprogress = {
+    startLoading,
+    stopLoading,
+  };
+}
 
 /**
  * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
@@ -24,7 +63,7 @@ export async function getInitialState(): Promise<{
 }> {
   const fetchUserInfo = async () => {
     try {
-      const msg = await queryCurrentUser({
+      const msg: any = await queryCurrentUser({
         skipErrorHandler: true,
       });
       // 存入localStorage
@@ -60,6 +99,50 @@ export async function getInitialState(): Promise<{
 
 // ProLayout 支持的api https://procomponents.ant.design/components/layout
 export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) => {
+  const [progress, setProgress] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    // 注册请求状态监听器
+    const listener = (loading: boolean) => {
+      setIsAnimating(loading);
+
+      if (loading) {
+        // 开始新的进度条动画
+        setProgress(0);
+
+        // 模拟进度条前进
+        const interval = setInterval(() => {
+          setProgress((prev) => {
+            // 匀速前进到95%
+            const newProgress = prev + 0.05;
+            return Math.min(newProgress, 0.95);
+          });
+        }, 100);
+
+        // 清理定时器
+        return () => clearInterval(interval);
+      } else {
+        // 请求完成，进度条到100%然后消失
+        setProgress(1);
+        setTimeout(() => {
+          setIsAnimating(false);
+          setProgress(0);
+        }, 300);
+      }
+    };
+
+    requestListeners.push(listener);
+
+    return () => {
+      // 清理监听器
+      const index = requestListeners.indexOf(listener);
+      if (index > -1) {
+        requestListeners.splice(index, 1);
+      }
+    };
+  }, []);
+
   return {
     // actionsRender: () => [<Question key="doc" />, <SelectLang key="SelectLang" />],
     avatarProps: {
@@ -116,6 +199,67 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
       // if (initialState?.loading) return <PageLoading />;
       return (
         <>
+          {/* 自定义进度条组件 */}
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: 3,
+              backgroundColor: 'rgba(24, 144, 255, 0.1)',
+              zIndex: 1031,
+              overflow: 'hidden',
+              opacity: isAnimating ? 1 : 0,
+              pointerEvents: 'none',
+              transition: 'opacity 0.3s ease-out',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                height: '100%',
+                width: `${progress * 100}%`,
+                background:
+                  progress === 1
+                    ? 'linear-gradient(90deg, #1890ff, #096dd9, #0050b3)'
+                    : 'linear-gradient(90deg, #1890ff, #40a9ff, #69c0ff)',
+                transition: progress === 1 ? 'width 0.3s ease-out' : 'width 0.1s linear',
+                boxShadow:
+                  progress === 1
+                    ? '0 0 12px rgba(24, 144, 255, 0.8)'
+                    : '0 0 8px rgba(24, 144, 255, 0.6)',
+                borderRadius: '0 2px 2px 0',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  height: '100%',
+                  width: '30px',
+                  background:
+                    'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent)',
+                  animation: 'nprogress-shine 2s infinite',
+                }}
+              />
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes nprogress-shine {
+              0% {
+                transform: translateX(-30px);
+              }
+              100% {
+                transform: translateX(200px);
+              }
+            }
+          `}</style>
+
           {children}
           {isDev && (
             <SettingDrawer
