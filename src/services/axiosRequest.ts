@@ -1,5 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { message } from 'antd';
+// 添加导入
+import { stringify } from 'querystring';
 
 // 请求配置接口
 export interface RequestConfig extends AxiosRequestConfig {
@@ -127,6 +129,11 @@ export class AxiosRequest {
               message.warning(data.msg || '操作失败');
             }
 
+            if (data.code === 100100012) {
+              // token过期后自动退出到登录页
+              this.handleTokenExpired();
+            }
+
             // 返回数据，不抛出错误，让应用继续运行
             return data;
           }
@@ -174,7 +181,6 @@ export class AxiosRequest {
               if (showError) {
                 message.error('认证失败，请重新登录');
               }
-              // 可以跳转到登录页
               break;
             case 403:
               console.error('权限不足');
@@ -304,6 +310,28 @@ export class AxiosRequest {
    */
   removeHeader(key: string): void {
     delete this.instance.defaults.headers.common[key];
+  }
+
+  /**
+   * 处理token过期
+   */
+  private handleTokenExpired(): void {
+    // 清除本地存储的token
+    localStorage.removeItem('token');
+
+    // 跳转到登录页
+    const { search, pathname } = window.location;
+    const urlParams = new URL(window.location.href).searchParams;
+    const redirect = urlParams.get('redirect');
+
+    if (window.location.pathname !== '/user/login' && !redirect) {
+      // 使用replace避免浏览器历史记录问题
+      window.location.replace(
+        `/user/login?${stringify({
+          redirect: pathname + search,
+        })}`,
+      );
+    }
   }
 }
 
