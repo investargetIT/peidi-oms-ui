@@ -237,6 +237,8 @@ const Invoice: React.FC = () => {
     useDebounceSearch('');
   const [searchSourceDocumentText, showSearchSourceDocumentText, handleSearchSourceDocumentText] =
     useDebounceSearch('');
+  const [searchOrganizationText, showSearchOrganizationText, handleSearchOrganizationText] =
+    useDebounceSearch('');
   // const [type, setType] = useState('全部类型');
   // const [custom, setCustom] = useState('全部客户');
 
@@ -283,6 +285,13 @@ const Invoice: React.FC = () => {
         searchName: 'sourceDocument',
         searchType: 'like',
         searchValue: `${searchSourceDocumentText}`,
+      });
+    }
+    if (searchOrganizationText) {
+      searchParams.push({
+        searchName: 'organizationName',
+        searchType: 'like',
+        searchValue: `${searchOrganizationText}`,
       });
     }
     return JSON.stringify(searchParams);
@@ -388,6 +397,7 @@ const Invoice: React.FC = () => {
     // searchCustomerCodeText,
     // searchMaterialNameText,
     searchSourceDocumentText,
+    searchOrganizationText,
     dateRange,
   ]);
 
@@ -545,6 +555,12 @@ const Invoice: React.FC = () => {
           placeholder="搜索来源单据号..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
           onChange={(e) => handleSearchSourceDocumentText(e.target.value)}
+        />
+        <Input
+          value={showSearchOrganizationText}
+          placeholder="搜索组织..."
+          prefix={<SearchOutlined style={{ color: '#737373' }} />}
+          onChange={(e) => handleSearchOrganizationText(e.target.value)}
         />
         {/* <Select
           defaultValue="全部类型"
