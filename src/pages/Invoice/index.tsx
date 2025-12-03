@@ -183,6 +183,10 @@ const columns: TableColumnsType<DataType> = [
     title: '来源单据号',
     dataIndex: 'sourceDocument',
   },
+  {
+    title: '组织',
+    dataIndex: 'organizationName',
+  },
 ];
 
 const data: DataType[] = [];

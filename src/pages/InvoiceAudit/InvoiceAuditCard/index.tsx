@@ -106,6 +106,10 @@ const columns: TableColumnsType<DataType> = [
     title: '来源单据号',
     dataIndex: 'sourceDocument',
   },
+  {
+    title: '组织',
+    dataIndex: 'organizationName',
+  },
 ];
 
 const data: DataType[] = [];
@@ -258,7 +262,7 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
             </Flex>
             <div style={{ color: '#737373', marginTop: 5 }}>
               提交时间: {dayjs(dataSource.appTime).format('YYYY-MM-DD HH:mm:ss')} | 提交人:{' '}
-              {dataSource.appUser}
+              {dataSource.appUser} | 组织: {dataSource.organizationName}
             </div>
           </div>
         </Flex>
