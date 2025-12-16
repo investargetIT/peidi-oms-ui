@@ -6,7 +6,7 @@ import type { RunTimeLayoutConfig } from '@umijs/max';
 import { history, Link } from '@umijs/max';
 import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
-import { currentUser as queryCurrentUser } from '@/services/ant-design-pro/api';
+import { currentUser as queryCurrentUser, getParentByUser } from '@/services/ant-design-pro/api';
 import React, { useEffect, useState } from 'react';
 import { NProgress } from '@tanem/react-nprogress';
 const isDev = process.env.NODE_ENV === 'development';
@@ -60,6 +60,7 @@ export async function getInitialState(): Promise<{
   loading?: boolean;
   fetchUserInfo?: () => Promise<API.CurrentUser | undefined>;
   ddUserInfo?: any;
+  parentByUser?: any;
 }> {
   const fetchUserInfo = async () => {
     try {
@@ -68,6 +69,13 @@ export async function getInitialState(): Promise<{
       });
       // 存入localStorage
       localStorage.setItem('user-check', JSON.stringify(msg.data));
+      const parentByUser = await getParentByUser(msg.data.dingId, {
+        skipErrorHandler: true,
+      });
+      // 存入localStorage
+      if (parentByUser.data) {
+        localStorage.setItem('parentByUser', JSON.stringify(parentByUser.data));
+      }
       return { ...msg.data, name: msg.data.username + '' };
     } catch (error) {
       history.push(loginPath);
@@ -82,6 +90,7 @@ export async function getInitialState(): Promise<{
     //#region 权限逻辑
     //尝试获取ddUserInfo
     const ddUserInfo = JSON.parse(localStorage.getItem('ddUserInfo') || '{}');
+    const parentByUser = JSON.parse(localStorage.getItem('parentByUser') || '{}');
     //#endregion
 
     return {
@@ -89,6 +98,7 @@ export async function getInitialState(): Promise<{
       currentUser,
       settings: defaultSettings as Partial<LayoutSettings>,
       ddUserInfo,
+      parentByUser,
     };
   }
   return {
