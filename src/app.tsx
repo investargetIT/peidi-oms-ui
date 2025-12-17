@@ -113,6 +113,8 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
     // 注册请求状态监听器
     const listener = (loading: boolean) => {
       setIsAnimating(loading);
@@ -122,7 +124,13 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         setProgress(0);
 
         // 模拟进度条前进
-        const interval = setInterval(() => {
+        // const interval = setInterval(() => {
+        // 清理之前的定时器
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+
+        intervalId = setInterval(() => {
           setProgress((prev) => {
             // 匀速前进到95%
             const newProgress = prev + 0.05;
@@ -131,8 +139,12 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         }, 100);
 
         // 清理定时器
-        return () => clearInterval(interval);
+        // return () => clearInterval(interval);
       } else {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
         // 请求完成，进度条到100%然后消失
         setProgress(1);
         setTimeout(() => {
@@ -145,6 +157,9 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     requestListeners.push(listener);
 
     return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
       // 清理监听器
       const index = requestListeners.indexOf(listener);
       if (index > -1) {

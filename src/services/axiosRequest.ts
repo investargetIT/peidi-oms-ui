@@ -132,6 +132,7 @@ export class AxiosRequest {
             if (data.code === 100100012) {
               // token过期后自动退出到登录页
               this.handleTokenExpired();
+              return Promise.reject(new Error('Token 过期'));
             }
 
             // 返回数据，不抛出错误，让应用继续运行
