@@ -48,6 +48,7 @@
   "dependencies": {
     "@ant-design/icons": "^4.8.3",
     "@ant-design/pro-components": "^2.7.9",
+    "@tanem/react-nprogress": "^5.0.56",
     "@types/file-saver": "^2.0.7",
     "@umijs/route-utils": "^2.2.2",
     "antd": "^5.27.6",

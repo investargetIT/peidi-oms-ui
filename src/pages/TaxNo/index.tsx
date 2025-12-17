@@ -246,6 +246,7 @@ const TaxNo: React.FC = () => {
         pagination={{
           current: pagination.current,
           pageSize: pagination.pageSize,
+          pageSizeOptions: [10],
           total: total,
           showTotal: (total) => `共 ${total} 条记录`,
           onChange: handlePaginationChange,

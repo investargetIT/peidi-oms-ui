@@ -106,6 +106,10 @@ const columns: TableColumnsType<DataType> = [
     title: '来源单据号',
     dataIndex: 'sourceDocument',
   },
+  {
+    title: '组织',
+    dataIndex: 'organizationName',
+  },
 ];
 
 const data: DataType[] = [];
@@ -258,7 +262,7 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
             </Flex>
             <div style={{ color: '#737373', marginTop: 5 }}>
               提交时间: {dayjs(dataSource.appTime).format('YYYY-MM-DD HH:mm:ss')} | 提交人:{' '}
-              {dataSource.appUser}
+              {dataSource.appUser} | 组织: {dataSource.organizationName}
             </div>
           </div>
         </Flex>
@@ -274,7 +278,7 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
       <Flex style={{ marginTop: 16, marginBottom: 16 }} justify="flex-start" align="flex-end">
         <div style={{ color: '#737373', marginRight: 5 }}>订单数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
-          {dataSource.recordList?.length || 0} 个
+          {dataSource.recordList?.length?.toLocaleString() || 0} 个
         </div>
         <div style={{ color: '#737373', marginRight: 5 }}>不含税合计:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold', marginRight: 18 }}>
@@ -292,7 +296,8 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
         </div>
         <div style={{ color: '#737373', marginRight: 5 }}>合计出库数量:</div>
         <div style={{ color: '#0a0a0a', fontSize: '16px', fontWeight: 'bold' }}>
-          {dataSource.recordList?.reduce((acc, cur) => acc + cur.outboundQty, 0)} 个
+          {dataSource.recordList?.reduce((acc, cur) => acc + cur.outboundQty, 0).toLocaleString()}{' '}
+          个
         </div>
       </Flex>
       {/* 表格 */}

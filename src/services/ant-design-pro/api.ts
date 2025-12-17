@@ -13,6 +13,17 @@ export async function currentUser(options?: { [key: string]: any }) {
   });
 }
 
+/** 根据用户钉钉id获取上级部门列表 GET /ding/parentbyuser */
+export async function getParentByUser(userId: string, options?: { [key: string]: any }) {
+  return request<{
+    data: any;
+  }>(process.env.USER_AUTH_BASE_URL + '/ding/parentbyuser?userId=' + userId, {
+    method: 'GET',
+    ...(options || {}),
+  });
+}
+
+
 /** 退出登录接口 POST /api/login/outLogin */
 export async function outLogin(options?: { [key: string]: any }) {
   return request<Record<string, any>>('http://localhost:8000/api/login/outLogin', {

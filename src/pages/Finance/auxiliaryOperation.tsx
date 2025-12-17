@@ -1,5 +1,5 @@
 import FinanceApi from '@/services/financeApi';
-import { ShopOutlined } from '@ant-design/icons';
+import { ShopOutlined, UserOutlined } from '@ant-design/icons';
 import {
   Button,
   Card,
@@ -53,7 +53,7 @@ const AuxiliaryOperation: React.FC = () => {
             onClick={() => setIsOBAShopNewModalOpen(true)}
           >
             <Flex align="center" justify="center" style={{ height: 80 }}>
-              <ShopOutlined style={{ fontSize: 50 }} />
+              <UserOutlined style={{ fontSize: 50 }} />
             </Flex>
             <Meta title="客户代码信息维护" style={{ textAlign: 'center' }} />
           </Card>

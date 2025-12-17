@@ -295,6 +295,8 @@ const PendingReview: React.FC = () => {
   const [searchCustomerCodeText, showSearchCustomerCodeText, handleSearchCustomerCodeText] =
     useDebounceSearch('');
   const [searchAppUserText, showSearchAppUserText, handleSearchAppUserText] = useDebounceSearch('');
+  const [searchOrganizationText, showSearchOrganizationText, handleSearchOrganizationText] =
+    useDebounceSearch('');
 
   // 处理筛选参数方法
   const getSearchStr = () => {
@@ -325,6 +327,13 @@ const PendingReview: React.FC = () => {
         searchValue: searchAppUserText,
       });
     }
+    if (searchOrganizationText) {
+      searchParams.push({
+        searchName: 'organizationName',
+        searchType: 'like',
+        searchValue: searchOrganizationText,
+      });
+    }
 
     return JSON.stringify(searchParams);
   };
@@ -334,7 +343,7 @@ const PendingReview: React.FC = () => {
   // 筛选触发时查询
   useEffect(() => {
     refreshPagination();
-  }, [searchAppNoText, searchCustomerCodeText, searchAppUserText]);
+  }, [searchAppNoText, searchCustomerCodeText, searchAppUserText, searchOrganizationText]);
   // 分页获取开票审核
   const getInvoiceAppPage = async (params: PageParams) => {
     setLoading(true);
@@ -388,27 +397,38 @@ const PendingReview: React.FC = () => {
   return (
     <>
       {/* 操作栏 */}
-      <div style={{ marginBottom: 32, display: 'flex' }}>
+      <div
+        style={{
+          marginBottom: 12,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
+          alignItems: 'center',
+        }}
+      >
         <Input
           value={showSearchAppNoText}
           onChange={(e) => handleSearchAppNoText(e.target.value)}
           placeholder="搜索申请编号..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
-          style={{ marginRight: 16 }}
         />
         <Input
           value={showSearchCustomerCodeText}
           onChange={(e) => handleSearchCustomerCodeText(e.target.value)}
           placeholder="搜索客户..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
-          style={{ marginRight: 16 }}
         />
         <Input
           value={showSearchAppUserText}
           onChange={(e) => handleSearchAppUserText(e.target.value)}
           placeholder="搜索提交人..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
-          style={{ marginRight: 16 }}
+        />
+        <Input
+          value={showSearchOrganizationText}
+          onChange={(e) => handleSearchOrganizationText(e.target.value)}
+          placeholder="搜索组织..."
+          prefix={<SearchOutlined style={{ color: '#737373' }} />}
         />
         {/* <Select
           defaultValue="全部客户"
