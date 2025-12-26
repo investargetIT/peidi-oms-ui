@@ -14,10 +14,16 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
 
   //#region 请求相关
   const fetchShopPage = () => {
-    FinanceApi.getShopPage().then((res) => {
-      console.log('店铺信息', res);
-      setDataSource(res.data.reverse() || []);
-    });
+    FinanceApi.getShopPage()
+      .then((res) => {
+        if (res.code === 200 && res.data) {
+          setDataSource([...res.data].reverse());
+        }
+      })
+      .catch((error) => {
+        message.error('获取店铺信息失败: ' + error);
+        console.error('Failed to fetch shop page:', error);
+      });
   };
   //#endregion
 
@@ -212,7 +218,7 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
 
   return (
     <div>
-      <Table size="small" dataSource={dataSource} columns={columns} pagination={false} />
+      <Table size="small" dataSource={dataSource} columns={columns} pagination={false} rowKey="id"/>
 
       <Modal
         title={shopInfoModalTitle}
