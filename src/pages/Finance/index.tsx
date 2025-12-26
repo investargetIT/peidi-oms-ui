@@ -125,25 +125,24 @@ const App: React.FC = () => {
   const [executeStatus, setExecuteStatus] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
+  const fetchExecuteStatus = async () => {
+    try {
+      const response = await axios.get(`${process.env.BASE_URL}/finance/date/execute`, {
+        headers: { Authorization: localStorage.getItem('token') },
+      });
+      const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } = response.data.data;
+      setUploadFileNames(uploadFileNames);
+      setExecuteFileNames(executeFileNames);
+      setExecuteStatus(executeStatus);
+      setUploadStatus(uploadStatus);
+      console.log(executeStatus);
+    } catch (error) {
+      console.error('Failed to fetch execute status:', error);
+    }
+  };
+
   // 获取状态信息
   useEffect(() => {
-    const fetchExecuteStatus = async () => {
-      try {
-        const response = await axios.get(`${process.env.BASE_URL}/finance/date/execute`, {
-          headers: { Authorization: localStorage.getItem('token') },
-        });
-        const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } =
-          response.data.data;
-        setUploadFileNames(uploadFileNames);
-        setExecuteFileNames(executeFileNames);
-        setExecuteStatus(executeStatus);
-        setUploadStatus(uploadStatus);
-        console.log(executeStatus);
-      } catch (error) {
-        console.error('Failed to fetch execute status:', error);
-      }
-    };
-
     fetchExecuteStatus();
   }, []);
 
@@ -173,6 +172,7 @@ const App: React.FC = () => {
         },
       );
       // 成功后可以选择重新获取状态信息
+      fetchExecuteStatus();
     } catch (error) {
       // console.error('Failed to execute finance processing:', error);
     }
