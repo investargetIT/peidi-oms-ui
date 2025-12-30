@@ -255,8 +255,8 @@ const Invoice: React.FC = () => {
     if (searchDocumentNumberText) {
       searchParams.push({
         searchName: 'documentNumber',
-        searchType: 'like',
-        searchValue: `${searchDocumentNumberText}`,
+        searchType: 'equals',
+        searchValue: `\"${searchDocumentNumberText}\"`,
       });
     }
     if (searchCustomerCodeSelect) {
