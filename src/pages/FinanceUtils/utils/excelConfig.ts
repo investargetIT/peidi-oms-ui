@@ -32,6 +32,10 @@ export const EXCEL_CONFIG = [
     dataIndex: 'priceIncludesTax',
   },
   {
+    title: '出货原则',
+    dataIndex: 'shippingPrinciple',
+  },
+  {
     title: '业务员',
     dataIndex: 'salesman',
   },
@@ -102,5 +106,5 @@ export const EXCEL_CONFIG = [
   {
     title: '销售订单行_订单子行.供应类型',
     dataIndex: 'supplyType',
-  }
+  },
 ];

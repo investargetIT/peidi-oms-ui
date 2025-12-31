@@ -295,6 +295,10 @@ const handleAntdTableData = async (tableData: any[], fileName?: string) => {
       // 如果是shopId-客户则清除前空格
       else if (dataIndex === 'shopId') {
         row.getCell(colIndex + 1).value = item[dataIndex] ? item[dataIndex].trim() : '';
+      }
+      // 出货原则固定写死004
+      else if (dataIndex === 'shippingPrinciple') {
+        row.getCell(colIndex + 1).value = '004';
       } else {
         row.getCell(colIndex + 1).value = item[dataIndex];
       }
