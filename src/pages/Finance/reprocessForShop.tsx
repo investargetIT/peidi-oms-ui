@@ -305,7 +305,7 @@ const ReprocessForShop = () => {
       setExcelLoading(true);
       // month 当前年-当前月
       const res = await financeObaPage({
-        month: `${dayjs().year()}-${dayjs().month() + 1}`,
+        month: dayjs().format('YYYY-MM'),
         pageNo: 1,
         pageSize: 1000,
         // 用,拼接
@@ -353,7 +353,7 @@ const ReprocessForShop = () => {
             for (const org of Object.keys(orgMap)) {
               const blobData = await handleAntdTableData(
                 orgMap[org],
-                `${org}-${dayjs().year()}-${dayjs().month() + 1}`,
+                `${org}-${dayjs().format('YYYY-MM')}`,
               );
               // 调用exportObaDataTemplateExcel 导出OBA数据模板Excel文件
               //   blobLists.push(await exportObaDataTemplateExcel(org));
@@ -368,10 +368,7 @@ const ReprocessForShop = () => {
             console.log('blobLists', blobLists);
 
             // 压缩blobLists 并导出
-            await handleCompressBlobs(
-              blobLists,
-              `OBA数据-${dayjs().year()}-${dayjs().month() + 1}`,
-            );
+            await handleCompressBlobs(blobLists, `OBA数据-${dayjs().format('YYYY-MM')}`);
             setExcelLoading(false);
           } catch (error) {
             console.log(error);
