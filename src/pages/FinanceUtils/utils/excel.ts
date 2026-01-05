@@ -2,6 +2,7 @@ import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { EXCEL_CONFIG } from './excelConfig';
 import JSZip from 'jszip';
+import dayjs from 'dayjs';
 
 // 示例数据
 const newData = [
@@ -230,7 +231,11 @@ const handleFormData = async (tableData: any[], fileName?: string) => {
 };
 
 // 业务逻辑 -传入antd table数据 导出excel
-const handleAntdTableData = async (tableData: any[], fileName?: string) => {
+const handleAntdTableData = async (
+  tableData: any[],
+  fileName?: string,
+  isBeginYear?: boolean, // 是否是年初，年初开票固定日期YYYY（去年）-12-31
+) => {
   console.log('开始处理Table数据');
 
   // 创建空的Excel工作簿
@@ -299,6 +304,15 @@ const handleAntdTableData = async (tableData: any[], fileName?: string) => {
       // 出货原则固定写死004
       else if (dataIndex === 'shippingPrinciple') {
         row.getCell(colIndex + 1).value = '004';
+      }
+      // 年初模式下 日期固定写死为YYYY（去年）-12-31
+      else if (dataIndex === 'date') {
+        console.log(isBeginYear);
+        if (isBeginYear) {
+          row.getCell(colIndex + 1).value = `${dayjs().year() - 1}-12-31`;
+        } else {
+          row.getCell(colIndex + 1).value = item[dataIndex];
+        }
       } else {
         row.getCell(colIndex + 1).value = item[dataIndex];
       }

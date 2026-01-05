@@ -1,4 +1,9 @@
-import { DownloadOutlined, HomeOutlined, InboxOutlined } from '@ant-design/icons';
+import {
+  DownloadOutlined,
+  HomeOutlined,
+  InboxOutlined,
+  QuestionCircleFilled,
+} from '@ant-design/icons';
 import {
   Alert,
   Button,
@@ -10,6 +15,8 @@ import {
   Progress,
   Radio,
   Row,
+  Space,
+  Tooltip,
   Tree,
   Upload,
   UploadFile,
@@ -300,7 +307,7 @@ const ReprocessForShop = () => {
   //#endregion
 
   //#region 导出文件逻辑
-  const fetchListPage = async () => {
+  const fetchListPage = async (isBeginYear?: boolean) => {
     try {
       setExcelLoading(true);
       // month 当前年-当前月
@@ -351,9 +358,11 @@ const ReprocessForShop = () => {
 
             // 遍历orgMap 每个org 调用handleAntdTableData 不用forEach 因为forEach 不支持async await
             for (const org of Object.keys(orgMap)) {
+              // console.log('orgMap[org]', orgMap[org]);
               const blobData = await handleAntdTableData(
                 orgMap[org],
                 `${org}-${dayjs().format('YYYY-MM')}`,
+                isBeginYear,
               );
               // 调用exportObaDataTemplateExcel 导出OBA数据模板Excel文件
               //   blobLists.push(await exportObaDataTemplateExcel(org));
@@ -422,16 +431,36 @@ const ReprocessForShop = () => {
                 {`已上传文件 -${org}`}
                 <span style={{ fontSize: 14 }}>（文件名蓝色代表未导出，灰色代表已导出）</span>
               </div>
-              <Button
-                disabled={selectedFiles.length === 0}
-                type="primary"
-                htmlType="submit"
-                icon={<DownloadOutlined />}
-                onClick={fetchListPage}
-                loading={excelLoading}
-              >
-                处理后文件导出
-              </Button>
+              <Space>
+                {
+                  // 如果月份为12或1则显示
+                  dayjs().month() === 11 || dayjs().month() === 0 ? (
+                    <Button
+                      disabled={selectedFiles.length === 0}
+                      type="primary"
+                      htmlType="submit"
+                      icon={<DownloadOutlined />}
+                      onClick={() => fetchListPage(true)}
+                      loading={excelLoading}
+                    >
+                      年末导出
+                      <Tooltip title="年末专用，会使日期固定为去年12月31日；12月或1月才会显示年末导出按钮，其他月份不显示">
+                        <QuestionCircleFilled />
+                      </Tooltip>
+                    </Button>
+                  ) : null
+                }
+                <Button
+                  disabled={selectedFiles.length === 0}
+                  type="primary"
+                  htmlType="submit"
+                  icon={<DownloadOutlined />}
+                  onClick={() => fetchListPage(false)}
+                  loading={excelLoading}
+                >
+                  处理后文件导出
+                </Button>
+              </Space>
             </Flex>
 
             {/* ##################################################################### */}
