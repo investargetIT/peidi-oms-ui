@@ -1,6 +1,7 @@
 import {
   ClearOutlined,
   DownloadOutlined,
+  ExclamationCircleFilled,
   ExclamationCircleOutlined,
   FileTextOutlined,
   SearchOutlined,
@@ -15,6 +16,7 @@ import {
   Flex,
   Input,
   message,
+  Modal,
   Row,
   Select,
   Space,
@@ -501,6 +503,155 @@ const Invoice: React.FC = () => {
     // 因为它们依赖于 selectedRows，当 selectedRows 为空时，计算结果为 0
   };
 
+  //#region 提交开票申请逻辑
+  const [submitInvoiceAppLoading, setSubmitInvoiceAppLoading] = useState(false);
+  // 提交开票申请
+  const handleSubmitInvoiceApp = async () => {
+    setSubmitInvoiceAppLoading(true);
+    try {
+      const documentNumbers: string[] = [];
+      const documentNumbersDetail: Record<string, number> = {};
+      const invoiceNoAppPageDetail: Record<string, number> = {};
+      const invoiceAppPageDetail: Record<string, any[]> = {};
+      // 遍历selectedRows  记录documentNumber和customerCode
+      selectedRows.forEach((item) => {
+        if (!documentNumbersDetail[item.documentNumber]) {
+          documentNumbers.push(item.documentNumber);
+          documentNumbersDetail[item.documentNumber] = 1;
+        } else {
+          documentNumbersDetail[item.documentNumber]++;
+        }
+      });
+
+      //#region 判断开票申请里是否有相同的单据编号
+      const noAppParams = {
+        pageNo: 1,
+        pageSize: 1000,
+        searchStr: JSON.stringify([
+          {
+            searchName: 'documentNumber',
+            searchType: 'like',
+            searchValue: documentNumbers.join('&#&'),
+          },
+        ]),
+      };
+      const resGetInvoiceNoAppPage = await InvoiceApi.getInvoiceNoAppPage(noAppParams);
+      if (checkInvoiceNoAppPage()) return;
+
+      function checkInvoiceNoAppPage() {
+        if (resGetInvoiceNoAppPage.data?.records?.length > 0) {
+          console.log('判断开票申请里是否有相同的单据编号:', resGetInvoiceNoAppPage.data.records);
+
+          resGetInvoiceNoAppPage.data.records.forEach((item) => {
+            if (!invoiceNoAppPageDetail[item.documentNumber]) {
+              invoiceNoAppPageDetail[item.documentNumber] = 1;
+            } else {
+              invoiceNoAppPageDetail[item.documentNumber]++;
+            }
+          });
+
+          for (const documentNumber of documentNumbers) {
+            if (invoiceNoAppPageDetail[documentNumber] > documentNumbersDetail[documentNumber]) {
+              message.error(`单据编号${documentNumber}还存在没勾选的数据，请全部勾选后再提交`);
+              setSubmitInvoiceAppLoading(false);
+              return true;
+            }
+          }
+          return false;
+        }
+        return false;
+      }
+      //#endregion
+
+      //#region 判断开票审核里是否有当前选中的单据编号
+      const appParams = {
+        pageNo: 1,
+        pageSize: 1000,
+        searchStr: JSON.stringify([
+          {
+            searchName: 'documentNumber',
+            searchType: 'like',
+            searchValue: documentNumbers.join('&#&'),
+          },
+          { searchName: 'status', searchType: 'equals', searchValue: '1' },
+        ]),
+      };
+      const resGetInvoiceAppPage = await InvoiceApi.getInvoiceAppPage(appParams);
+      await checkInvoiceAppPage();
+
+      async function checkInvoiceAppPage() {
+        if (resGetInvoiceAppPage.data?.records?.length > 0) {
+          // console.log('判断开票申请里是否有相同的单据编号:', resGetInvoiceAppPage.data.records);
+
+          resGetInvoiceAppPage.data.records.forEach((item) => {
+            if (!invoiceAppPageDetail[item.documentNumber]) {
+              invoiceAppPageDetail[item.documentNumber] = [];
+            }
+            invoiceAppPageDetail[item.documentNumber].push(item);
+          });
+        }
+
+        for (const documentNumber of documentNumbers) {
+          if (invoiceAppPageDetail[documentNumber]?.length > 0) {
+            // message.error(`单据编号${documentNumber}已存在开票申请`);
+
+            Modal.confirm({
+              title: `已存在未审核的开票审核`,
+              icon: <ExclamationCircleFilled />,
+              content: `单据编号${documentNumber}已存在未审核的开票审核，是否需要一键撤回所有未审核的单据编号为${documentNumber}的数据？`,
+              async onOk() {
+                return new Promise((resolve, reject) => {
+                  InvoiceApi.postInvoiceApp(
+                    invoiceAppPageDetail[documentNumber].map((item) => ({
+                      ...item,
+                      status: 0,
+                      appUser: '',
+                      appNo: '',
+                      appTime: '',
+                    })),
+                  )
+                    .then((res) => {
+                      if (res.code === 200) {
+                        resolve(true);
+                        message.success(`单据编号${documentNumber}已成功撤回所有未审核的开票审核`);
+                        refreshPagination();
+                        return;
+                      } else {
+                        message.error(`单据编号${documentNumber}撤回开票审核失败：${res.msg}`);
+                        reject(res.msg);
+                      }
+                    })
+                    .catch((error) => {
+                      console.error('撤回开票审核失败:', error);
+                      message.error(`单据编号${documentNumber}撤回开票审核失败：${error}`);
+                      reject(error);
+                    });
+                })
+                  .catch(() => {})
+                  .finally(() => {
+                    setSubmitInvoiceAppLoading(false);
+                  });
+              },
+              onCancel() {
+                // console.log('Cancel');
+                setSubmitInvoiceAppLoading(false);
+              },
+            });
+            return;
+          }
+        }
+
+        invoiceModalRef.current?.showModal();
+        setSubmitInvoiceAppLoading(false);
+      }
+      //#endregion
+    } catch (error) {
+    } finally {
+      setSubmitInvoiceAppLoading(false);
+    }
+  };
+  //#endregion
+
   return (
     <PageContainer>
       {/* 数据日期范围 */}
@@ -661,7 +812,8 @@ const Invoice: React.FC = () => {
             disabled={showTip || selectedRows.length === 0}
             type="primary"
             icon={<FileTextOutlined />}
-            onClick={() => invoiceModalRef.current?.showModal()}
+            onClick={handleSubmitInvoiceApp}
+            loading={submitInvoiceAppLoading}
           >
             提交开票申请
           </Button>
