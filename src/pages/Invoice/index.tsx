@@ -598,7 +598,7 @@ const Invoice: React.FC = () => {
             Modal.confirm({
               title: `已存在未审核的开票审核`,
               icon: <ExclamationCircleFilled />,
-              content: `单据编号${documentNumber}已存在未审核的开票审核，是否需要一键撤回所有未审核的单据编号为${documentNumber}的数据？`,
+              content: `开票审核中已经存在单据编号${documentNumber}未审核的数据，是否需要一键撤回所有未审核的单据编号为${documentNumber}的数据？`,
               async onOk() {
                 return new Promise((resolve, reject) => {
                   InvoiceApi.postInvoiceApp(
@@ -613,17 +613,17 @@ const Invoice: React.FC = () => {
                     .then((res) => {
                       if (res.code === 200) {
                         resolve(true);
-                        message.success(`单据编号${documentNumber}已成功撤回所有未审核的开票审核`);
+                        message.success(`已成功撤回所有未审核的单据编号为${documentNumber}的数据`);
                         refreshPagination();
                         return;
                       } else {
-                        message.error(`单据编号${documentNumber}撤回开票审核失败：${res.msg}`);
+                        message.error(`单据编号${documentNumber}撤回失败：${res.msg}`);
                         reject(res.msg);
                       }
                     })
                     .catch((error) => {
                       console.error('撤回开票审核失败:', error);
-                      message.error(`单据编号${documentNumber}撤回开票审核失败：${error}`);
+                      message.error(`单据编号${documentNumber}撤回失败：${error}`);
                       reject(error);
                     });
                 })
