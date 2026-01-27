@@ -225,7 +225,10 @@ const ReprocessForShop = () => {
       const userName = item.split('&')[0];
       const url = item;
       // url里包含dataTemplate里的哪个org，就将数据填充到那个org的fileList中
-      const targetOrg: any = dataTemplate.find((item) => url.includes(item.org));
+      const orgPattern = (org: string) => new RegExp(`[-_]${org}[-_]`);
+      let targetOrg: any = dataTemplate.find((item) => orgPattern(item.org).test(url));
+      // console.log('targetOrg', targetOrg);
+
       if (targetOrg) {
         // 如果目标组织的fileList中不存在该用户，就添加该用户
         if (!targetOrg.fileList.find((item2: any) => item2.userName === userName)) {
