@@ -127,7 +127,7 @@ const AuxiliaryOperation: React.FC = () => {
 
       {/* 订单店铺维护 */}
       <Drawer
-        title="订单店铺维护"
+        title="店铺信息维护"
         closable={{ 'aria-label': 'Close Button' }}
         onClose={() => setIsShopInfoDrawerOpen(false)}
         open={isShopInfoDrawerOpen}

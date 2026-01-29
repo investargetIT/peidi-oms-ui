@@ -14,10 +14,16 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
 
   //#region 请求相关
   const fetchShopPage = () => {
-    FinanceApi.getShopPage().then((res) => {
-      console.log('店铺信息', res);
-      setDataSource(res.data.reverse() || []);
-    });
+    FinanceApi.getShopPage()
+      .then((res) => {
+        if (res.code === 200 && res.data) {
+          setDataSource([...res.data].reverse());
+        }
+      })
+      .catch((error) => {
+        message.error('获取店铺信息失败: ' + error);
+        console.error('Failed to fetch shop page:', error);
+      });
   };
   //#endregion
 
@@ -180,6 +186,28 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
         ),
     },
     {
+      title: '是否仅退款',
+      dataIndex: 'needRefund',
+      key: 'needRefund',
+      render: (value: number) =>
+        value === 1 ? (
+          <span style={{ color: 'green' }}>是</span>
+        ) : (
+          <span style={{ color: 'red' }}>否</span>
+        ),
+      filters: [
+        {
+          text: '是',
+          value: 1,
+        },
+        {
+          text: '否',
+          value: 0,
+        },
+      ],
+      onFilter: (value: number, record: { needRefund: number }) => record.needRefund === value,
+    },
+    {
       title: '目标',
       dataIndex: 'target',
       key: 'target',
@@ -212,7 +240,13 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
 
   return (
     <div>
-      <Table size="small" dataSource={dataSource} columns={columns} pagination={false} />
+      <Table
+        size="small"
+        dataSource={dataSource}
+        columns={columns}
+        pagination={false}
+        rowKey="id"
+      />
 
       <Modal
         title={shopInfoModalTitle}
@@ -281,6 +315,13 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
           </Form.Item>
           {/* 是否参与汇总 */}
           <Form.Item<any> label="是否参与汇总" name="needSummary" initialValue={1}>
+            <Radio.Group>
+              <Radio value={1}>是</Radio>
+              <Radio value={0}>否</Radio>
+            </Radio.Group>
+          </Form.Item>
+          {/* 是否仅退款 */}
+          <Form.Item<any> label="是否仅退款" name="needRefund" initialValue={0}>
             <Radio.Group>
               <Radio value={1}>是</Radio>
               <Radio value={0}>否</Radio>

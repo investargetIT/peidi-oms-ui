@@ -87,6 +87,10 @@ export class InvoiceApi {
 
   /**
    * 修改开票状态
+   * 0：待开票
+   * 1：待审核
+   * 2：已开票未下载
+   * 3：已开票已下载
    */
   static async postInvoiceApp(data: any[]): Promise<ResponseData<any>> {
     return invoiceRequest.post('/app', data);

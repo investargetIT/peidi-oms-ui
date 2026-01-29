@@ -1,4 +1,9 @@
-import { DownloadOutlined, HomeOutlined, InboxOutlined } from '@ant-design/icons';
+import {
+  DownloadOutlined,
+  HomeOutlined,
+  InboxOutlined,
+  QuestionCircleFilled,
+} from '@ant-design/icons';
 import {
   Alert,
   Button,
@@ -10,6 +15,8 @@ import {
   Progress,
   Radio,
   Row,
+  Space,
+  Tooltip,
   Tree,
   Upload,
   UploadFile,
@@ -218,7 +225,10 @@ const ReprocessForShop = () => {
       const userName = item.split('&')[0];
       const url = item;
       // url里包含dataTemplate里的哪个org，就将数据填充到那个org的fileList中
-      const targetOrg: any = dataTemplate.find((item) => url.includes(item.org));
+      const orgPattern = (org: string) => new RegExp(`[-_]${org}[-_]`);
+      let targetOrg: any = dataTemplate.find((item) => orgPattern(item.org).test(url));
+      // console.log('targetOrg', targetOrg);
+
       if (targetOrg) {
         // 如果目标组织的fileList中不存在该用户，就添加该用户
         if (!targetOrg.fileList.find((item2: any) => item2.userName === userName)) {
@@ -300,12 +310,12 @@ const ReprocessForShop = () => {
   //#endregion
 
   //#region 导出文件逻辑
-  const fetchListPage = async () => {
+  const fetchListPage = async (isBeginYear?: boolean) => {
     try {
       setExcelLoading(true);
       // month 当前年-当前月
       const res = await financeObaPage({
-        month: `${dayjs().year()}-${dayjs().month() + 1}`,
+        month: dayjs().format('YYYY-MM'),
         pageNo: 1,
         pageSize: 1000,
         // 用,拼接
@@ -351,9 +361,11 @@ const ReprocessForShop = () => {
 
             // 遍历orgMap 每个org 调用handleAntdTableData 不用forEach 因为forEach 不支持async await
             for (const org of Object.keys(orgMap)) {
+              // console.log('orgMap[org]', orgMap[org]);
               const blobData = await handleAntdTableData(
                 orgMap[org],
-                `${org}-${dayjs().year()}-${dayjs().month() + 1}`,
+                `${org}-${dayjs().format('YYYY-MM')}`,
+                isBeginYear,
               );
               // 调用exportObaDataTemplateExcel 导出OBA数据模板Excel文件
               //   blobLists.push(await exportObaDataTemplateExcel(org));
@@ -368,10 +380,7 @@ const ReprocessForShop = () => {
             console.log('blobLists', blobLists);
 
             // 压缩blobLists 并导出
-            await handleCompressBlobs(
-              blobLists,
-              `OBA数据-${dayjs().year()}-${dayjs().month() + 1}`,
-            );
+            await handleCompressBlobs(blobLists, `OBA数据-${dayjs().format('YYYY-MM')}`);
             setExcelLoading(false);
           } catch (error) {
             console.log(error);
@@ -425,16 +434,36 @@ const ReprocessForShop = () => {
                 {`已上传文件 -${org}`}
                 <span style={{ fontSize: 14 }}>（文件名蓝色代表未导出，灰色代表已导出）</span>
               </div>
-              <Button
-                disabled={selectedFiles.length === 0}
-                type="primary"
-                htmlType="submit"
-                icon={<DownloadOutlined />}
-                onClick={fetchListPage}
-                loading={excelLoading}
-              >
-                处理后文件导出
-              </Button>
+              <Space>
+                {
+                  // 如果月份为12或1则显示
+                  dayjs().month() === 11 || dayjs().month() === 0 ? (
+                    <Button
+                      disabled={selectedFiles.length === 0}
+                      type="primary"
+                      htmlType="submit"
+                      icon={<DownloadOutlined />}
+                      onClick={() => fetchListPage(true)}
+                      loading={excelLoading}
+                    >
+                      年末导出
+                      <Tooltip title="年末专用，会使日期固定为去年12月31日；12月或1月才会显示年末导出按钮，其他月份不显示">
+                        <QuestionCircleFilled />
+                      </Tooltip>
+                    </Button>
+                  ) : null
+                }
+                <Button
+                  disabled={selectedFiles.length === 0}
+                  type="primary"
+                  htmlType="submit"
+                  icon={<DownloadOutlined />}
+                  onClick={() => fetchListPage(false)}
+                  loading={excelLoading}
+                >
+                  处理后文件导出
+                </Button>
+              </Space>
             </Flex>
 
             {/* ##################################################################### */}
