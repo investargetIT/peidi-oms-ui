@@ -10,11 +10,11 @@
 # Set the language for reviews by using the corresponding ISO language code.
 # Options: de, de-DE, de-AT, de-CH, en, en-US, en-AU, en-GB, en-CA, en-NZ, en-ZA, es, es-AR, fr, fr-CA, fr-CH, fr-BE, nl, nl-BE, pt-AO, pt, pt-BR, pt-MZ, pt-PT, ar, ast-ES, ast, be-BY, be, br-FR, br, ca-ES, ca, ca-ES-valencia, ca-ES-balear, da-DK, da, de-DE-x-simple-language, el-GR, el, eo, fa, ga-IE, ga, gl-ES, gl, it, ja-JP, ja, km-KH, km, ko-KR, ko, pl-PL, pl, ro-RO, ro, ru-RU, ru, sk-SK, sk, sl-SI, sl, sv, ta-IN, ta, tl-PH, tl, tr, uk-UA, uk, zh-CN, zh, crh-UA, crh, cs-CZ, cs, nb, no, nl-NL, de-DE-x-simple-language-DE, es-ES, it-IT, fa-IR, sv-SE, de-LU, fr-FR, bg-BG, bg, he-IL, he, hi-IN, hi, vi-VN, vi, th-TH, th, bn-BD, bn
 # Default: "en-US"
-language: "zh-CN"
+language: 'zh-CN'
 
 # Set the tone of reviews and chat. Example: 'You must use talk like Mr. T. I pity the fool who doesn't!'
 # Default: ""
-tone_instructions: ""
+tone_instructions: ''
 
 # Enable early-access features.
 # Default: false
@@ -35,7 +35,7 @@ reviews:
   # Set the profile for reviews. Assertive profile yields more feedback, that may be considered nitpicky.
   # Options: chill, assertive
   # Default: "chill"
-  profile: "chill"
+  profile: 'chill'
 
   # Approve the review once CodeRabbit’s comments are resolved and no pre-merge checks are in an error state. Note: In GitLab, all discussions must be resolved.
   # Default: false
@@ -47,7 +47,7 @@ reviews:
 
   # Placeholder in the PR/MR description that gets replaced with the high level summary.
   # Default: "@coderabbitai summary"
-  high_level_summary_placeholder: "@coderabbitai summary"
+  high_level_summary_placeholder: '@coderabbitai summary'
 
   # Include the high level summary in the walkthrough comment.
   # Default: false
@@ -55,11 +55,11 @@ reviews:
 
   # Add this keyword in the PR/MR title to auto-generate the title.
   # Default: "@coderabbitai"
-  auto_title_placeholder: "@coderabbitai"
+  auto_title_placeholder: '@coderabbitai'
 
   # Auto Title Instructions - Custom instructions for auto-generating the PR/MR title.
   # Default: ""
-  auto_title_instructions: ""
+  auto_title_instructions: ''
 
   # Post review details on each review. Additionally, post a review status when a review is skipped in certain cases.
   # Default: true
@@ -131,7 +131,7 @@ reviews:
 
   # Specify file patterns to include or exclude in a review using glob patterns (e.g., !dist/**, src/**). These patterns also apply to 'git sparse-checkout', including specified patterns and ignoring excluded ones (starting with '!') when cloning the repository.
   # Default: []
-  path_filters: []
+  path_filters: ['!pnpm-lock.yaml']
 
   # Path Instructions - Provide specific additional guidelines for code review based on file paths.
   # Default: []
@@ -202,7 +202,7 @@ reviews:
       # Mode - Determines how strictly the docstring coverage check is enforced. Warning will only generate a warning and does not require the user to resolve the check. Error requires the user to resolve issues before merging the pull request. If set to error and the request changes workflow is enabled, the pull request will be blocked until the issues are resolved.
       # Options: off, warning, error
       # Default: "warning"
-      mode: "warning"
+      mode: 'warning'
 
       # Percentage threshold for docstring coverage check.
       # Default: 80
@@ -214,11 +214,11 @@ reviews:
       # Mode - Determines how strictly the title check is enforced. Warning will only generate a warning and does not require the user to resolve the check. Error requires the user to resolve issues before merging the pull request. If set to error and the request changes workflow is enabled, the pull request will be blocked until the issues are resolved.
       # Options: off, warning, error
       # Default: "warning"
-      mode: "warning"
+      mode: 'warning'
 
       # Requirements - Requirements for the pull request title. Example: 'Title should be concise and descriptive, ideally under 50 characters.'
       # Default: ""
-      requirements: ""
+      requirements: ''
 
     # Description Check - Checks if the pull request description is appropriate and follows best practices.
     # Default: {}
@@ -226,7 +226,7 @@ reviews:
       # Mode - Determines how strictly the description check is enforced. Warning will only generate a warning and does not require the user to resolve the check. Error requires the user to resolve issues before merging the pull request. If set to error and the request changes workflow is enabled, the pull request will be blocked until the issues are resolved.
       # Options: off, warning, error
       # Default: "warning"
-      mode: "warning"
+      mode: 'warning'
 
     # Linked Issue Assessment - Checks if the pull request addresses the linked issues. Generate an assessment of how well the changes address the linked issues.
     # Default: {}
@@ -234,7 +234,7 @@ reviews:
       # Mode - Determines how strictly the issue assessment check is enforced. Warning will only generate a warning and does not require the user to resolve the check. Error requires the user to resolve issues before merging the pull request. If set to error and the request changes workflow is enabled, the pull request will be blocked until the issues are resolved.
       # Options: off, warning, error
       # Default: "warning"
-      mode: "warning"
+      mode: 'warning'
 
     # Custom Pre-merge Checks - Add unique checks to enforce your team's standards before merging a pull request. Each check must have a unique name (up to 50 characters) and clear instructions (up to 10000 characters). Use these to automatically verify coding, security, documentation, or business rules and maintain code quality.
     # Default: []
@@ -324,7 +324,7 @@ reviews:
       # If set to 'picky', additional rules will be activated, i.e. rules that you might only find useful when checking formal text.
       # Options: default, picky
       # Default: "default"
-      level: "default"
+      level: 'default'
 
     # Biome is a fast formatter, linter, and analyzer for web projects.
     # Default: {}
@@ -348,7 +348,7 @@ reviews:
       enabled: true
 
       # Optional path to the SwiftLint configuration file relative to the repository. This is useful when the configuration file is named differently than the default '.swiftlint.yml' or '.swiftlint.yaml'.
-      config_file: "example-value"
+      config_file: 'example-value'
 
     # PHPStan is a tool to analyze PHP code.
     # Default: {}
@@ -360,7 +360,7 @@ reviews:
       # Level - Specify the [rule level](https://phpstan.org/user-guide/rule-levels) to run. This setting is ignored if your configuration file already has a `level:` parameter.
       # Options: default, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, max
       # Default: "default"
-      level: "default"
+      level: 'default'
 
     # PHPMD is a tool to find potential problems in PHP code.
     # Default: {}
@@ -384,7 +384,7 @@ reviews:
       enabled: true
 
       # Optional path to the golangci-lint configuration file relative to the repository. Useful when the configuration file is named differently than the default '.golangci.yml', '.golangci.yaml', '.golangci.toml', '.golangci.json'.
-      config_file: "example-value"
+      config_file: 'example-value'
 
     # YAMLlint is a linter for YAML files.
     # Default: {}
@@ -415,7 +415,7 @@ reviews:
       enabled: true
 
       # Optional path to the detekt configuration file relative to the repository.
-      config_file: "example-value"
+      config_file: 'example-value'
 
     # ESLint is a static code analysis tool for JavaScript files.
     # Default: {}
@@ -467,7 +467,7 @@ reviews:
       enabled: true
 
       # Optional path to the PMD configuration file relative to the repository.
-      config_file: "example-value"
+      config_file: 'example-value'
 
     # Configuration for Clang to perform static analysis on C and C++ code
     # Default: {}
@@ -491,7 +491,7 @@ reviews:
       enabled: true
 
       # Optional path to the Semgrep configuration file relative to the repository.
-      config_file: "example-value"
+      config_file: 'example-value'
 
     # CircleCI tool is a static checker for CircleCI config files.
     # Default: {}
@@ -609,7 +609,7 @@ chat:
       # Jira - Enable the Jira integration for opening issues, etc. 'auto' disables the integration for public repositories.
       # Options: auto, enabled, disabled
       # Default: "auto"
-      usage: "auto"
+      usage: 'auto'
 
     # Configuration for linear
     # Default: {}
@@ -617,7 +617,7 @@ chat:
       # Linear - Enable the Linear integration for opening issues, etc. 'auto' disables the integration for public repositories.
       # Options: auto, enabled, disabled
       # Default: "auto"
-      usage: "auto"
+      usage: 'auto'
 
 # =============================================================================
 # KNOWLEDGE BASE
@@ -655,7 +655,7 @@ knowledge_base:
     # Learnings - Specify the scope of learnings to use for the knowledge base. 'local' uses the repository's learnings, 'global' uses the organization's learnings, and 'auto' uses repository's learnings for public repositories and organization's learnings for private repositories.
     # Options: local, global, auto
     # Default: "auto"
-    scope: "auto"
+    scope: 'auto'
 
   # Configuration for issues
   # Default: {}
@@ -663,7 +663,7 @@ knowledge_base:
     # Issues - Specify the scope of git platform (GitHub/GitLab) issues to use for the knowledge base. 'local' uses the repository's issues, 'global' uses the organization's issues, and 'auto' uses repository's issues for public repositories and organization's issues for private repositories.
     # Options: local, global, auto
     # Default: "auto"
-    scope: "auto"
+    scope: 'auto'
 
   # Configuration for jira
   # Default: {}
@@ -671,7 +671,7 @@ knowledge_base:
     # Jira - Enable the Jira knowledge base integration. 'auto' disables the integration for public repositories.
     # Options: auto, enabled, disabled
     # Default: "auto"
-    usage: "auto"
+    usage: 'auto'
 
     # Jira Project Keys - Specify the Jira project keys to use for the knowledge base.
     # Default: []
@@ -683,7 +683,7 @@ knowledge_base:
     # Linear - Enable the Linear knowledge base integration. 'auto' disables the integration for public repositories.
     # Options: auto, enabled, disabled
     # Default: "auto"
-    usage: "auto"
+    usage: 'auto'
 
     # Linear Team Keys - Specify the Linear team keys (identifiers) to use for the knowledge base. E.g. 'ENG'
     # Default: []
@@ -695,7 +695,7 @@ knowledge_base:
     # Pull Requests - Specify the scope of pull requests to use for the knowledge base. 'local' uses the repository's pull requests, 'global' uses the organization's pull requests, and 'auto' uses repository's pull requests for public repositories and organization's pull requests for private repositories.
     # Options: local, global, auto
     # Default: "auto"
-    scope: "auto"
+    scope: 'auto'
 
   # Configuration for mcp
   # Default: {}
@@ -703,7 +703,7 @@ knowledge_base:
     # MCP - Enable the MCP knowledge base integration. 'auto' disables the integration for public repositories.
     # Options: auto, enabled, disabled
     # Default: "auto"
-    usage: "auto"
+    usage: 'auto'
 
     # MCP Disabled Servers - Specify MCP server labels to disable (case-insensitive). These servers will be excluded from reviews and knowledge base queries.
     # Default: []
@@ -723,7 +723,7 @@ code_generation:
     # Set the language for docstrings by using the corresponding ISO language code.
     # Options: de, de-DE, de-AT, de-CH, en, en-US, en-AU, en-GB, en-CA, en-NZ, en-ZA, es, es-AR, fr, fr-CA, fr-CH, fr-BE, nl, nl-BE, pt-AO, pt, pt-BR, pt-MZ, pt-PT, ar, ast-ES, ast, be-BY, be, br-FR, br, ca-ES, ca, ca-ES-valencia, ca-ES-balear, da-DK, da, de-DE-x-simple-language, el-GR, el, eo, fa, ga-IE, ga, gl-ES, gl, it, ja-JP, ja, km-KH, km, ko-KR, ko, pl-PL, pl, ro-RO, ro, ru-RU, ru, sk-SK, sk, sl-SI, sl, sv, ta-IN, ta, tl-PH, tl, tr, uk-UA, uk, zh-CN, zh, crh-UA, crh, cs-CZ, cs, nb, no, nl-NL, de-DE-x-simple-language-DE, es-ES, it-IT, fa-IR, sv-SE, de-LU, fr-FR, bg-BG, bg, he-IL, he, hi-IN, hi, vi-VN, vi, th-TH, th, bn-BD, bn
     # Default: "en-US"
-    language: "en-US"
+    language: 'en-US'
 
     # Path Instructions - Provide additional guidelines for docstring generation based on file paths.
     # Default: []
