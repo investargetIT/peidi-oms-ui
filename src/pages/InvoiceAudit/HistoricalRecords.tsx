@@ -117,6 +117,7 @@ const HistoricalRecords: React.FC = () => {
       pageNo: pagination.current,
       pageSize: pagination.pageSize,
       searchStr: getSearchStr(),
+      sortStr: JSON.stringify([{ sortName: 'appTime', sortType: 'desc' }]),
     });
   };
   //#endregion
