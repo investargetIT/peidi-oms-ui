@@ -15,6 +15,7 @@ import type { DataType as InvoiceDataType } from '@/pages/Invoice/index';
 import { useDebounceSearch } from '@/hooks/useDebounce';
 import { handleFormData } from './utils/excel';
 import dayjs from 'dayjs';
+import { padDecimalToSpecifyPlaces } from '@/utils/general';
 
 export interface InvoiceAuditItem {
   /** 已核算金额 */
@@ -199,8 +200,10 @@ const PendingReview: React.FC = () => {
 
         const goodsList: any[] = [];
         dataTemp.forEach((item) => {
+          // FIXME: 2026-02-11 判断 materialCode 是否小数位不足4位，不足就补0 到4位
+          const u9NoTemp = padDecimalToSpecifyPlaces(item.materialCode, 4);
           goodsList.push({
-            u9No: item.materialCode,
+            u9No: u9NoTemp,
           });
         });
 
@@ -393,7 +396,7 @@ const PendingReview: React.FC = () => {
     }
   };
   //#endregion
-
+  
   return (
     <>
       {/* 操作栏 */}
