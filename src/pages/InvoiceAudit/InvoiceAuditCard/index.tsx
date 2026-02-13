@@ -196,7 +196,8 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
         const goodsList: any[] = [];
         dataSource.recordList.forEach((item) => {
           // FIXME: 2026-02-11 判断 materialCode 是否小数位不足4位，不足就补0 到4位
-          const u9NoTemp = padDecimalToSpecifyPlaces(item.materialCode);
+          // const u9NoTemp = padDecimalToSpecifyPlaces(item.materialCode);
+          const u9NoTemp = item.materialCode;
           goodsList.push({
             u9No: u9NoTemp,
           });

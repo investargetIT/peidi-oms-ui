@@ -78,7 +78,8 @@ const handleFormData = async (
   const currentRow = 4;
   formData.forEach((item, index) => {
     // FIXME: 2026-02-11 判断 materialCode 是否小数位不足4位，不足就补0 到4位
-    const materialCodeTemp = padDecimalToSpecifyPlaces(item.materialCode, 4);
+    // const materialCodeTemp = padDecimalToSpecifyPlaces(item.materialCode, 4);
+    const materialCodeTemp = item.materialCode;
     const customerInfoItem = getCustomerInfoByCode(item.customerCode, customerInfo);
     console.log('customerInfoItem', customerInfoItem);
     const taxInfoItem = getTaxInfoByU9No(materialCodeTemp, taxInfo);
