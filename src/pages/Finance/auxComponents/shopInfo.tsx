@@ -97,6 +97,19 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       value: name,
     }));
   }, [dataSource]);
+  // 自动生成渠道筛选选项
+  const channelFilters = React.useMemo(() => {
+    if (!dataSource.length) return [];
+
+    const uniqueChannels = Array.from(
+      new Set(dataSource.filter((item) => item.channel).map((item) => item.channel)),
+    );
+
+    return uniqueChannels.map((channel) => ({
+      text: channel,
+      value: channel,
+    }));
+  }, [dataSource]);
 
   const columns: any = [
     {
@@ -122,6 +135,9 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       title: '渠道',
       dataIndex: 'channel',
       key: 'channel',
+      filters: channelFilters,
+      onFilter: (value: string, record: { channel: string | string[] }) => record.channel === value,
+      filterSearch: true,
     },
     {
       title: '平台',
