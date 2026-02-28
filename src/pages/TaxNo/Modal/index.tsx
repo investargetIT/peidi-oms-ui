@@ -1,5 +1,5 @@
 import React, { useEffect, useImperativeHandle, useState } from 'react';
-import { Form, Modal, Input, InputNumber } from 'antd';
+import { Form, Modal, Input, InputNumber, Select } from 'antd';
 import type { TaxNoItem } from '../index';
 import type { InvoiceTaxNo } from '@/services/invoiceApi';
 
@@ -22,6 +22,13 @@ type FieldType = {
 };
 
 const TaxNoModal = (props: TaxNoModalProps, ref: React.Ref<TaxNoModalRef> | undefined) => {
+  const TAX_NO_TO_TAX_RATE = [
+    { taxNo: '103010401', taxRate: '9.0000' },
+    { taxNo: '106051304', taxRate: '13.0000' },
+    { taxNo: '107030501', taxRate: '13.0000' },
+    { taxNo: '103010402', taxRate: '13.0000' },
+  ];
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   // 判断表单类型，新增或修改
   const [modalType, setModalType] = useState<'add' | 'edit'>('add');
@@ -112,21 +119,31 @@ const TaxNoModal = (props: TaxNoModalProps, ref: React.Ref<TaxNoModalRef> | unde
           name="goodsName"
           rules={[{ required: false, message: '请输入商品名称' }]}
         >
-          <Input placeholder="请输入商品名称" disabled/>
+          <Input placeholder="请输入商品名称" disabled />
         </Form.Item>
         <Form.Item<FieldType>
           label="U9编号"
           name="u9No"
           rules={[{ required: false, message: '请输入U9编号' }]}
         >
-          <Input placeholder="请输入U9编号" disabled/>
+          <Input placeholder="请输入U9编号" disabled />
         </Form.Item>
-        <Form.Item<FieldType>
-          label="税收编码"
-          name="taxNo"
-          rules={[{ required: true, message: '请输入税收编码' }]}
-        >
-          <Input placeholder="请输入税收编码" />
+        <Form.Item<FieldType> label="税收编码" name="taxNo">
+          {/* <Input placeholder="请输入税收编码" /> */}
+          <Select
+            placeholder="请选择税收编码"
+            onChange={(value) => {
+              const taxRate = TAX_NO_TO_TAX_RATE.find((item) => item.taxNo === value)?.taxRate;
+              form.setFieldValue('taxRate', taxRate);
+            }}
+            options={TAX_NO_TO_TAX_RATE.map((item) => ({
+              value: item.taxNo,
+              label: `${item.taxNo} (${item.taxRate})`,
+            }))}
+          />
+        </Form.Item>
+        <Form.Item<FieldType> label="税率" name="taxRate">
+          <Input placeholder="" disabled />
         </Form.Item>
       </Form>
     </Modal>
