@@ -2,10 +2,12 @@
  * @see https://umijs.org/docs/max/access#access
  * */
 export default function access(
-  initialState: { currentUser?: API.CurrentUser; ddUserInfo?: any; parentByUser?: any } | undefined,
+  initialState: { currentUser?: any; ddUserInfo?: any; parentByUser?: any } | undefined,
 ) {
   const { currentUser, ddUserInfo, parentByUser } = initialState ?? {};
-  // console.log('#################', initialState);
+  console.log('#################', initialState);
+  // 尝试从currentUser中获取部门ID列表
+  const userId = currentUser?.id || '';
   // 尝试从ddUserInfo中获取部门ID列表
   const ddDeptIds = ddUserInfo?.dept_id_list || [];
   // 尝试从parentByUser中获取部门ID列表
@@ -21,6 +23,6 @@ export default function access(
     /** 前台用户只能查看 财务销售订单及发票 finance */
     // 暂时命名为通用权限，前台用户不是通用权限 后续有需要就每个组件都添加一种access
     // 前台部门id为854425488 信息部为939900386
-    canGeneralPermissions: !parentDeptIds.includes(854425488),
+    canGeneralPermissions: !parentDeptIds.includes(854425488) || userId === '1926449443739598860', // 徐滨梅
   };
 }
