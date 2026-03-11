@@ -23,6 +23,11 @@ export default function access(
     /** 前台用户只能查看 财务销售订单及发票 finance */
     // 暂时命名为通用权限，前台用户不是通用权限 后续有需要就每个组件都添加一种access
     // 前台部门id为854425488 信息部为939900386
-    canGeneralPermissions: !parentDeptIds.includes(854425488) || userId === '1926449443739598860', // 徐滨梅
+    canGeneralPermissions:
+      !parentDeptIds.includes(854425488) ||
+      // 徐滨梅
+      userId === '1926449443739598860' ||
+      // 庄严
+      userId === '1926449443739598859',
   };
 }
