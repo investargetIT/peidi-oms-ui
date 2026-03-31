@@ -1,12 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { CloudSyncOutlined, InboxOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps, TabsProps } from 'antd';
-import { Button, message, Upload, Progress, Card, Row, Col, Typography, Tabs } from 'antd';
+import {
+  Button,
+  message,
+  Upload,
+  Progress,
+  Card,
+  Row,
+  Col,
+  Typography,
+  Tabs,
+  Modal,
+  Form,
+  DatePicker,
+} from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import Reprocess from './reprocess';
 import ReprocessForShop from './reprocessForShop';
 import AuxiliaryOperation from './auxiliaryOperation';
+import dayjs from 'dayjs';
 
 const { Dragger } = Upload;
 const { Title } = Typography;
@@ -89,6 +103,11 @@ const UploadComponent: React.FC<{
 };
 
 const App: React.FC = () => {
+  // 对话框控制
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  // 表单实例
+  const [form] = Form.useForm();
+
   // 抖音仅退款
   const [dyFileList, setDYFileList] = useState<UploadFile[]>([]);
   const [dyPercent, setDYPercent] = useState<number>(0);
@@ -124,6 +143,8 @@ const App: React.FC = () => {
   const [executeFileNames, setExecuteFileNames] = useState<string[]>([]);
   const [executeStatus, setExecuteStatus] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  // 新增：控制是否正在处理中（用于点击后立即触发轮询）
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const fetchExecuteStatus = async () => {
     try {
@@ -141,10 +162,20 @@ const App: React.FC = () => {
     }
   };
 
-  // 获取状态信息
+  // 获取状态信息并实现轮询
   useEffect(() => {
     fetchExecuteStatus();
-  }, []);
+
+    const pollInterval = setInterval(() => {
+      if (uploadStatus == 'false' || executeStatus == 'false' || isProcessing) {
+        fetchExecuteStatus();
+      }
+    }, 1000 * 60); // 每 60 秒轮询一次
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [executeStatus, uploadStatus, isProcessing]);
 
   // 上传成功后调用的函数
   const handleUploadSuccess = async () => {
@@ -163,19 +194,47 @@ const App: React.FC = () => {
   };
 
   const execute = async () => {
+    setIsModalOpen(true);
+  };
+
+  // 新增：处理对话框确认
+  const handleModalOk = async () => {
     try {
+      const values = await form.validateFields();
+      const startDate = values.dateRange[0].format('YYYY-MM-DD');
+      const endDate = values.dateRange[1].format('YYYY-MM-DD');
+
+      // 点击后立即设置为处理中状态，触发轮询
+      setIsProcessing(true);
+
+      // return;
       await axios.post(
         `${process.env.BASE_URL}/finance/date/execute`,
-        {},
+        { startDate, endDate },
         {
           headers: { Authorization: localStorage.getItem('token') },
         },
       );
-      // 成功后可以选择重新获取状态信息
-      fetchExecuteStatus();
+
+      message.success('财务数据处理成功');
+      setIsModalOpen(false);
+      form.resetFields();
+      // 长链接返回后清除处理中状态，并刷新状态
+      setIsProcessing(false);
+      await fetchExecuteStatus();
     } catch (error) {
-      // console.error('Failed to execute finance processing:', error);
+      console.error('Failed to execute finance processing:', error);
+      message.error('处理失败');
+      // 如果出错也清除处理中状态，并刷新状态
+      setIsProcessing(false);
+      await fetchExecuteStatus();
     }
+  };
+
+  // 新增：处理对话框取消
+  const handleModalCancel = () => {
+    setIsModalOpen(false);
+    form.resetFields();
   };
 
   const tabItems: TabsProps['items'] = [
@@ -215,7 +274,7 @@ const App: React.FC = () => {
                   htmlType="submit"
                   icon={<CloudSyncOutlined />}
                 >
-                  财务数据处理
+                  点击开始财务数据处理
                 </Button>
                 {/* 增加执行文件列表 */}
                 <h3 style={{ marginTop: 16 }}>执行文件:</h3>
@@ -343,6 +402,35 @@ const App: React.FC = () => {
   return (
     <PageContainer>
       <Tabs defaultActiveKey="1" items={tabItems} size="large" type="card" />
+
+      <Modal
+        title="财务数据处理"
+        open={isModalOpen}
+        onOk={handleModalOk}
+        onCancel={handleModalCancel}
+        width={500}
+        centered
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{
+            //  默认上个月的26号到这个月的25
+            dateRange: [
+              dayjs().subtract(1, 'month').date(26), // 上个月 26 号
+              dayjs().date(25), // 这个月 25 号
+            ],
+          }}
+        >
+          <Form.Item
+            name="dateRange"
+            label="时间范围"
+            rules={[{ required: true, message: '请选择开始时间和结束时间' }]}
+          >
+            <DatePicker.RangePicker style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </PageContainer>
   );
 };
