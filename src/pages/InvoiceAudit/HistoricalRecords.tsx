@@ -1,16 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import InvoiceAuditCard from './InvoiceAuditCard';
-import { Input, message, Pagination, Select, Spin } from 'antd';
+import { DatePicker, Input, message, Pagination, Select, Spin } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { InvoiceAuditItem } from './PendingReview';
 import { InvoiceApi, type PageParams } from '@/services/invoiceApi';
 import { useDebounceSearch } from '@/hooks/useDebounce';
+import dayjs from 'dayjs';
 
 const HistoricalRecords: React.FC = () => {
   // 数据请求中
   const [loading, setLoading] = useState(false);
   // 数据列表
   const [dataSource, setDataSource] = useState<InvoiceAuditItem[]>([]);
+
+  //#region 时间选择逻辑
+  // 默认当月
+  const [dateRange, setDateRange] = useState<any>([
+    dayjs().startOf('month'),
+    dayjs().endOf('month'),
+  ]);
+  // 处理时间选择变化
+  const handleDateRangeChange = (value: any) => {
+    // console.log('dateRange', value);
+    setDateRange(value);
+  };
+  //#endregion
 
   //#region 筛选逻辑
   // Input搜索使用通用防抖钩子
@@ -23,7 +37,13 @@ const HistoricalRecords: React.FC = () => {
 
   // 处理筛选参数方法
   const getSearchStr = () => {
-    const searchParams = [];
+    const searchParams = [
+      {
+        searchName: 'appTime',
+        searchType: 'betweenStr',
+        searchValue: dateRange.map((item: dayjs.Dayjs) => item.format('YYYY-MM-DD')).join(','),
+      },
+    ];
     searchParams.push({
       searchName: 'status',
       searchType: 'equals',
@@ -87,6 +107,7 @@ const HistoricalRecords: React.FC = () => {
     searchAppUserText,
     searchOrganizationText,
     pagination,
+    dateRange,
   ]);
   // 分页获取开票审核
   const getInvoiceAppPage = async (params: PageParams) => {
@@ -117,9 +138,11 @@ const HistoricalRecords: React.FC = () => {
       pageNo: pagination.current,
       pageSize: pagination.pageSize,
       searchStr: getSearchStr(),
+      sortStr: JSON.stringify([{ sortName: 'appTime', sortType: 'desc' }]),
     });
   };
   //#endregion
+
   return (
     <>
       {/* 操作栏 */}
@@ -132,6 +155,14 @@ const HistoricalRecords: React.FC = () => {
           alignItems: 'center',
         }}
       >
+        {/* 数据日期范围 */}
+        <div>
+          <DatePicker.RangePicker
+            allowClear={false}
+            value={dateRange}
+            onChange={handleDateRangeChange}
+          />
+        </div>
         <Input
           value={showSearchAppNoText}
           onChange={(e) => handleSearchAppNoText(e.target.value)}

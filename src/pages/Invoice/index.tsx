@@ -235,6 +235,8 @@ const Invoice: React.FC = () => {
     useDebounceSearch('');
   const [searchCustomerCodeText, showSearchCustomerCodeText, handleSearchCustomerCodeText] =
     useDebounceSearch('');
+  const [searchMaterialCodeText, showSearchMaterialCodeText, handleSearchMaterialCodeText] =
+    useDebounceSearch('');
   const [searchMaterialNameText, showSearchMaterialNameText, handleSearchMaterialNameText] =
     useDebounceSearch('');
   const [searchSourceDocumentText, showSearchSourceDocumentText, handleSearchSourceDocumentText] =
@@ -275,6 +277,13 @@ const Invoice: React.FC = () => {
     //     searchValue: `${searchCustomerCodeText}`,
     //   });
     // }
+    if (searchMaterialCodeText) {
+      searchParams.push({
+        searchName: 'materialCode',
+        searchType: 'equals',
+        searchValue: `\"${searchMaterialCodeText}\"`,
+      });
+    }
     // if (searchMaterialNameText) {
     //   searchParams.push({
     //     searchName: 'materialName',
@@ -397,6 +406,7 @@ const Invoice: React.FC = () => {
     searchDocumentNumberText,
     searchCustomerCodeSelect,
     // searchCustomerCodeText,
+    searchMaterialCodeText,
     // searchMaterialNameText,
     searchSourceDocumentText,
     searchOrganizationText,
@@ -683,9 +693,10 @@ const Invoice: React.FC = () => {
         />
         <Input
           value={showSearchDocumentNumberText}
-          placeholder="搜索单据编号..."
+          placeholder="搜索单据编号(精准匹配)..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
           onChange={(e) => handleSearchDocumentNumberText(e.target.value)}
+          allowClear
         />
         {/* <Input
           value={showSearchCustomerCodeText}
@@ -694,6 +705,14 @@ const Invoice: React.FC = () => {
           style={{ marginRight: 16 }}
           onChange={(e) => handleSearchCustomerCodeText(e.target.value)}
         /> */}
+        <Input
+          value={showSearchMaterialCodeText}
+          placeholder="搜索料号(精准匹配)..."
+          prefix={<SearchOutlined style={{ color: '#737373' }} />}
+          style={{ marginRight: 16 }}
+          onChange={(e) => handleSearchMaterialCodeText(e.target.value)}
+          allowClear
+        />
         {/* <Input
           value={showSearchMaterialNameText}
           placeholder="搜索料品名称..."
@@ -703,15 +722,17 @@ const Invoice: React.FC = () => {
         /> */}
         <Input
           value={showSearchSourceDocumentText}
-          placeholder="搜索来源单据号..."
+          placeholder="搜索来源单据号(模糊查询)..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
           onChange={(e) => handleSearchSourceDocumentText(e.target.value)}
+          allowClear
         />
         <Input
           value={showSearchOrganizationText}
-          placeholder="搜索组织..."
+          placeholder="搜索组织(模糊查询)..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
           onChange={(e) => handleSearchOrganizationText(e.target.value)}
+          allowClear
         />
         {/* <Select
           defaultValue="全部类型"

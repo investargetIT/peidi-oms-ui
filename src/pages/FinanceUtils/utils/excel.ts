@@ -11,7 +11,7 @@ const newData = [
     id: -1,
     documentType: 'SO6',
     documentNumber: '',
-    date: '2025/09/30',
+    date: '2025-09-30',
     customer: '2.8105',
     customerName: '【天猫】佩蒂旗舰店',
     priceIncludeTax: '',
@@ -307,7 +307,7 @@ const handleAntdTableData = async (
       }
       // 年初模式下 日期固定写死为YYYY（去年）-12-31
       else if (dataIndex === 'date') {
-        console.log(isBeginYear);
+        // console.log(isBeginYear);
         if (isBeginYear) {
           row.getCell(colIndex + 1).value = `${dayjs().year() - 1}-12-31`;
         } else {

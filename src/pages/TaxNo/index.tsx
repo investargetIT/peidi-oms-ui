@@ -43,6 +43,11 @@ const TaxNo: React.FC = () => {
       key: 'taxNo',
     },
     {
+      title: '税率',
+      dataIndex: 'taxRate',
+      key: 'taxRate',
+    },
+    {
       title: '操作',
       key: 'action',
       render: (_, record: any) => (
@@ -185,7 +190,7 @@ const TaxNo: React.FC = () => {
   const handleDeleteClick = (record: TaxNoItem) => {
     // console.log('点击删除', record);
     Modal.confirm({
-      title: `确认删除U9编号 ${record.u9No} 的税收编码吗？`,
+      title: `确认清空U9编号 ${record.u9No} 的税收编码和税率吗？`,
       icon: <ExclamationCircleFilled />,
       // content: 'Some descriptions',
       okText: '确定',

@@ -2,6 +2,7 @@ import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import type { DataType as InvoiceDataType } from '@/pages/Invoice/index';
 import type { DataType as InvoiceCustomerInfo } from '@/pages/CustomerInfo/index';
+import { padDecimalToSpecifyPlaces } from '@/utils/general';
 
 // 导入excel return出整个workbook
 const importExcel = async () => {
@@ -76,9 +77,12 @@ const handleFormData = async (
   //从28行开始写入数据
   const currentRow = 4;
   formData.forEach((item, index) => {
+    // FIXME: 2026-02-11 判断 materialCode 是否小数位不足4位，不足就补0 到4位
+    // const materialCodeTemp = padDecimalToSpecifyPlaces(item.materialCode, 4);
+    const materialCodeTemp = item.materialCode;
     const customerInfoItem = getCustomerInfoByCode(item.customerCode, customerInfo);
     console.log('customerInfoItem', customerInfoItem);
-    const taxInfoItem = getTaxInfoByU9No(item.materialCode, taxInfo);
+    const taxInfoItem = getTaxInfoByU9No(materialCodeTemp, taxInfo);
     console.log('taxInfoItem', taxInfoItem);
     const row = sheet.getRow(index + currentRow); // 第一行是title 所以从第二行开始
     row.getCell('A').value = item.appNo;
