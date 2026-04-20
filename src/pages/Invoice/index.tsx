@@ -709,7 +709,7 @@ const Invoice: React.FC = () => {
           value={showSearchMaterialCodeText}
           placeholder="搜索料号(精准匹配)..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
-          style={{ marginRight: 16 }}
+          // style={{ marginRight: 16 }}
           onChange={(e) => handleSearchMaterialCodeText(e.target.value)}
           allowClear
         />

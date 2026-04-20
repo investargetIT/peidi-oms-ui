@@ -7,7 +7,8 @@ function addTimestampToHTML() {
   
   if (!fs.existsSync(htmlFile)) {
     console.error('找不到 dist/index.html 文件');
-    return;
+    // return;
+    process.exit(1);
   }
   
   let content = fs.readFileSync(htmlFile, 'utf-8');
