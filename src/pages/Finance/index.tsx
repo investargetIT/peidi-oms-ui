@@ -53,7 +53,7 @@ const UploadComponent: React.FC<{
     showUploadList: false,
     maxCount: 1,
     headers: {
-      Authorization: localStorage.getItem('token'),
+      Authorization: localStorage.getItem('token') || '',
     },
     action,
     onChange(info) {
@@ -105,6 +105,7 @@ const UploadComponent: React.FC<{
 const App: React.FC = () => {
   // 对话框控制
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
   // 表单实例
   const [form] = Form.useForm();
 
@@ -205,6 +206,7 @@ const App: React.FC = () => {
       const endDate = values.dateRange[1].format('YYYY-MM-DD');
 
       // 点击后立即设置为处理中状态，触发轮询
+      setConfirmLoading(true);
       setIsProcessing(true);
 
       // return;
@@ -218,6 +220,7 @@ const App: React.FC = () => {
 
       message.success('财务数据处理成功');
       setIsModalOpen(false);
+      setConfirmLoading(false);
       form.resetFields();
       // 长链接返回后清除处理中状态，并刷新状态
       setIsProcessing(false);
@@ -226,6 +229,7 @@ const App: React.FC = () => {
       console.error('Failed to execute finance processing:', error);
       message.error('处理失败');
       // 如果出错也清除处理中状态，并刷新状态
+      setConfirmLoading(false);
       setIsProcessing(false);
       await fetchExecuteStatus();
     }
@@ -410,6 +414,7 @@ const App: React.FC = () => {
         onCancel={handleModalCancel}
         width={500}
         centered
+        confirmLoading={confirmLoading}
       >
         <Form
           form={form}
