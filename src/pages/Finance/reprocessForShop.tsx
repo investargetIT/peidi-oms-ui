@@ -218,6 +218,10 @@ const ReprocessForShop = () => {
         org: '宠珍',
         fileList: [],
       },
+      {
+        org: '瑞驰派特',
+        fileList: [],
+      },
     ];
     // 遍历源数据，将数据填充到模板中
     sourceData.forEach((item: any) => {
@@ -416,6 +420,7 @@ const ReprocessForShop = () => {
             <Radio.Button value="智创">智创</Radio.Button>
             <Radio.Button value="哈宠">哈宠</Radio.Button>
             <Radio.Button value="宠珍">宠珍</Radio.Button>
+            <Radio.Button value="瑞驰派特">瑞驰派特</Radio.Button>
           </Radio.Group>
         </Col>
       </Row>
