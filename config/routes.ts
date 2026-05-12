@@ -90,6 +90,13 @@ export default [
     component: './InvoiceAudit',
     access: 'canGeneralPermissions',
   },
+  {
+    name: 'outboundPrint',
+    icon: 'printerOutlined',
+    path: '/outboundPrint',
+    component: './OutboundPrint',
+    access: 'canGeneralPermissions',
+  },
   // {
   //   name: 'repurchaseRate',
   //   icon: 'creditCard',

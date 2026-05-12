@@ -5,7 +5,7 @@ export default function access(
   initialState: { currentUser?: any; ddUserInfo?: any; parentByUser?: any } | undefined,
 ) {
   const { currentUser, ddUserInfo, parentByUser } = initialState ?? {};
-  console.log('#################', initialState);
+  // console.log('#################', initialState);
   // 尝试从currentUser中获取部门ID列表
   const userId = currentUser?.id || '';
   // 尝试从ddUserInfo中获取部门ID列表

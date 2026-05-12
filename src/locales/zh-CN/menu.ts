@@ -60,4 +60,5 @@ export default {
   'menu.taxNo': '税收编码维护',
   'menu.invoice': '开票申请',
   'menu.invoiceAudit': '开票审核',
+  'menu.outboundPrint': '出库单打印',
 };
