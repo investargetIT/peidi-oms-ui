@@ -21,15 +21,15 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
   // 基础样式
   const baseStyle = {
     fontFamily: 'SimSun, "宋体", serif',
-    fontSize: '12px',
+    fontSize: '11px',
   };
 
   const pageStyle = {
-    width: '210mm',
-    minHeight: '297mm',
+    width: '241mm',
+    minHeight: '139.5mm',
     backgroundColor: 'white',
-    margin: '0 auto 10mm auto',
-    padding: '10mm',
+    margin: '0 auto 5mm auto',
+    padding: '8mm',
     boxSizing: 'border-box' as const,
     pageBreakAfter: 'always' as const,
   };
@@ -42,8 +42,8 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
   const tableStyle = {
     width: '100%',
     borderCollapse: 'collapse',
-    fontSize: '11px',
-    marginTop: '10px',
+    fontSize: '10px',
+    marginTop: '8px',
     tableLayout: 'fixed',
   };
 
@@ -84,34 +84,34 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
         {/* 每一页的固定内容高度测量 */}
         <div className="measure-header">
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '3px' }}>
               佩蒂智创（杭州）宠物科技有限公司
             </div>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>
               成品出库单
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
             <span>立账凭证号</span>
-            <span style={{ marginLeft: '20px' }}>{firstItem['立账凭证号'] || ''}</span>
+            <span style={{ marginLeft: '15px' }}>{firstItem['立账凭证号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
             <span>凭证号</span>
-            <span style={{ marginLeft: '20px' }}>{firstItem['凭证显示号'] || ''}</span>
+            <span style={{ marginLeft: '15px' }}>{firstItem['凭证显示号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px', fontSize: '10px' }}>
             <span>状态：</span>
             <span>{firstItem['状态'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '3px' }}>
             <span>客户名称：{firstItem['客户'] || ''}</span>
             <span>单据日期：{firstItem['单据日期'] || ''}</span>
             <span>单号：{firstItem['单据编号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '6px' }}>
             <span>销售单号：</span>
             <span>存储地点名称：成品仓</span>
-            <span style={{ width: '120px', display: 'inline-block' }}>来源单号：</span>
+            <span style={{ width: '100px', display: 'inline-block' }}>来源单号：</span>
           </div>
         </div>
 
@@ -182,7 +182,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
         </div>
 
         {/* 底部签名 */}
-        <div className="measure-footer" style={{ marginTop: '20px', fontSize: '12px' }}>
+        <div className="measure-footer" style={{ marginTop: '12px', fontSize: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <span style={{ width: '30%', display: 'inline-block' }}>业务员：</span>
             <span style={{ width: '30%', display: 'inline-block' }}>库管员：</span>
@@ -208,7 +208,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
       const container = measureContainerRef.current;
 
       // 估计一个安全的页面高度（单位px）
-      const MAX_PAGE_HEIGHT = 750;
+      const MAX_PAGE_HEIGHT = 380;
 
       data.forEach((order) => {
         const dataList = order.dataList || [];
@@ -223,7 +223,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
         const totalRow = container.querySelector(`[data-order-id="${order['单据编号'] || ''}"] .measure-total`);
         const footer = container.querySelector(`[data-order-id="${order['单据编号'] || ''}"] .measure-footer`);
 
-        const headerHeight = header?.getBoundingClientRect().height || 200;
+        const headerHeight = header?.getBoundingClientRect().height || 135;
         const tableHeaderHeight = tableHeader?.getBoundingClientRect().height || 30;
         const subtotalHeight = subtotalRow?.getBoundingClientRect().height || 25;
         const totalHeight = totalRow?.getBoundingClientRect().height || 25;
@@ -233,7 +233,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
         const rowElements = container.querySelectorAll(`[data-order-id="${order['单据编号'] || ''}"] .measure-row`);
         const rowHeights: number[] = [];
         rowElements.forEach((el) => {
-          rowHeights.push(el.getBoundingClientRect().height || 30);
+          rowHeights.push(el.getBoundingClientRect().height || 20);
         });
 
         // 开始分页算法
@@ -243,7 +243,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
         let isFirstPage = true;
 
         dataList.forEach((row, index) => {
-          const rowHeight = rowHeights[index] || 30;
+          const rowHeight = rowHeights[index] || 20;
 
           // 如果是当前页的最后一行，需要考虑是否是整个单的最后一页
           const isLastRowOfOrder = index === dataList.length - 1;
@@ -327,37 +327,37 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
         <div style={baseStyle}>
           {/* 每一页都显示完整标题 */}
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '3px' }}>
               佩蒂智创（杭州）宠物科技有限公司
             </div>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>
               成品出库单
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
             <span>立账凭证号</span>
-            <span style={{ marginLeft: '20px' }}>{firstItem['立账凭证号'] || ''}</span>
+            <span style={{ marginLeft: '15px' }}>{firstItem['立账凭证号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
             <span>凭证号</span>
-            <span style={{ marginLeft: '20px' }}>{firstItem['凭证显示号'] || ''}</span>
+            <span style={{ marginLeft: '15px' }}>{firstItem['凭证显示号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px', fontSize: '10px' }}>
             <span>状态：</span>
             <span>{firstItem['状态'] || ''}</span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '3px' }}>
             <span>客户名称：{firstItem['客户'] || ''}</span>
             <span>单据日期：{firstItem['单据日期'] || ''}</span>
             <span>单号：{firstItem['单据编号'] || ''}</span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '6px' }}>
             <span>销售单号：</span>
             <span>存储地点名称：成品仓</span>
-            <span style={{ width: '120px', display: 'inline-block' }}>来源单号：</span>
+            <span style={{ width: '100px', display: 'inline-block' }}>来源单号：</span>
           </div>
 
           {/* 主要表格 */}
@@ -404,7 +404,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
             </tbody>
           </table>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '20px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '12px', fontSize: '10px' }}>
             <span style={{ width: '30%', display: 'inline-block' }}>业务员：</span>
             <span style={{ width: '30%', display: 'inline-block' }}>库管员：</span>
             <span style={{ display: 'inline-block' }}>地址及备注：</span>
@@ -424,14 +424,14 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
             position: 'absolute',
             left: '-99999px',
             top: '0',
-            width: '210mm',
-            padding: '10mm',
+            width: '241mm',
+            padding: '8mm',
             boxSizing: 'border-box'
           }}
         >
           {data.map(renderMeasureContent)}
         </div>
-        <div style={{ padding: '20px', textAlign: 'center' }}>正在计算分页...</div>
+        <div style={{ padding: '20px', textAlign: 'center' }}>正在绘制打印内容...</div>
       </div>
     );
   }

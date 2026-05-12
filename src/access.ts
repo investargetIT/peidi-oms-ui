@@ -29,5 +29,6 @@ export default function access(
       userId === '1926449443739598860' ||
       // 庄严
       userId === '1926449443739598859',
+    canOutboundPrint: parentDeptIds.includes(939900386) || userId === '1888122836086206465', // 孟丽丹
   };
 }

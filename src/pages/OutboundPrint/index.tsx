@@ -1,5 +1,5 @@
 import { PageContainer } from '@ant-design/pro-components';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, message, Table, Upload, Space } from 'antd';
 import { UploadOutlined, PrinterOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
@@ -122,12 +122,15 @@ const OutboundPrint: React.FC = () => {
     ellipsis: true,
   }));
 
-  const handlePrint = () => {
+  const handleFormatData = () => {
     const formattedDataTemp = formatOutboundPrintData(data);
     setFormattedData(formattedDataTemp);
   };
+  useEffect(() => {
+    handleFormatData();
+  }, [data]);
 
-  const handlePrintJS = () => {
+  const handlePrint = () => {
     const printContent = document.getElementById('printJS-form');
     if (!printContent) return;
 
@@ -149,7 +152,7 @@ const OutboundPrint: React.FC = () => {
         <title>成品出库单</title>
         <style>
           @page {
-            size: A4 portrait;
+            size: 241mm 139.5mm;
             margin: 0;
           }
           body {
@@ -173,9 +176,11 @@ const OutboundPrint: React.FC = () => {
             word-wrap: break-word;
             word-break: break-all;
           }
-          th {
+           th {
             font-weight: normal;
             background-color: #f0f0f0;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
         </style>
       </head>
@@ -217,11 +222,10 @@ const OutboundPrint: React.FC = () => {
           icon={<PrinterOutlined />}
           type="primary"
           onClick={handlePrint}
-          disabled={data.length === 0}
+          disabled={formattedData.length === 0}
         >
           打印
         </Button>
-        <Button onClick={handlePrintJS}>调用printJS打印</Button>
       </Space>
 
       {false && data.length > 0 && (
@@ -238,7 +242,11 @@ const OutboundPrint: React.FC = () => {
         />
       )}
 
-      {data.length > -1 && <OutboundPrintTable  data={formattedData} />}
+      {formattedData.length > 0 && (
+        <div style={{ height: '60vh', overflow: 'auto' }}>
+          <OutboundPrintTable data={formattedData} />
+        </div>
+      )}
     </PageContainer>
   );
 };

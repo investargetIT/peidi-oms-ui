@@ -95,7 +95,7 @@ export default [
     icon: 'printerOutlined',
     path: '/outboundPrint',
     component: './OutboundPrint',
-    access: 'canGeneralPermissions',
+    access: 'canOutboundPrint',
   },
   // {
   //   name: 'repurchaseRate',
