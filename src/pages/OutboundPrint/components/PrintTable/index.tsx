@@ -13,7 +13,10 @@ interface OrderPages {
   orderTotal: number;
 }
 
-const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
+const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolean) => void }> = ({
+  data,
+  onReadyChange,
+}) => {
   const [paginatedData, setPaginatedData] = useState<OrderPages[]>([]);
   const [isReady, setIsReady] = useState(false);
   const measureContainerRef = useRef<HTMLDivElement>(null);
@@ -91,24 +94,59 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
               成品出库单
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: '3px',
+              fontSize: '10px',
+            }}
+          >
             <span>立账凭证号</span>
             <span style={{ marginLeft: '15px' }}>{firstItem['立账凭证号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: '3px',
+              fontSize: '10px',
+            }}
+          >
             <span>凭证号</span>
             <span style={{ marginLeft: '15px' }}>{firstItem['凭证显示号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px', fontSize: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: '6px',
+              fontSize: '10px',
+            }}
+          >
             <span>状态：</span>
             <span>{firstItem['状态'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '3px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '10px',
+              marginBottom: '3px',
+            }}
+          >
             <span>客户名称：{firstItem['客户'] || ''}</span>
             <span>单据日期：{firstItem['单据日期'] || ''}</span>
             <span>单号：{firstItem['单据编号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '6px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '10px',
+              marginBottom: '6px',
+            }}
+          >
             <span>销售单号：</span>
             <span>存储地点名称：成品仓</span>
             <span style={{ width: '100px', display: 'inline-block' }}>来源单号：</span>
@@ -141,7 +179,9 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
                     <td style={{ ...cellStyle, textAlign: 'center' }}>{row['货号'] || ''}</td>
                     <td style={cellStyle}>{row['料品名称'] || ''}</td>
                     <td style={{ ...cellStyle, textAlign: 'center' }}>{row['规格'] || ''}</td>
-                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row['出库数量(销售单位)'] || ''}</td>
+                    <td style={{ ...cellStyle, textAlign: 'center' }}>
+                      {row['出库数量(销售单位)'] || ''}
+                    </td>
                     <td style={{ ...cellStyle, textAlign: 'center' }}>{row['销售单位'] || ''}</td>
                     <td style={{ ...cellStyle, textAlign: 'center' }}>{row['参考料号2'] || ''}</td>
                   </tr>
@@ -156,7 +196,9 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
           <table style={tableStyle}>
             <tbody>
               <tr>
-                <td style={{ ...cellStyle, textAlign: 'left' }} colSpan={3}>本页小计</td>
+                <td style={{ ...cellStyle, textAlign: 'left' }} colSpan={3}>
+                  本页小计
+                </td>
                 <td style={cellStyle}></td>
                 <td style={{ ...cellStyle, textAlign: 'right' }}>0</td>
                 <td style={cellStyle}></td>
@@ -171,7 +213,9 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
           <table style={tableStyle}>
             <tbody>
               <tr>
-                <td style={{ ...cellStyle, textAlign: 'left' }} colSpan={3}>本单合计</td>
+                <td style={{ ...cellStyle, textAlign: 'left' }} colSpan={3}>
+                  本单合计
+                </td>
                 <td style={cellStyle}></td>
                 <td style={{ ...cellStyle, textAlign: 'right' }}>0</td>
                 <td style={cellStyle}></td>
@@ -197,6 +241,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
   useEffect(() => {
     if (data.length === 0) {
       setIsReady(true);
+      onReadyChange?.(true);
       return;
     }
 
@@ -204,97 +249,61 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
     const timer = setTimeout(() => {
       if (!measureContainerRef.current) return;
 
+      const measureElements = measureContainerRef.current.querySelectorAll('[data-order-id]');
       const result: OrderPages[] = [];
-      const container = measureContainerRef.current;
 
-      // 估计一个安全的页面高度（单位px）
-      const MAX_PAGE_HEIGHT = 380;
+      measureElements.forEach((orderElement) => {
+        const orderId = orderElement.getAttribute('data-order-id') || '';
+        const order = data.find((o) => o['单据编号'] === orderId);
 
-      data.forEach((order) => {
-        const dataList = order.dataList || [];
-        if (dataList.length === 0) return;
+        if (!order || !order.dataList) return;
 
-        const orderTotal = calculateTotal(dataList);
+        const headerHeight = orderElement.querySelector('.measure-header')?.clientHeight || 0;
+        const footerHeight = orderElement.querySelector('.measure-footer')?.clientHeight || 0;
+        const thHeight = orderElement.querySelector('thead')?.clientHeight || 0;
+        const subtotalHeight = orderElement.querySelector('.measure-subtotal')?.clientHeight || 0;
+        const totalHeight = orderElement.querySelector('.measure-total')?.clientHeight || 0;
 
-        // 先获取固定部分的高度
-        const header = container.querySelector(`[data-order-id="${order['单据编号'] || ''}"] .measure-header`);
-        const tableHeader = container.querySelector(`[data-order-id="${order['单据编号'] || ''}"] table thead`)?.parentElement;
-        const subtotalRow = container.querySelector(`[data-order-id="${order['单据编号'] || ''}"] .measure-subtotal`);
-        const totalRow = container.querySelector(`[data-order-id="${order['单据编号'] || ''}"] .measure-total`);
-        const footer = container.querySelector(`[data-order-id="${order['单据编号'] || ''}"] .measure-footer`);
+        const availableHeight = 139.5 * 3.7795275591 - headerHeight - footerHeight - thHeight;
 
-        const headerHeight = header?.getBoundingClientRect().height || 135;
-        const tableHeaderHeight = tableHeader?.getBoundingClientRect().height || 30;
-        const subtotalHeight = subtotalRow?.getBoundingClientRect().height || 25;
-        const totalHeight = totalRow?.getBoundingClientRect().height || 25;
-        const footerHeight = footer?.getBoundingClientRect().height || 40;
-
-        // 获取每一行的高度
-        const rowElements = container.querySelectorAll(`[data-order-id="${order['单据编号'] || ''}"] .measure-row`);
-        const rowHeights: number[] = [];
-        rowElements.forEach((el) => {
-          rowHeights.push(el.getBoundingClientRect().height || 20);
-        });
-
-        // 开始分页算法
+        const rows = orderElement.querySelectorAll('.measure-row');
         const pages: PageData[] = [];
         let currentPageRows: any[] = [];
         let currentHeight = 0;
+        let pageTotal = 0;
         let isFirstPage = true;
 
-        dataList.forEach((row, index) => {
-          const rowHeight = rowHeights[index] || 20;
+        rows.forEach((rowElement, index) => {
+          const rowHeight = rowElement.clientHeight || 30;
+          const rowData = order.dataList[index];
 
-          // 如果是当前页的最后一行，需要考虑是否是整个单的最后一页
-          const isLastRowOfOrder = index === dataList.length - 1;
-
-          // 先试试能不能放进去
-          const newHeight = currentHeight + rowHeight;
-          // 每一页都要加上本页小计和底部签名
-          let estimatedTotalHeight = headerHeight + tableHeaderHeight + newHeight + subtotalHeight + footerHeight;
-
-          // 如果是整个单的最后一页，还需要加上本单合计
-          if (isLastRowOfOrder) {
-            estimatedTotalHeight += totalHeight;
-          }
-
-          // 如果会超出，而且不是第一行，就换页
-          if (currentPageRows.length > 0 && estimatedTotalHeight > MAX_PAGE_HEIGHT) {
-            // 完成当前页
-            const pageTotal = calculateTotal(currentPageRows.map((r, idx) => ({
-              ...r,
-              displayRowNum: (pages.reduce((sum, p) => sum + p.pageData.length, 0) + idx + 1) * 10,
-            })));
+          if (currentHeight + rowHeight > availableHeight && currentPageRows.length > 0) {
             pages.push({
               pageData: currentPageRows.map((r, idx) => ({
-                ...r,
-                displayRowNum: (pages.reduce((sum, p) => sum + p.pageData.length, 0) + idx + 1) * 10,
+                ...r.data,
+                displayRowNum: (isFirstPage ? idx + 1 : idx + 1) * 10,
               })),
               pageTotal,
               isFirstPage,
               isLastPageOfOrder: false,
             });
 
-            // 开始新页
-            currentPageRows = [row];
-            currentHeight = rowHeight;
+            currentPageRows = [];
+            currentHeight = 0;
+            pageTotal = 0;
             isFirstPage = false;
-          } else {
-            currentPageRows.push(row);
-            currentHeight += rowHeight;
           }
+
+          currentPageRows.push({ data: rowData, height: rowHeight });
+          currentHeight += rowHeight;
+          pageTotal += parseFloat(rowData['出库数量(销售单位)']) || 0;
         });
 
-        // 处理最后一页
         if (currentPageRows.length > 0) {
-          const pageTotal = calculateTotal(currentPageRows.map((r, idx) => ({
-            ...r,
-            displayRowNum: (pages.reduce((sum, p) => sum + p.pageData.length, 0) + idx + 1) * 10,
-          })));
           pages.push({
             pageData: currentPageRows.map((r, idx) => ({
-              ...r,
-              displayRowNum: (pages.reduce((sum, p) => sum + p.pageData.length, 0) + idx + 1) * 10,
+              ...r.data,
+              displayRowNum: (isFirstPage ? idx + 1 : idx + 1) * 10,
             })),
             pageTotal,
             isFirstPage,
@@ -302,15 +311,22 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
           });
         }
 
-        result.push({ order, pages, orderTotal });
+        const orderTotal = calculateTotal(order.dataList);
+
+        result.push({
+          order,
+          pages,
+          orderTotal,
+        });
       });
 
       setPaginatedData(result);
       setIsReady(true);
+      onReadyChange?.(true);
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [JSON.stringify(data.map(d => d.dataList?.length || 0))]);
+  }, [JSON.stringify(data.map((d) => d.dataList?.length || 0))]);
 
   // 渲染单个页面
   const renderPage = (
@@ -318,7 +334,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
     page: PageData,
     pageIndex: number,
     orderTotal: number,
-    isLastPage: boolean
+    isLastPage: boolean,
   ) => {
     const firstItem = order.dataList?.[0] || order;
 
@@ -335,26 +351,61 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: '3px',
+              fontSize: '10px',
+            }}
+          >
             <span>立账凭证号</span>
             <span style={{ marginLeft: '15px' }}>{firstItem['立账凭证号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: '3px',
+              fontSize: '10px',
+            }}
+          >
             <span>凭证号</span>
             <span style={{ marginLeft: '15px' }}>{firstItem['凭证显示号'] || ''}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px', fontSize: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: '6px',
+              fontSize: '10px',
+            }}
+          >
             <span>状态：</span>
             <span>{firstItem['状态'] || ''}</span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '3px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '10px',
+              marginBottom: '3px',
+            }}
+          >
             <span>客户名称：{firstItem['客户'] || ''}</span>
             <span>单据日期：{firstItem['单据日期'] || ''}</span>
             <span>单号：{firstItem['单据编号'] || ''}</span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '6px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: '10px',
+              marginBottom: '6px',
+            }}
+          >
             <span>销售单号：</span>
             <span>存储地点名称：成品仓</span>
             <span style={{ width: '100px', display: 'inline-block' }}>来源单号：</span>
@@ -380,23 +431,33 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
                   <td style={{ ...cellStyle, textAlign: 'center' }}>{row['货号'] || ''}</td>
                   <td style={cellStyle}>{row['料品名称'] || ''}</td>
                   <td style={{ ...cellStyle, textAlign: 'center' }}>{row['规格'] || ''}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row['出库数量(销售单位)'] || ''}</td>
+                  <td style={{ ...cellStyle, textAlign: 'center' }}>
+                    {row['出库数量(销售单位)'] || ''}
+                  </td>
                   <td style={{ ...cellStyle, textAlign: 'center' }}>{row['销售单位'] || ''}</td>
                   <td style={{ ...cellStyle, textAlign: 'center' }}>{row['参考料号2'] || ''}</td>
                 </tr>
               ))}
               <tr style={trStyle}>
-                <td style={{ ...cellStyle, textAlign: 'left' }} colSpan={3}>本页小计</td>
+                <td style={{ ...cellStyle, textAlign: 'left' }} colSpan={3}>
+                  本页小计
+                </td>
                 <td style={cellStyle}></td>
-                <td style={{ ...cellStyle, textAlign: 'right' }}>{page.pageTotal.toLocaleString()}</td>
+                <td style={{ ...cellStyle, textAlign: 'right' }}>
+                  {page.pageTotal.toLocaleString()}
+                </td>
                 <td style={cellStyle}></td>
                 <td style={cellStyle}></td>
               </tr>
               {page.isLastPageOfOrder && (
                 <tr style={trStyle}>
-                  <td style={{ ...cellStyle, textAlign: 'left' }} colSpan={3}>本单合计</td>
+                  <td style={{ ...cellStyle, textAlign: 'left' }} colSpan={3}>
+                    本单合计
+                  </td>
                   <td style={cellStyle}></td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }}>{orderTotal.toLocaleString()}</td>
+                  <td style={{ ...cellStyle, textAlign: 'right' }}>
+                    {orderTotal.toLocaleString()}
+                  </td>
                   <td style={cellStyle}></td>
                   <td style={cellStyle}></td>
                 </tr>
@@ -404,7 +465,14 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
             </tbody>
           </table>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '12px', fontSize: '10px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-start',
+              marginTop: '12px',
+              fontSize: '10px',
+            }}
+          >
             <span style={{ width: '30%', display: 'inline-block' }}>业务员：</span>
             <span style={{ width: '30%', display: 'inline-block' }}>库管员：</span>
             <span style={{ display: 'inline-block' }}>地址及备注：</span>
@@ -426,7 +494,7 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
             top: '0',
             width: '241mm',
             padding: '8mm',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
           }}
         >
           {data.map(renderMeasureContent)}
@@ -453,9 +521,9 @@ const OutboundPrintTable: React.FC<{ data: any[] }> = ({ data }) => {
             page,
             globalPageIndex - 1,
             orderPages.orderTotal,
-            globalPageIndex === totalPages
+            globalPageIndex === totalPages,
           );
-        })
+        }),
       )}
     </div>
   );

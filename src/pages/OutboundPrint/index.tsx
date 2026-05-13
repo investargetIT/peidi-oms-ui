@@ -13,6 +13,7 @@ const OutboundPrint: React.FC = () => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [formattedData, setFormattedData] = useState<any[]>([]);
+  const [isPrintReady, setIsPrintReady] = useState(false);
 
   const requiredColumns = [
     '单据日期',
@@ -134,16 +135,11 @@ const OutboundPrint: React.FC = () => {
     const printContent = document.getElementById('printJS-form');
     if (!printContent) return;
 
-    // 创建隐藏的iframe
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.width = '0px';
-    iframe.style.height = '0px';
-    iframe.style.left = '-9999px';
-    iframe.style.top = '-9999px';
-    document.body.appendChild(iframe);
+    // 保存原始内容
+    const originalContents = document.body.innerHTML;
+    const originalTitle = document.title;
 
-    // 构建完整的打印HTML，包含所有必要的样式
+    // 构建打印HTML
     const printHTML = `
       <!DOCTYPE html>
       <html>
@@ -176,7 +172,7 @@ const OutboundPrint: React.FC = () => {
             word-wrap: break-word;
             word-break: break-all;
           }
-           th {
+          th {
             font-weight: normal;
             background-color: #f0f0f0;
             -webkit-print-color-adjust: exact;
@@ -190,25 +186,21 @@ const OutboundPrint: React.FC = () => {
       </html>
     `;
 
-    // 写入iframe
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (iframeDoc) {
-      iframeDoc.open();
-      iframeDoc.write(printHTML);
-      iframeDoc.close();
+    // 替换当前页面内容
+    document.body.innerHTML = printHTML;
+    document.title = '成品出库单';
 
-      // 等待内容加载完成后打印
-      iframe.onload = () => {
-        setTimeout(() => {
-          iframe.contentWindow?.print();
-          // 打印完成后移除iframe
-          setTimeout(() => {
-            document.body.removeChild(iframe);
-          }, 1000);
-        }, 500);
-      };
-    }
+    // 执行打印
+    window.print();
+
+    // 打印完成后恢复原始内容
+    document.body.innerHTML = originalContents;
+    document.title = originalTitle;
+
+    // 重新绑定事件(如果需要)
+    window.location.reload();
   };
+  
   return (
     <PageContainer>
       <Space style={{ marginBottom: 16 }}>
@@ -222,7 +214,7 @@ const OutboundPrint: React.FC = () => {
           icon={<PrinterOutlined />}
           type="primary"
           onClick={handlePrint}
-          disabled={formattedData.length === 0}
+          disabled={formattedData.length === 0 || !isPrintReady}
         >
           打印
         </Button>
@@ -244,7 +236,7 @@ const OutboundPrint: React.FC = () => {
 
       {formattedData.length > 0 && (
         <div style={{ height: '60vh', overflow: 'auto' }}>
-          <OutboundPrintTable data={formattedData} />
+          <OutboundPrintTable data={formattedData} onReadyChange={setIsPrintReady} />
         </div>
       )}
     </PageContainer>
