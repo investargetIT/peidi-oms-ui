@@ -341,7 +341,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
     const firstItem = order.dataList?.[0] || order;
 
     return (
-      <div key={pageIndex} style={isLastPage ? lastPageStyle : pageStyle}>
+      <div key={pageIndex} className="pdf-page" style={isLastPage ? lastPageStyle : pageStyle}>
         <div style={baseStyle}>
           {/* 每一页都显示完整标题 */}
           <div style={{ textAlign: 'center' }}>
