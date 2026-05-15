@@ -42,7 +42,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
     pageBreakAfter: 'auto' as const,
   };
 
-  const tableStyle = {
+  const tableStyle: any = {
     width: '100%',
     borderCollapse: 'collapse',
     fontSize: '10px',
@@ -157,13 +157,13 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
         <table style={tableStyle}>
           <thead>
             <tr>
-              <th style={{ ...thStyle, width: '5%', textAlign: 'center' }}>行号</th>
-              <th style={{ ...thStyle, width: '14%', textAlign: 'center' }}>货号</th>
+              <th style={{ ...thStyle, width: '5%' }}>行号</th>
+              <th style={{ ...thStyle, width: '14%' }}>货号</th>
               <th style={{ ...thStyle, width: '35%' }}>品名</th>
-              <th style={{ ...thStyle, width: '14%', textAlign: 'center' }}>规格</th>
-              <th style={{ ...thStyle, width: '10%', textAlign: 'center' }}>销售(单位)</th>
-              <th style={{ ...thStyle, width: '5%', textAlign: 'center' }}>库存单位</th>
-              <th style={{ ...thStyle, width: '17%', textAlign: 'center' }}>69条码号</th>
+              <th style={{ ...thStyle, width: '14%' }}>规格</th>
+              <th style={{ ...thStyle, width: '10%' }}>销售(单位)</th>
+              <th style={{ ...thStyle, width: '5%' }}>库存单位</th>
+              <th style={{ ...thStyle, width: '17%' }}>69条码号</th>
             </tr>
           </thead>
         </table>
@@ -175,15 +175,15 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
               <table style={tableStyle}>
                 <tbody>
                   <tr>
-                    <td style={{ ...cellStyle, textAlign: 'center' }}>{(rowIndex + 1) * 10}</td>
-                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row['货号'] || ''}</td>
+                    <td style={cellStyle}>{(rowIndex + 1) * 10}</td>
+                    <td style={cellStyle}>{row['货号'] || ''}</td>
                     <td style={cellStyle}>{row['料品名称'] || ''}</td>
-                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row['规格'] || ''}</td>
-                    <td style={{ ...cellStyle, textAlign: 'center' }}>
+                    <td style={cellStyle}>{row['规格'] || ''}</td>
+                    <td style={cellStyle}>
                       {row['出库数量(销售单位)'] || ''}
                     </td>
-                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row['销售单位'] || ''}</td>
-                    <td style={{ ...cellStyle, textAlign: 'center' }}>{row['参考料号2'] || ''}</td>
+                    <td style={cellStyle}>{row['销售单位'] || ''}</td>
+                    <td style={cellStyle}>{row['参考料号2'] || ''}</td>
                   </tr>
                 </tbody>
               </table>
@@ -200,7 +200,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
                   本页小计
                 </td>
                 <td style={cellStyle}></td>
-                <td style={{ ...cellStyle, textAlign: 'right' }}>0</td>
+                <td style={cellStyle}>0</td>
                 <td style={cellStyle}></td>
                 <td style={cellStyle}></td>
               </tr>
@@ -217,7 +217,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
                   本单合计
                 </td>
                 <td style={cellStyle}></td>
-                <td style={{ ...cellStyle, textAlign: 'right' }}>0</td>
+                <td style={cellStyle}>0</td>
                 <td style={cellStyle}></td>
                 <td style={cellStyle}></td>
               </tr>
@@ -272,6 +272,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
         let currentHeight = 0;
         let pageTotal = 0;
         let isFirstPage = true;
+        let globalRowIndex = 0;
 
         rows.forEach((rowElement, index) => {
           const rowHeight = rowElement.clientHeight || 30;
@@ -281,13 +282,14 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
             pages.push({
               pageData: currentPageRows.map((r, idx) => ({
                 ...r.data,
-                displayRowNum: (isFirstPage ? idx + 1 : idx + 1) * 10,
+                displayRowNum: (globalRowIndex + idx + 1) * 10,
               })),
               pageTotal,
               isFirstPage,
               isLastPageOfOrder: false,
             });
 
+            globalRowIndex += currentPageRows.length;
             currentPageRows = [];
             currentHeight = 0;
             pageTotal = 0;
@@ -303,7 +305,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
           pages.push({
             pageData: currentPageRows.map((r, idx) => ({
               ...r.data,
-              displayRowNum: (isFirstPage ? idx + 1 : idx + 1) * 10,
+              displayRowNum: (globalRowIndex + idx + 1) * 10,
             })),
             pageTotal,
             isFirstPage,
@@ -415,27 +417,27 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
           <table style={tableStyle}>
             <thead>
               <tr style={trStyle}>
-                <th style={{ ...thStyle, width: '5%', textAlign: 'center' }}>行号</th>
-                <th style={{ ...thStyle, width: '14%', textAlign: 'center' }}>货号</th>
+                <th style={{ ...thStyle, width: '5%' }}>行号</th>
+                <th style={{ ...thStyle, width: '14%' }}>货号</th>
                 <th style={{ ...thStyle, width: '35%' }}>品名</th>
-                <th style={{ ...thStyle, width: '14%', textAlign: 'center' }}>规格</th>
-                <th style={{ ...thStyle, width: '10%', textAlign: 'center' }}>销售(单位)</th>
-                <th style={{ ...thStyle, width: '5%', textAlign: 'center' }}>库存单位</th>
-                <th style={{ ...thStyle, width: '17%', textAlign: 'center' }}>69条码号</th>
+                <th style={{ ...thStyle, width: '14%' }}>规格</th>
+                <th style={{ ...thStyle, width: '10%' }}>销售(单位)</th>
+                <th style={{ ...thStyle, width: '5%' }}>库存单位</th>
+                <th style={{ ...thStyle, width: '17%' }}>69条码号</th>
               </tr>
             </thead>
             <tbody>
               {page.pageData.map((row: any, rowIndex: number) => (
                 <tr key={rowIndex} style={trStyle}>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row.displayRowNum}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row['货号'] || ''}</td>
+                  <td style={cellStyle}>{row.displayRowNum}</td>
+                  <td style={cellStyle}>{row['货号'] || ''}</td>
                   <td style={cellStyle}>{row['料品名称'] || ''}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row['规格'] || ''}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>
+                  <td style={cellStyle}>{row['规格'] || ''}</td>
+                  <td style={cellStyle}>
                     {row['出库数量(销售单位)'] || ''}
                   </td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row['销售单位'] || ''}</td>
-                  <td style={{ ...cellStyle, textAlign: 'center' }}>{row['参考料号2'] || ''}</td>
+                  <td style={cellStyle}>{row['销售单位'] || ''}</td>
+                  <td style={cellStyle}>{row['参考料号2'] || ''}</td>
                 </tr>
               ))}
               <tr style={trStyle}>
@@ -443,7 +445,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
                   本页小计
                 </td>
                 <td style={cellStyle}></td>
-                <td style={{ ...cellStyle, textAlign: 'right' }}>
+                <td style={cellStyle}>
                   {page.pageTotal.toLocaleString()}
                 </td>
                 <td style={cellStyle}></td>
@@ -455,7 +457,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
                     本单合计
                   </td>
                   <td style={cellStyle}></td>
-                  <td style={{ ...cellStyle, textAlign: 'right' }}>
+                  <td style={cellStyle}>
                     {orderTotal.toLocaleString()}
                   </td>
                   <td style={cellStyle}></td>

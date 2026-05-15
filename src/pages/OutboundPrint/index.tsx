@@ -197,8 +197,8 @@ const OutboundPrint: React.FC = () => {
     document.body.innerHTML = originalContents;
     document.title = originalTitle;
 
-    // 重新绑定事件(如果需要)
-    window.location.reload();
+    // // 重新绑定事件(如果需要)
+    // window.location.reload();
   };
   
   return (
