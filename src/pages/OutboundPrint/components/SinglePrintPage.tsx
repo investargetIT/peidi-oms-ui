@@ -96,9 +96,9 @@ const SinglePrintPage: React.FC<SinglePrintPageProps> = ({ data }) => {
           <thead>
             <tr>
               <th style={{ ...thStyle, width: '5%' }}>行号</th>
-              <th style={{ ...thStyle, width: '14%' }}>货号</th>
-              <th style={{ ...thStyle, width: '35%' }}>品名</th>
-              <th style={{ ...thStyle, width: '14%' }}>规格</th>
+              <th style={{ ...thStyle, width: '15%' }}>货号</th>
+              <th style={{ ...thStyle, width: '24%' }}>品名</th>
+              <th style={{ ...thStyle, width: '24%' }}>规格</th>
               <th style={{ ...thStyle, width: '10%' }}>销售(单位)</th>
               <th style={{ ...thStyle, width: '7%' }}>库存单位</th>
               <th style={{ ...thStyle, width: '15%' }}>69条码号</th>
@@ -108,9 +108,9 @@ const SinglePrintPage: React.FC<SinglePrintPageProps> = ({ data }) => {
             {pageRows.map((row: any, rowIndex: number) => (
               <tr key={rowIndex}>
                 <td style={{ ...cellStyle, width: '5%' }}>{row.displayRowNum}</td>
-                <td style={{ ...cellStyle, width: '14%' }}>{row['货号'] || ''}</td>
-                <td style={{ ...cellStyle, width: '35%' }}>{row['料品名称'] || ''}</td>
-                <td style={{ ...cellStyle, width: '14%' }}>{row['规格'] || ''}</td>
+                <td style={{ ...cellStyle, width: '15%' }}>{row['货号'] || ''}</td>
+                <td style={{ ...cellStyle, width: '24%' }}>{row['料品名称'] || ''}</td>
+                <td style={{ ...cellStyle, width: '24%' }}>{row['规格'] || ''}</td>
                 <td style={{ ...cellStyle, width: '10%' }}>{row['出库数量(销售单位)'] || ''}</td>
                 <td style={{ ...cellStyle, width: '7%' }}>{row['销售单位'] || ''}</td>
                 <td style={{ ...cellStyle, width: '15%' }}>{row['参考料号2'] || ''}</td>

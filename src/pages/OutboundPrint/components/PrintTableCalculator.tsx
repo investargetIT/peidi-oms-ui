@@ -126,7 +126,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               </th>
               <th
                 style={{
-                  width: '14%',
+                  width: '15%',
                   padding: '4px',
                   border: '1px solid #999',
                   backgroundColor: '#f0f0f0',
@@ -136,7 +136,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               </th>
               <th
                 style={{
-                  width: '35%',
+                  width: '24%',
                   padding: '4px',
                   border: '1px solid #999',
                   backgroundColor: '#f0f0f0',
@@ -146,7 +146,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               </th>
               <th
                 style={{
-                  width: '14%',
+                  width: '24%',
                   padding: '4px',
                   border: '1px solid #999',
                   backgroundColor: '#f0f0f0',
@@ -198,13 +198,13 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
                     <td style={{ width: '5%', padding: '4px', border: '1px solid #999' }}>
                       {(rowIndex + 1) * 10}
                     </td>
-                    <td style={{ width: '14%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '15%', padding: '4px', border: '1px solid #999' }}>
                       {row['货号'] || ''}
                     </td>
-                    <td style={{ width: '35%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '24%', padding: '4px', border: '1px solid #999' }}>
                       {row['料品名称'] || ''}
                     </td>
-                    <td style={{ width: '14%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '24%', padding: '4px', border: '1px solid #999' }}>
                       {row['规格'] || ''}
                     </td>
                     <td style={{ width: '10%', padding: '4px', border: '1px solid #999' }}>

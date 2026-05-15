@@ -158,12 +158,12 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
           <thead>
             <tr>
               <th style={{ ...thStyle, width: '5%' }}>行号</th>
-              <th style={{ ...thStyle, width: '14%' }}>货号</th>
-              <th style={{ ...thStyle, width: '35%' }}>品名</th>
-              <th style={{ ...thStyle, width: '14%' }}>规格</th>
+              <th style={{ ...thStyle, width: '15%' }}>货号</th>
+              <th style={{ ...thStyle, width: '24%' }}>品名</th>
+              <th style={{ ...thStyle, width: '24%' }}>规格</th>
               <th style={{ ...thStyle, width: '10%' }}>销售(单位)</th>
-              <th style={{ ...thStyle, width: '5%' }}>库存单位</th>
-              <th style={{ ...thStyle, width: '17%' }}>69条码号</th>
+              <th style={{ ...thStyle, width: '7%' }}>库存单位</th>
+              <th style={{ ...thStyle, width: '15%' }}>69条码号</th>
             </tr>
           </thead>
         </table>
