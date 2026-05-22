@@ -295,14 +295,17 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         const subtotalHeight = orderElement.querySelector('.measure-subtotal')?.clientHeight || 0;
         const totalHeight = orderElement.querySelector('.measure-total')?.clientHeight || 0;
 
-        const availableHeight = 139.5 * 3.7795275591 - headerHeight - footerHeight - thHeight;
+        // 页面高度换算成px，减去 padding (8mm * 2)，再留更多余量
+        const pageHeightPx = 139.5 * 3.7795275591;
+        const paddingPx = 8 * 3.7795275591 * 2;
+        const availableHeight = pageHeightPx - headerHeight - footerHeight - thHeight - subtotalHeight - paddingPx * 2;
 
         // 测一行的高度
         const rowElements = orderElement.querySelectorAll('.measure-row');
         const rowHeight = rowElements.length > 0 ? rowElements[0].clientHeight || 30 : 30;
 
-        // 估算每页行数（留一些余量）
-        const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight) - 1);
+        // 估算每页行数（留更多余量）
+        const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight) - 2);
 
         const dataList = order.dataList;
         const totalPages = Math.ceil(dataList.length / rowsPerPage);
