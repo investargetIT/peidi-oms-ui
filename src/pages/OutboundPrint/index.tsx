@@ -196,12 +196,12 @@ const OutboundPrint: React.FC = () => {
         return;
       }
 
-      // 241mm x 139.5mm 转换成 pt (1mm = 2.83465pt)
-      const pageWidth = 241 * 2.83465;
-      const pageHeight = 139.5 * 2.83465;
+      // A4 210mm x 297mm 转换成 pt (1mm = 2.83465pt)
+      const pageWidth = 210 * 2.83465;
+      const pageHeight = 297 * 2.83465;
 
       const pdf = new jsPDF({
-        orientation: 'landscape',
+        orientation: 'portrait',
         unit: 'pt',
         format: [pageWidth, pageHeight],
       });
@@ -233,7 +233,7 @@ const OutboundPrint: React.FC = () => {
         const imgData = canvas.toDataURL('image/jpeg', 1);
 
         if (i > 0) {
-          pdf.addPage([pageWidth, pageHeight], 'landscape');
+          pdf.addPage([pageWidth, pageHeight], 'portrait');
         }
 
         pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
@@ -374,8 +374,8 @@ const OutboundPrint: React.FC = () => {
           position: 'absolute',
           left: '-99999px',
           top: 0,
-          width: '241mm',
-          padding: '8mm',
+          width: '210mm',
+          padding: '10mm',
           boxSizing: 'border-box',
           backgroundColor: 'white',
         }}

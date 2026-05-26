@@ -42,12 +42,12 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
     return (
       <div key={order['单据编号'] || 'order'} data-order-id={order['单据编号'] || ''}>
         {/* 每一页的固定内容高度测量 */}
-        <div className="measure-header">
+        <div className="measure-header" style={{ fontSize: '14px' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '3px' }}>
+            <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px' }}>
               佩蒂智创（杭州）宠物科技有限公司
             </div>
-            <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>
+            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>
               成品出库单
             </div>
           </div>
@@ -55,30 +55,30 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
             style={{
               display: 'flex',
               justifyContent: 'flex-end',
-              marginBottom: '3px',
-              fontSize: '10px',
+              marginBottom: '5px',
+              fontSize: '12px',
             }}
           >
             <span>立账凭证号</span>
-            <span style={{ marginLeft: '15px' }}>{firstItem['立账凭证号'] || ''}</span>
+            <span style={{ marginLeft: '20px' }}>{firstItem['立账凭证号'] || ''}</span>
           </div>
           <div
             style={{
               display: 'flex',
               justifyContent: 'flex-end',
-              marginBottom: '3px',
-              fontSize: '10px',
+              marginBottom: '5px',
+              fontSize: '12px',
             }}
           >
             <span>凭证号</span>
-            <span style={{ marginLeft: '15px' }}>{firstItem['凭证显示号'] || ''}</span>
+            <span style={{ marginLeft: '20px' }}>{firstItem['凭证显示号'] || ''}</span>
           </div>
           <div
             style={{
               display: 'flex',
               justifyContent: 'flex-end',
-              marginBottom: '6px',
-              fontSize: '10px',
+              marginBottom: '10px',
+              fontSize: '12px',
             }}
           >
             <span>状态：</span>
@@ -88,8 +88,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              fontSize: '10px',
-              marginBottom: '3px',
+              fontSize: '12px',
+              marginBottom: '5px',
             }}
           >
             <span>客户名称：{firstItem['客户'] || ''}</span>
@@ -100,8 +100,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
             style={{
               display: 'flex',
               justifyContent: 'flex-start',
-              fontSize: '10px',
-              marginBottom: '6px',
+              fontSize: '12px',
+              marginBottom: '10px',
             }}
           >
             <span style={{ width: '30%' }}>销售单号：</span>
@@ -111,14 +111,14 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         </div>
 
         {/* 表格标题行 */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '12px' }}>
           <thead>
             <tr>
               <th
                 style={{
                   width: '5%',
-                  padding: '4px',
-                  border: '1px solid #999',
+                  padding: '6px',
+                  border: '0.3px dashed #888',
                   backgroundColor: '#f0f0f0',
                 }}
               >
@@ -127,8 +127,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               <th
                 style={{
                   width: '15%',
-                  padding: '4px',
-                  border: '1px solid #999',
+                  padding: '6px',
+                  border: '0.3px dashed #888',
                   backgroundColor: '#f0f0f0',
                 }}
               >
@@ -137,8 +137,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               <th
                 style={{
                   width: '24%',
-                  padding: '4px',
-                  border: '1px solid #999',
+                  padding: '6px',
+                  border: '0.3px dashed #888',
                   backgroundColor: '#f0f0f0',
                 }}
               >
@@ -147,8 +147,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               <th
                 style={{
                   width: '24%',
-                  padding: '4px',
-                  border: '1px solid #999',
+                  padding: '6px',
+                  border: '0.3px dashed #888',
                   backgroundColor: '#f0f0f0',
                 }}
               >
@@ -157,8 +157,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               <th
                 style={{
                   width: '10%',
-                  padding: '4px',
-                  border: '1px solid #999',
+                  padding: '6px',
+                  border: '0.3px dashed #888',
                   backgroundColor: '#f0f0f0',
                 }}
               >
@@ -167,8 +167,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               <th
                 style={{
                   width: '7%',
-                  padding: '4px',
-                  border: '1px solid #999',
+                  padding: '6px',
+                  border: '0.3px dashed #888',
                   backgroundColor: '#f0f0f0',
                 }}
               >
@@ -177,8 +177,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               <th
                 style={{
                   width: '15%',
-                  padding: '4px',
-                  border: '1px solid #999',
+                  padding: '6px',
+                  border: '0.3px dashed #888',
                   backgroundColor: '#f0f0f0',
                 }}
               >
@@ -189,31 +189,31 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         </table>
 
         {/* 每一行数据的测量 - 只渲染一行来测量高度 */}
-        <div className="measure-rows">
+        <div className="measure-rows" style={{ fontSize: '12px' }}>
           {dataList.slice(0, Math.min(dataList.length, 3)).map((row: any, rowIndex: number) => (
             <div key={rowIndex} className="measure-row" data-row-index={rowIndex}>
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                 <tbody>
                   <tr>
-                    <td style={{ width: '5%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '5%', padding: '6px', border: '0.3px dashed #888' }}>
                       {(rowIndex + 1) * 10}
                     </td>
-                    <td style={{ width: '15%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '15%', padding: '6px', border: '0.3px dashed #888' }}>
                       {row['货号'] || ''}
                     </td>
-                    <td style={{ width: '24%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '24%', padding: '6px', border: '0.3px dashed #888' }}>
                       {row['料品名称'] || ''}
                     </td>
-                    <td style={{ width: '24%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '24%', padding: '6px', border: '0.3px dashed #888' }}>
                       {row['规格'] || ''}
                     </td>
-                    <td style={{ width: '10%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '10%', padding: '6px', border: '0.3px dashed #888' }}>
                       {row['出库数量(销售单位)'] || ''}
                     </td>
-                    <td style={{ width: '7%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '7%', padding: '6px', border: '0.3px dashed #888' }}>
                       {row['销售单位'] || ''}
                     </td>
-                    <td style={{ width: '15%', padding: '4px', border: '1px solid #999' }}>
+                    <td style={{ width: '15%', padding: '6px', border: '0.3px dashed #888' }}>
                       {row['参考料号2'] || ''}
                     </td>
                   </tr>
@@ -224,41 +224,41 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         </div>
 
         {/* 本页小计行 */}
-        <div className="measure-subtotal" style={{ display: 'none' }}>
+        <div className="measure-subtotal" style={{ display: 'none', fontSize: '12px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
-                <td style={{ padding: '4px', border: '1px solid #999' }} colSpan={3}>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }} colSpan={3}>
                   本页小计
                 </td>
-                <td style={{ padding: '4px', border: '1px solid #999' }}></td>
-                <td style={{ padding: '4px', border: '1px solid #999' }}>0</td>
-                <td style={{ padding: '4px', border: '1px solid #999' }}></td>
-                <td style={{ padding: '4px', border: '1px solid #999' }}></td>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }}></td>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }}>0</td>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }}></td>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }}></td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* 本单合计行 */}
-        <div className="measure-total" style={{ display: 'none' }}>
+        <div className="measure-total" style={{ display: 'none', fontSize: '12px' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
-                <td style={{ padding: '4px', border: '1px solid #999' }} colSpan={3}>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }} colSpan={3}>
                   本单合计
                 </td>
-                <td style={{ padding: '4px', border: '1px solid #999' }}></td>
-                <td style={{ padding: '4px', border: '1px solid #999' }}>0</td>
-                <td style={{ padding: '4px', border: '1px solid #999' }}></td>
-                <td style={{ padding: '4px', border: '1px solid #999' }}></td>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }}></td>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }}>0</td>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }}></td>
+                <td style={{ padding: '6px', border: '0.3px dashed #888' }}></td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* 底部签名 */}
-        <div className="measure-footer" style={{ marginTop: '12px', fontSize: '10px' }}>
+        <div className="measure-footer" style={{ marginTop: '20px', fontSize: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <span style={{ width: '30%', display: 'inline-block' }}>业务员：</span>
             <span style={{ width: '30%', display: 'inline-block' }}>库管员：</span>
@@ -295,17 +295,18 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         const subtotalHeight = orderElement.querySelector('.measure-subtotal')?.clientHeight || 0;
         const totalHeight = orderElement.querySelector('.measure-total')?.clientHeight || 0;
 
-        // 页面高度换算成px，减去 padding (8mm * 2)，再留更多余量
-        const pageHeightPx = 139.5 * 3.7795275591;
-        const paddingPx = 8 * 3.7795275591 * 2;
-        const availableHeight = pageHeightPx - headerHeight - footerHeight - thHeight - subtotalHeight - paddingPx * 2;
+        // 页面高度换算成px，减去 padding (10mm * 2)，再留更多余量
+        const pageHeightPx = 297 * 3.7795275591;
+        const paddingPx = 10 * 3.7795275591 * 2;
+        const extraMargin = 120; // 额外留白
+        const availableHeight = pageHeightPx - headerHeight - footerHeight - thHeight - subtotalHeight - totalHeight - paddingPx * 2 - extraMargin;
 
         // 测一行的高度
         const rowElements = orderElement.querySelectorAll('.measure-row');
         const rowHeight = rowElements.length > 0 ? rowElements[0].clientHeight || 30 : 30;
 
         // 估算每页行数（留更多余量）
-        const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight) - 2);
+        const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight) - 6);
 
         const dataList = order.dataList;
         const totalPages = Math.ceil(dataList.length / rowsPerPage);
@@ -358,8 +359,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         position: 'absolute',
         left: '-99999px',
         top: 0,
-        width: '241mm',
-        padding: '8mm',
+        width: '210mm',
+        padding: '10mm',
         boxSizing: 'border-box',
       }}
     >

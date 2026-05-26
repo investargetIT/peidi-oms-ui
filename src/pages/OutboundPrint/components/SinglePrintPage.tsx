@@ -16,28 +16,28 @@ const SinglePrintPage: React.FC<SinglePrintPageProps> = ({ data }) => {
   // 基础样式
   const baseStyle = {
     fontFamily: 'SimSun, "宋体", serif',
-    fontSize: '11px',
+    fontSize: '14px',
   };
 
   const pageStyle = {
-    width: '241mm',
-    minHeight: '139.5mm',
+    width: '210mm',
+    minHeight: '297mm',
     backgroundColor: 'white',
-    padding: '8mm',
+    padding: '10mm',
     boxSizing: 'border-box' as const,
   };
 
   const tableStyle: any = {
     width: '100%',
     borderCollapse: 'collapse',
-    fontSize: '9px',
-    marginTop: '8px',
+    fontSize: '12px',
+    marginTop: '10px',
     tableLayout: 'fixed',
   };
 
   const cellStyle = {
-    border: '1px dashed #999',
-    padding: '4px',
+    border: '0.3px dashed #888',
+    padding: '6px',
     textAlign: 'left' as const,
     overflow: 'hidden',
     wordWrap: 'break-word' as const,
@@ -55,37 +55,37 @@ const SinglePrintPage: React.FC<SinglePrintPageProps> = ({ data }) => {
       <div style={baseStyle}>
         {/* 标题 */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '3px' }}>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px' }}>
             佩蒂智创（杭州）宠物科技有限公司
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>
             成品出库单
           </div>
         </div>
 
         {/* 右上角信息 */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px', fontSize: '12px' }}>
           <span>立账凭证号</span>
-          <span style={{ marginLeft: '15px' }}>{firstItem['立账凭证号'] || ''}</span>
+          <span style={{ marginLeft: '20px' }}>{firstItem['立账凭证号'] || ''}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '3px', fontSize: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '5px', fontSize: '12px' }}>
           <span>凭证号</span>
-          <span style={{ marginLeft: '15px' }}>{firstItem['凭证显示号'] || ''}</span>
+          <span style={{ marginLeft: '20px' }}>{firstItem['凭证显示号'] || ''}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '6px', fontSize: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', fontSize: '12px' }}>
           <span>状态：</span>
           <span>{firstItem['状态'] || ''}</span>
         </div>
 
         {/* 客户信息行 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '3px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
           <span>客户名称：{firstItem['客户'] || ''}</span>
           <span>单据日期：{firstItem['单据日期'] || ''}</span>
           <span>单号：{firstItem['单据编号'] || ''}</span>
         </div>
 
         {/* 第二行信息 */}
-        <div style={{ display: 'flex', justifyContent: 'flex-start', fontSize: '10px', marginBottom: '6px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', fontSize: '12px', marginBottom: '10px' }}>
           <span style={{ width: '30%' }}>销售单号：</span>
           <span style={{ width: '40%', textAlign: 'center' }}>存储地点名称：成品仓</span>
           <span>来源单号：</span>
@@ -136,7 +136,7 @@ const SinglePrintPage: React.FC<SinglePrintPageProps> = ({ data }) => {
         </table>
 
         {/* 底部签名 */}
-        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '12px', fontSize: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '20px', fontSize: '12px' }}>
           <span style={{ width: '30%', display: 'inline-block' }}>业务员：</span>
           <span style={{ width: '30%', display: 'inline-block' }}>库管员：</span>
           <span style={{ display: 'inline-block' }}>地址及备注：</span>
