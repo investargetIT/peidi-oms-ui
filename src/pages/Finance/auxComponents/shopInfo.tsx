@@ -111,6 +111,20 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
     }));
   }, [dataSource]);
 
+  // 自动生成旺店通店铺名称筛选选项
+  const wdtNameFilters = React.useMemo(() => {
+    if (!dataSource.length) return [];
+
+    const uniqueWdtNames = Array.from(
+      new Set(dataSource.filter((item) => item.wdtName).map((item) => item.wdtName)),
+    );
+
+    return uniqueWdtNames.map((name) => ({
+      text: name,
+      value: name,
+    }));
+  }, [dataSource]);
+
   const columns: any = [
     {
       title: 'ID',
@@ -130,6 +144,10 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       title: '旺店通店铺名称',
       dataIndex: 'wdtName',
       key: 'wdtName',
+      filters: wdtNameFilters,
+      onFilter: (value: string, record: { wdtName: string | string[] }) =>
+        record.wdtName === value,
+      filterSearch: true,
     },
     {
       title: '渠道',
