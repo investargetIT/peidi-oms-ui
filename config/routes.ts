@@ -61,6 +61,7 @@ export default [
     icon: 'creditCard',
     path: '/finance',
     component: './Finance',
+    access: 'canFinance',
   },
   {
     name: 'customerInfo',
@@ -96,6 +97,12 @@ export default [
     path: '/outboundPrint',
     component: './OutboundPrint',
     access: 'canOutboundPrint',
+  },
+  {
+    name: 'salesmanAccounting',
+    icon: 'checkCircleOutlined',
+    path: '/salesmanAccounting',
+    component: './SalesmanAccounting',
   },
   // {
   //   name: 'repurchaseRate',
@@ -135,7 +142,7 @@ export default [
   // },
   {
     path: '/',
-    redirect: '/finance',
+    redirect: '/salesmanAccounting',
   },
   {
     path: '*',

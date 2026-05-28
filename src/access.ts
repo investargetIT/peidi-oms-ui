@@ -22,13 +22,22 @@ export default function access(
     //   (ddDeptIds.length > 0 && ddDeptIds[0] !== 934791329), // 销售综合部
     /** 前台用户只能查看 财务销售订单及发票 finance */
     // 暂时命名为通用权限，前台用户不是通用权限 后续有需要就每个组件都添加一种access
-    // 前台部门id为854425488 信息部为939900386
+    // 前台部门id为854425488 信息部为939900386 财务部为981619927
     canGeneralPermissions:
-      !parentDeptIds.includes(854425488) ||
+      parentDeptIds.includes(939900386) ||
+      parentDeptIds.includes(981619927) ||
       // 徐滨梅
       userId === '1926449443739598860' ||
       // 庄严
       userId === '1926449443739598859',
     canOutboundPrint: parentDeptIds.includes(939900386) || userId === '1888122836086206465', // 孟丽丹
+    canFinance:
+      parentDeptIds.includes(939900386) ||
+      parentDeptIds.includes(981619927) ||
+      userId === '1926449443739598860' || // 徐滨梅
+      userId === '1926449443739598859' || // 庄严
+      userId === '1928350964643332144' || // 孙舒欣
+      userId === '1928350964643334912' || // 黄文豪
+      userId === '1928350964643334453', // 付阳
   };
 }
