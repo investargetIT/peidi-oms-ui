@@ -42,12 +42,12 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
     return (
       <div key={order['单据编号'] || 'order'} data-order-id={order['单据编号'] || ''}>
         {/* 每一页的固定内容高度测量 */}
-        <div className="measure-header" style={{ fontSize: '14px' }}>
+        <div className="measure-header" style={{ fontSize: '18px', fontWeight: 'bold' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px' }}>
+            <div style={{ fontSize: '26px', fontWeight: 'bold', marginBottom: '5px' }}>
               佩蒂智创（杭州）宠物科技有限公司
             </div>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>
               成品出库单
             </div>
           </div>
@@ -56,7 +56,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               display: 'flex',
               justifyContent: 'flex-end',
               marginBottom: '5px',
-              fontSize: '12px',
+              fontSize: '16px',
+              fontWeight: 'bold',
             }}
           >
             <span>立账凭证号</span>
@@ -67,7 +68,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               display: 'flex',
               justifyContent: 'flex-end',
               marginBottom: '5px',
-              fontSize: '12px',
+              fontSize: '16px',
+              fontWeight: 'bold',
             }}
           >
             <span>凭证号</span>
@@ -78,7 +80,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
               display: 'flex',
               justifyContent: 'flex-end',
               marginBottom: '10px',
-              fontSize: '12px',
+              fontSize: '16px',
+              fontWeight: 'bold',
             }}
           >
             <span>状态：</span>
@@ -88,7 +91,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              fontSize: '12px',
+              fontSize: '16px',
+              fontWeight: 'bold',
               marginBottom: '5px',
             }}
           >
@@ -100,7 +104,8 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
             style={{
               display: 'flex',
               justifyContent: 'flex-start',
-              fontSize: '12px',
+              fontSize: '16px',
+              fontWeight: 'bold',
               marginBottom: '10px',
             }}
           >
@@ -111,7 +116,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         </div>
 
         {/* 表格标题行 */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '12px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '16px', fontWeight: 'bold' }}>
           <thead>
             <tr>
               <th
@@ -189,7 +194,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         </table>
 
         {/* 每一行数据的测量 - 只渲染一行来测量高度 */}
-        <div className="measure-rows" style={{ fontSize: '12px' }}>
+        <div className="measure-rows" style={{ fontSize: '16px', fontWeight: 'bold' }}>
           {dataList.slice(0, Math.min(dataList.length, 3)).map((row: any, rowIndex: number) => (
             <div key={rowIndex} className="measure-row" data-row-index={rowIndex}>
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
@@ -224,7 +229,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         </div>
 
         {/* 本页小计行 */}
-        <div className="measure-subtotal" style={{ display: 'none', fontSize: '12px' }}>
+        <div className="measure-subtotal" style={{ display: 'none', fontSize: '16px', fontWeight: 'bold' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
@@ -241,7 +246,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         </div>
 
         {/* 本单合计行 */}
-        <div className="measure-total" style={{ display: 'none', fontSize: '12px' }}>
+        <div className="measure-total" style={{ display: 'none', fontSize: '16px', fontWeight: 'bold' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
               <tr>
@@ -258,7 +263,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         </div>
 
         {/* 底部签名 */}
-        <div className="measure-footer" style={{ marginTop: '20px', fontSize: '12px' }}>
+        <div className="measure-footer" style={{ marginTop: '20px', fontSize: '16px', fontWeight: 'bold' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <span style={{ width: '30%', display: 'inline-block' }}>业务员：</span>
             <span style={{ width: '30%', display: 'inline-block' }}>库管员：</span>
@@ -298,15 +303,15 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         // 页面高度换算成px，减去 padding (10mm * 2)，再留更多余量
         const pageHeightPx = 297 * 3.7795275591;
         const paddingPx = 10 * 3.7795275591 * 2;
-        const extraMargin = 120; // 额外留白
+        const extraMargin = 180; // 增加额外留白，适应更大的字体
         const availableHeight = pageHeightPx - headerHeight - footerHeight - thHeight - subtotalHeight - totalHeight - paddingPx * 2 - extraMargin;
 
         // 测一行的高度
         const rowElements = orderElement.querySelectorAll('.measure-row');
-        const rowHeight = rowElements.length > 0 ? rowElements[0].clientHeight || 30 : 30;
+        const rowHeight = rowElements.length > 0 ? rowElements[0].clientHeight || 40 : 40;
 
         // 估算每页行数（留更多余量）
-        const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight) - 6);
+        const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight) - 8);
 
         const dataList = order.dataList;
         const totalPages = Math.ceil(dataList.length / rowsPerPage);
