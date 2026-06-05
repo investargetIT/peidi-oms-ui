@@ -62,4 +62,5 @@ export default {
   'menu.invoiceAudit': '开票审核',
   'menu.outboundPrint': '出库单打印',
   'menu.salesmanAccounting': '业务员账款核对',
+  'menu.report': '财务管报',
 };

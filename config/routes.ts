@@ -104,6 +104,13 @@ export default [
     path: '/salesmanAccounting',
     component: './SalesmanAccounting',
   },
+  {
+    name: 'report',
+    icon: 'PayCircleOutlined',
+    path: '/report',
+    component: './Report',
+    access: 'canFinance',
+  },
   // {
   //   name: 'repurchaseRate',
   //   icon: 'creditCard',
