@@ -59,6 +59,15 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
     wordBreak: 'break-all' as const,
   };
 
+  // 不换行的单元格样式（用于行号、69条码等需要完整显示的列）
+  const nowrapCellStyle = {
+    border: '1px dashed #999',
+    padding: '4px',
+    textAlign: 'left' as const,
+    whiteSpace: 'nowrap' as const,
+    overflow: 'hidden',
+  };
+
   const trStyle = {
     pageBreakInside: 'avoid' as const,
   };
@@ -157,13 +166,13 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
         <table style={tableStyle}>
           <thead>
             <tr>
-              <th style={{ ...thStyle, width: '5%' }}>行号</th>
-              <th style={{ ...thStyle, width: '15%' }}>货号</th>
-              <th style={{ ...thStyle, width: '24%' }}>品名</th>
-              <th style={{ ...thStyle, width: '24%' }}>规格</th>
-              <th style={{ ...thStyle, width: '10%' }}>销售(单位)</th>
-              <th style={{ ...thStyle, width: '7%' }}>库存单位</th>
-              <th style={{ ...thStyle, width: '15%' }}>69条码号</th>
+              <th style={{ ...thStyle, width: '7%' }}>行号</th>
+              <th style={{ ...thStyle, width: '18%' }}>货号</th>
+              <th style={{ ...thStyle, width: '23%' }}>品名</th>
+              <th style={{ ...thStyle, width: '12%' }}>规格</th>
+              <th style={{ ...thStyle, width: '8%' }}>销售(单位)</th>
+              <th style={{ ...thStyle, width: '9%' }}>库存单位</th>
+              <th style={{ ...thStyle, width: '23%' }}>69条码号</th>
             </tr>
           </thead>
         </table>
@@ -175,7 +184,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
               <table style={tableStyle}>
                 <tbody>
                   <tr>
-                    <td style={cellStyle}>{(rowIndex + 1) * 10}</td>
+                    <td style={nowrapCellStyle}>{(rowIndex + 1) * 10}</td>
                     <td style={cellStyle}>{row['货号'] || ''}</td>
                     <td style={cellStyle}>{row['料品名称'] || ''}</td>
                     <td style={cellStyle}>{row['规格'] || ''}</td>
@@ -183,7 +192,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
                       {row['出库数量(销售单位)'] || ''}
                     </td>
                     <td style={cellStyle}>{row['销售单位'] || ''}</td>
-                    <td style={cellStyle}>{row['参考料号2'] || ''}</td>
+                    <td style={nowrapCellStyle}>{row['参考料号2'] || ''}</td>
                   </tr>
                 </tbody>
               </table>
@@ -417,19 +426,19 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
           <table style={tableStyle}>
             <thead>
               <tr style={trStyle}>
-                <th style={{ ...thStyle, width: '5%' }}>行号</th>
-                <th style={{ ...thStyle, width: '14%' }}>货号</th>
-                <th style={{ ...thStyle, width: '35%' }}>品名</th>
-                <th style={{ ...thStyle, width: '14%' }}>规格</th>
-                <th style={{ ...thStyle, width: '10%' }}>销售(单位)</th>
-                <th style={{ ...thStyle, width: '5%' }}>库存单位</th>
-                <th style={{ ...thStyle, width: '17%' }}>69条码号</th>
+                <th style={{ ...thStyle, width: '12%' }}>行号</th>
+                <th style={{ ...thStyle, width: '11%' }}>货号</th>
+                <th style={{ ...thStyle, width: '23%' }}>品名</th>
+                <th style={{ ...thStyle, width: '12%' }}>规格</th>
+                <th style={{ ...thStyle, width: '8%' }}>销售(单位)</th>
+                <th style={{ ...thStyle, width: '9%' }}>库存单位</th>
+                <th style={{ ...thStyle, width: '25%' }}>69条码号</th>
               </tr>
             </thead>
             <tbody>
               {page.pageData.map((row: any, rowIndex: number) => (
                 <tr key={rowIndex} style={trStyle}>
-                  <td style={cellStyle}>{row.displayRowNum}</td>
+                  <td style={nowrapCellStyle}>{row.displayRowNum}</td>
                   <td style={cellStyle}>{row['货号'] || ''}</td>
                   <td style={cellStyle}>{row['料品名称'] || ''}</td>
                   <td style={cellStyle}>{row['规格'] || ''}</td>
@@ -437,7 +446,7 @@ const OutboundPrintTable: React.FC<{ data: any[]; onReadyChange?: (ready: boolea
                     {row['出库数量(销售单位)'] || ''}
                   </td>
                   <td style={cellStyle}>{row['销售单位'] || ''}</td>
-                  <td style={cellStyle}>{row['参考料号2'] || ''}</td>
+                  <td style={smallFontCellStyle}>{row['参考料号2'] || ''}</td>
                 </tr>
               ))}
               <tr style={trStyle}>

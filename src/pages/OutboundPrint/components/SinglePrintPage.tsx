@@ -24,7 +24,7 @@ const SinglePrintPage: React.FC<SinglePrintPageProps> = ({ data }) => {
     width: '210mm',
     minHeight: '280mm',
     backgroundColor: 'white',
-    padding: '10mm',
+    padding: '10mm 0',
     boxSizing: 'border-box' as const,
   };
 
@@ -97,25 +97,25 @@ const SinglePrintPage: React.FC<SinglePrintPageProps> = ({ data }) => {
         <table style={tableStyle}>
           <thead>
             <tr>
-              <th style={{ ...thStyle, width: '5%' }}>行号</th>
-              <th style={{ ...thStyle, width: '15%' }}>货号</th>
-              <th style={{ ...thStyle, width: '24%' }}>品名</th>
-              <th style={{ ...thStyle, width: '24%' }}>规格</th>
-              <th style={{ ...thStyle, width: '10%' }}>销售(单位)</th>
-              <th style={{ ...thStyle, width: '7%' }}>库存单位</th>
-              <th style={{ ...thStyle, width: '15%' }}>69条码号</th>
+              <th style={{ ...thStyle, width: '7%' }}>行号</th>
+              <th style={{ ...thStyle, width: '18%' }}>货号</th>
+              <th style={{ ...thStyle, width: '23%' }}>品名</th>
+              <th style={{ ...thStyle, width: '12%' }}>规格</th>
+              <th style={{ ...thStyle, width: '8%' }}>销售(单位)</th>
+              <th style={{ ...thStyle, width: '9%' }}>库存单位</th>
+              <th style={{ ...thStyle, width: '23%' }}>69条码号</th>
             </tr>
           </thead>
           <tbody>
             {pageRows.map((row: any, rowIndex: number) => (
               <tr key={rowIndex}>
-                <td style={{ ...cellStyle, width: '5%' }}>{row.displayRowNum}</td>
-                <td style={{ ...cellStyle, width: '15%' }}>{row['货号'] || ''}</td>
-                <td style={{ ...cellStyle, width: '24%' }}>{row['料品名称'] || ''}</td>
-                <td style={{ ...cellStyle, width: '24%' }}>{row['规格'] || ''}</td>
-                <td style={{ ...cellStyle, width: '10%' }}>{row['出库数量(销售单位)'] || ''}</td>
-                <td style={{ ...cellStyle, width: '7%' }}>{row['销售单位'] || ''}</td>
-                <td style={{ ...cellStyle, width: '15%' }}>{row['参考料号2'] || ''}</td>
+                <td style={{ ...cellStyle, width: '7%', whiteSpace: 'nowrap' }}>{row.displayRowNum}</td>
+                <td style={{ ...cellStyle, width: '18%' }}>{row['货号'] || ''}</td>
+                <td style={{ ...cellStyle, width: '23%' }}>{row['料品名称'] || ''}</td>
+                <td style={{ ...cellStyle, width: '12%' }}>{row['规格'] || ''}</td>
+                <td style={{ ...cellStyle, width: '8%' }}>{row['出库数量(销售单位)'] || ''}</td>
+                <td style={{ ...cellStyle, width: '9%' }}>{row['销售单位'] || ''}</td>
+                <td style={{ ...cellStyle, width: '23%', whiteSpace: 'nowrap' }}>{row['参考料号2'] || ''}</td>
               </tr>
             ))}
             <tr>
