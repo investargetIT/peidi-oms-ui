@@ -58,7 +58,7 @@ export interface FinanceUnitCostVo {
 //   timeout: 1000 * 60,
 // });
 // 生产环境使用
-const financeUnitCostRequest = createRequest(`${process.env.BASE_URL}/oms/finance-unit-cost`, {
+const financeUnitCostRequest = createRequest(`${process.env.BASE_URL}/finance-unit-cost`, {
   timeout: 1000 * 60,
 });
 
