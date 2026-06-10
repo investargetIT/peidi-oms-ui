@@ -80,21 +80,25 @@ const SalesmanAccounting: React.FC = () => {
       if (res.code === 200) {
         let records = res.data.records || [];
 
-        // 判断当前用户是否是业务员
+        // 判断当前用户是否是信息部或财务部，如果是则显示所有数据，否则业务员只能看到自己的数据
         try {
-          const currentUser = JSON.parse(localStorage.getItem('user-check') || '{}');
-          const currentUserId = currentUser?.id;
+          const isAdminOrFinance = hasUploadPermission();
 
-          if (currentUserId && records.length > 0) {
-            // 检查返回数据中是否有这个userId
-            const isSalesman = records.some(
-              (item: SalesmanBillCheckVo) => item.userId === currentUserId,
-            );
-            if (isSalesman) {
-              // 只显示当前业务员自己的数据
-              records = records.filter(
+          if (!isAdminOrFinance) {
+            const currentUser = JSON.parse(localStorage.getItem('user-check') || '{}');
+            const currentUserId = currentUser?.id;
+
+            if (currentUserId && records.length > 0) {
+              // 检查返回数据中是否有这个userId
+              const isSalesman = records.some(
                 (item: SalesmanBillCheckVo) => item.userId === currentUserId,
               );
+              if (isSalesman) {
+                // 只显示当前业务员自己的数据
+                records = records.filter(
+                  (item: SalesmanBillCheckVo) => item.userId === currentUserId,
+                );
+              }
             }
           }
         } catch {
