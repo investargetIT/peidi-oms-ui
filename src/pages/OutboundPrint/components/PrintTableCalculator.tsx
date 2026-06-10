@@ -301,7 +301,7 @@ const PrintTableCalculator: React.FC<PrintTableCalculatorProps> = ({
         const totalHeight = orderElement.querySelector('.measure-total')?.clientHeight || 0;
 
         // 页面高度换算成px，减去 padding (10mm * 2)，再留更多余量
-        const pageHeightPx = 297 * 3.7795275591;
+        const pageHeightPx = 280 * 3.7795275591;
         const paddingPx = 10 * 3.7795275591 * 2;
         const extraMargin = 180; // 增加额外留白，适应更大的字体
         const availableHeight = pageHeightPx - headerHeight - footerHeight - thHeight - subtotalHeight - totalHeight - paddingPx * 2 - extraMargin;

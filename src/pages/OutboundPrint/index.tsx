@@ -196,9 +196,9 @@ const OutboundPrint: React.FC = () => {
         return;
       }
 
-      // A4 210mm x 297mm 转换成 pt (1mm = 2.83465pt)
+      // 210mm x 280mm 转换成 pt (1mm = 2.83465pt)
       const pageWidth = 210 * 2.83465;
-      const pageHeight = 297 * 2.83465;
+      const pageHeight = 280 * 2.83465;
 
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -375,6 +375,7 @@ const OutboundPrint: React.FC = () => {
           left: '-99999px',
           top: 0,
           width: '210mm',
+          minHeight: '280mm',
           padding: '10mm',
           boxSizing: 'border-box',
           backgroundColor: 'white',

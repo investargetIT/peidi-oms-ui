@@ -22,7 +22,7 @@ const SinglePrintPage: React.FC<SinglePrintPageProps> = ({ data }) => {
 
   const pageStyle = {
     width: '210mm',
-    minHeight: '297mm',
+    minHeight: '280mm',
     backgroundColor: 'white',
     padding: '10mm',
     boxSizing: 'border-box' as const,
