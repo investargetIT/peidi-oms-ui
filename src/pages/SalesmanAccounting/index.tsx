@@ -235,12 +235,13 @@ const SalesmanAccounting: React.FC = () => {
       title: '业务员',
       dataIndex: 'username',
       key: 'username',
+      flex: 2,
     },
     {
       title: '状态',
       dataIndex: 'isChecked',
       key: 'isChecked',
-      width: 120,
+      flex: 1,
       render: (isChecked: number) => (
         <Tag color={isChecked === 1 ? 'success' : 'default'}>
           {isChecked === 1 ? '已核对' : '未核对'}
@@ -251,7 +252,7 @@ const SalesmanAccounting: React.FC = () => {
       title: '数据日期',
       dataIndex: 'checkedDate',
       key: 'checkedDate',
-      width: 120,
+      flex: 1,
       render: (text: string) => {
         if (!text) return '-';
         return dayjs(text).format('YYYY-MM');
@@ -261,12 +262,12 @@ const SalesmanAccounting: React.FC = () => {
       title: '用户核对确认日期',
       dataIndex: 'updatedAt',
       key: 'updatedAt',
-      width: 180,
+      flex: 1.5,
     },
     {
       title: '操作',
       key: 'action',
-      width: 180,
+      flex: 1,
       fixed: 'right' as const,
       render: (_: any, record: SalesmanBillCheckVo) => (
         <Space size="small">
@@ -348,7 +349,6 @@ const SalesmanAccounting: React.FC = () => {
         dataSource={dataSource}
         rowKey="id"
         loading={loading}
-        scroll={{ x: 1200 }}
         pagination={{
           ...pagination,
           showSizeChanger: true,
