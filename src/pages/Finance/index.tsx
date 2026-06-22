@@ -56,6 +56,50 @@ const UploadComponent: React.FC<{
       Authorization: localStorage.getItem('token') || '',
     },
     action,
+    customRequest(options) {
+      const { file, onProgress, onSuccess, onError } = options;
+
+      // 确保 file 是 File 类型
+      const originalFile = file as File;
+
+      // 为文件名添加时间戳
+      const timestamp = dayjs().format('YYYYMMDDHHmm');
+      const name = originalFile.name;
+      const lastDotIndex = name.lastIndexOf('.');
+      const fileNameWithoutExt = lastDotIndex !== -1 ? name.substring(0, lastDotIndex) : name;
+      const fileExt = lastDotIndex !== -1 ? name.substring(lastDotIndex) : '';
+
+      // 创建新的 File 对象，带有时间戳
+      const newFileName = `${fileNameWithoutExt}_${timestamp}${fileExt}`;
+      const newFile = new File([originalFile], newFileName, { type: originalFile.type });
+
+      // 创建 FormData 并上传文件
+      const formData = new FormData();
+      formData.append('file', newFile);
+
+      axios
+        .post(action, formData, {
+          headers: {
+            Authorization: localStorage.getItem('token') || '',
+          },
+          onUploadProgress: (evt) => {
+            if (evt.total && onProgress) {
+              const percent = Math.floor((evt.loaded / evt.total) * 100);
+              onProgress({ percent }, originalFile as any);
+            }
+          },
+        })
+        .then((response) => {
+          if (response.data.success) {
+            onSuccess?.(response.data, originalFile as any);
+          } else {
+            onError?.(new Error(response.data.msg || '上传失败'), originalFile as any);
+          }
+        })
+        .catch((error) => {
+          onError?.(error, originalFile as any);
+        });
+    },
     onChange(info) {
       const { status, response } = info.file;
       if (status === 'uploading') {
