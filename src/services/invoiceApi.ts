@@ -24,6 +24,8 @@ export interface InvoiceCustomer {
   customerName: string;
   tax: string;
   type: string;
+  validationStatus?: number;
+  validationMessage?: string | null;
 }
 
 export interface InvoiceTaxNo {
@@ -70,6 +72,13 @@ export class InvoiceApi {
    */
   static async postInvoiceCustomerDelete(data: number[]): Promise<ResponseData<any>> {
     return invoiceRequest.post('/customer/delete', data);
+  }
+
+  /**
+   * 修改客户信息
+   */
+  static async postInvoiceCustomerUpdate(data: InvoiceCustomer & { id: number }): Promise<ResponseData<any>> {
+    return invoiceRequest.post('/customer/update', data);
   }
 
   /**
