@@ -54,13 +54,13 @@ export interface FinanceUnitCostVo {
 }
 
 // 创建成本核算的axios实例 - 调试地址
-// const financeUnitCostRequest = createRequest(`http://12.18.1.36:8085/oms/finance-unit-cost`, {
-//   timeout: 1000 * 60,
-// });
-// 生产环境使用
-const financeUnitCostRequest = createRequest(`${process.env.BASE_URL}/finance-unit-cost`, {
+const financeUnitCostRequest = createRequest(`http://12.18.1.36:8085/oms/finance-unit-cost`, {
   timeout: 1000 * 60,
 });
+// 生产环境使用
+// const financeUnitCostRequest = createRequest(`${process.env.BASE_URL}/finance-unit-cost`, {
+//   timeout: 1000 * 60,
+// });
 
 // 成本核算API类
 export class FinanceUnitCostApi {
@@ -84,6 +84,23 @@ export class FinanceUnitCostApi {
     params: FinanceUnitCostUpdateReq,
   ): Promise<ResponseData<any>> {
     return financeUnitCostRequest.post('/update', params);
+  }
+
+  /**
+   * 导入Excel更新成本数据
+   */
+  static async import(data: {
+    createDate: string;
+    file: File;
+  }): Promise<ResponseData<any>> {
+    const formData = new FormData();
+    formData.append('createDate', data.createDate);
+    formData.append('file', data.file);
+    return financeUnitCostRequest.post('/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   }
 }
 

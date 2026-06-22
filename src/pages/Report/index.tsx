@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
-import { SearchOutlined, EditOutlined } from '@ant-design/icons';
-import { Button, Input, Select, Table, Tabs, message, Space, Modal, Form, InputNumber } from 'antd';
+import { SearchOutlined, EditOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Button, Input, Select, Table, Tabs, message, Space, Modal, Form, InputNumber, DatePicker, Upload } from 'antd';
+import type { UploadProps } from 'antd';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import FinanceUnitCostApi, {
   type FinanceUnitCostVo,
   type FinanceUnitCostPageReq,
@@ -21,6 +24,10 @@ const Report: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<FinanceUnitCostVo | null>(null);
   const [form] = Form.useForm();
   const [updating, setUpdating] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
+  const [importDate, setImportDate] = useState<string>(dayjs().format('YYYY-MM'));
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
 
   // 搜索条件
   const [searchBrandName, setSearchBrandName] = useState<string>('');
@@ -30,12 +37,14 @@ const Report: React.FC = () => {
   const [searchIsNewProduct, setSearchIsNewProduct] = useState<string | undefined>(
     undefined,
   );
+  const [searchMonth, setSearchMonth] = useState<Dayjs | null>(dayjs());
 
   // 分页查询
   const fetchData = async (params: FinanceUnitCostPageReq = {}) => {
     setLoading(true);
     try {
-      const res = await FinanceUnitCostApi.getPage({
+      // 处理月份搜索 - 将月份格式转换为createdAt格式
+      let searchParams: any = {
         pageNum: pagination.current,
         pageSize: pagination.pageSize,
         brandName: searchBrandName || undefined,
@@ -44,7 +53,15 @@ const Report: React.FC = () => {
         u9No: searchU9No || undefined,
         isNewProduct: searchIsNewProduct || undefined,
         ...params,
-      });
+      };
+
+      // 如果有月份搜索条件，添加到参数中
+      if (searchMonth) {
+        // 将Dayjs格式的月份转换为所需的格式：2026-01-01 00:00:00
+        searchParams.createdAt = searchMonth.startOf('month').format('YYYY-MM-DD HH:mm:ss');
+      }
+
+      const res = await FinanceUnitCostApi.getPage(searchParams);
       if (res.code === 200) {
         setDataSource(res.data.records || []);
         setPagination({
@@ -83,7 +100,56 @@ const Report: React.FC = () => {
     setSearchProductNo('');
     setSearchU9No('');
     setSearchIsNewProduct(undefined);
+    setSearchMonth(null);
     setPagination((prev) => ({ ...prev, current: 1 }));
+  };
+
+  // 上传文件配置
+  const uploadProps: UploadProps = {
+    beforeUpload: (file) => {
+      setSelectedFile(file);
+      return false;
+    },
+    fileList: selectedFile ? [{ uid: '1', name: selectedFile.name, status: 'done' }] : [],
+    onRemove: () => {
+      setSelectedFile(null);
+    },
+    accept: '.xlsx,.xls,.csv',
+  };
+
+  // 提交导入
+  const handleImport = async () => {
+    if (!selectedFile) {
+      message.error('请选择文件');
+      return;
+    }
+    if (!importDate) {
+      message.error('请选择日期');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const res = await FinanceUnitCostApi.import({
+        createDate: importDate,
+        file: selectedFile,
+      });
+      if (res.code === 200 || res.success) {
+        message.success('导入成功');
+        setImportModalVisible(false);
+        setSelectedFile(null);
+        fetchData({ pageNum: 1 });
+      } else if (res.code === 500) {
+        message.error(res.data || res.msg || '导入失败');
+      } else {
+        message.error(res.msg || '导入失败');
+      }
+    } catch (error) {
+      console.error('导入失败:', error);
+      message.error('导入失败');
+    } finally {
+      setImporting(false);
+    }
   };
 
   // 编辑操作 - 打开弹窗
@@ -246,6 +312,8 @@ const Report: React.FC = () => {
         onChange={setActiveTab}
         items={tabItems}
         style={{ marginBottom: 16 }}
+        size="large"
+        type="card"
       />
 
       {activeTab === 'cost' && (
@@ -255,60 +323,77 @@ const Report: React.FC = () => {
             style={{
               marginBottom: 16,
               display: 'flex',
+              flexDirection: 'column',
               gap: 16,
-              flexWrap: 'wrap',
-              alignItems: 'center',
             }}
           >
-            <Input
-              placeholder="搜索品牌（模糊匹配）"
-              prefix={<SearchOutlined />}
-              style={{ width: 220 }}
-              value={searchBrandName}
-              onChange={(e) => setSearchBrandName(e.target.value)}
-              allowClear
-            />
-            <Input
-              placeholder="搜索条码（模糊匹配）"
-              prefix={<SearchOutlined />}
-              style={{ width: 220 }}
-              value={searchMerchantCode}
-              onChange={(e) => setSearchMerchantCode(e.target.value)}
-              allowClear
-            />
-            <Input
-              placeholder="搜索货号（模糊匹配）"
-              prefix={<SearchOutlined />}
-              style={{ width: 220 }}
-              value={searchProductNo}
-              onChange={(e) => setSearchProductNo(e.target.value)}
-              allowClear
-            />
-            <Input
-              placeholder="搜索料号（模糊匹配）"
-              prefix={<SearchOutlined />}
-              style={{ width: 220 }}
-              value={searchU9No}
-              onChange={(e) => setSearchU9No(e.target.value)}
-              allowClear
-            />
-            <Select
-              placeholder="是否新品"
-              style={{ width: 150 }}
-              allowClear
-              value={searchIsNewProduct}
-              onChange={(value) => setSearchIsNewProduct(value)}
-              options={[
-                { label: '是', value: '1' },
-                { label: '否', value: '0' },
-              ]}
-            />
-            <Space>
-              <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
-                搜索
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+              <DatePicker.MonthPicker
+                placeholder="选择月份"
+                style={{ width: 220 }}
+                value={searchMonth}
+                onChange={(date) => setSearchMonth(date)}
+                allowClear
+              />
+              <Input
+                placeholder="搜索品牌（模糊匹配）"
+                prefix={<SearchOutlined />}
+                style={{ width: 220 }}
+                value={searchBrandName}
+                onChange={(e) => setSearchBrandName(e.target.value)}
+                allowClear
+              />
+              <Input
+                placeholder="搜索条码（模糊匹配）"
+                prefix={<SearchOutlined />}
+                style={{ width: 220 }}
+                value={searchMerchantCode}
+                onChange={(e) => setSearchMerchantCode(e.target.value)}
+                allowClear
+              />
+              <Input
+                placeholder="搜索货号（模糊匹配）"
+                prefix={<SearchOutlined />}
+                style={{ width: 220 }}
+                value={searchProductNo}
+                onChange={(e) => setSearchProductNo(e.target.value)}
+                allowClear
+              />
+              <Input
+                placeholder="搜索料号（模糊匹配）"
+                prefix={<SearchOutlined />}
+                style={{ width: 220 }}
+                value={searchU9No}
+                onChange={(e) => setSearchU9No(e.target.value)}
+                allowClear
+              />
+              <Select
+                placeholder="是否新品"
+                style={{ width: 150 }}
+                allowClear
+                value={searchIsNewProduct}
+                onChange={(value) => setSearchIsNewProduct(value)}
+                options={[
+                  { label: '是', value: '1' },
+                  { label: '否', value: '0' },
+                ]}
+              />
+              <Space>
+                <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
+                  搜索
+                </Button>
+                <Button onClick={handleReset}>重置</Button>
+              </Space>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                onClick={() => setImportModalVisible(true)}
+              >
+                导入成本数据
               </Button>
-              <Button onClick={handleReset}>重置</Button>
-            </Space>
+            </div>
           </div>
 
           {/* 表格 */}
@@ -422,6 +507,45 @@ const Report: React.FC = () => {
                 />
               </Form.Item>
             </Form>
+          </Modal>
+
+          {/* 导入弹窗 */}
+          <Modal
+            title="导入成本数据"
+            open={importModalVisible}
+            onOk={handleImport}
+            onCancel={() => {
+              setImportModalVisible(false);
+              setSelectedFile(null);
+            }}
+            confirmLoading={importing}
+            okText="导入"
+            cancelText="取消"
+          >
+            <div style={{ padding: '8px 0' }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 8 }}>
+                  日期 <span style={{ color: 'red' }}>*</span>
+                </div>
+                <DatePicker.MonthPicker
+                  style={{ width: '100%' }}
+                  value={importDate ? dayjs(importDate) : null}
+                  onChange={(date) => setImportDate(date ? date.format('YYYY-MM') : '')}
+                  placeholder="请选择月份"
+                />
+              </div>
+              <div>
+                <div style={{ marginBottom: 8 }}>
+                  文件 <span style={{ color: 'red' }}>*</span>
+                </div>
+                <Upload {...uploadProps}>
+                  <Button icon={<FileTextOutlined />}>选择文件</Button>
+                </Upload>
+                <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
+                  支持 .xlsx, .xls, .csv 格式文件
+                </div>
+              </div>
+            </div>
           </Modal>
         </>
       )}

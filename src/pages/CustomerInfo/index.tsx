@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Col, Input, Modal, Row, Select, Space, Table, Tag, Tooltip, message } from 'antd';
 import type { TableProps } from 'antd';
-import { ExclamationCircleFilled, PlusOutlined, SearchOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, DeleteOutlined } from '@ant-design/icons';
+import { ExclamationCircleFilled, PlusOutlined, SearchOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, DeleteOutlined, CopyOutlined, CheckOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import CustomerInfoModal from './Modal';
 import type { CustomerInfoModalRef, DataType } from './Modal';
@@ -27,6 +27,20 @@ const CustomerInfo: React.FC = () => {
       title: '购买方名称',
       dataIndex: 'customerName',
       key: 'customerName',
+      render: (text: string) => (
+        <Space>
+          {text}
+          <Tooltip title="复制">
+            <CopyOutlined
+              style={{ cursor: 'pointer', color: '#1677ff' }}
+              onClick={() => {
+                navigator.clipboard.writeText(text);
+                message.success('已复制到剪贴板');
+              }}
+            />
+          </Tooltip>
+        </Space>
+      ),
     },
     {
       title: '渠道',
@@ -118,9 +132,19 @@ const CustomerInfo: React.FC = () => {
       title: '操作',
       key: 'action',
       fixed: 'right',
-      width: 100,
+      width: 150,
       render: (_, record) => (
         <Space size="small">
+          <Tooltip title="验证通过">
+            <Button
+              color="default"
+              variant="text"
+              onClick={() => handleValidatePass(record)}
+              disabled={record.validationStatus === 1}
+            >
+              <CheckOutlined style={{ color: record.validationStatus === 1 ? '#bfbfbf' : '#52c41a', width: 14, height: 14 }} />
+            </Button>
+          </Tooltip>
           <Button color="default" variant="text" onClick={() => handleEditClick(record)}>
             <EditOutlined style={{ color: '#1677ff', width: 14, height: 14 }} />
           </Button>
@@ -155,7 +179,48 @@ const CustomerInfo: React.FC = () => {
   const handleSearch = () => {
     setSearchText(showSearchText);
     setTaxSearchText(showTaxSearchText);
-    refreshPagination();
+    // 直接使用 showSearchText 和 showTaxSearchText 构建搜索参数
+    const searchParams = [];
+    if (channel !== '全部渠道') {
+      searchParams.push({
+        searchName: 'channel',
+        searchType: 'equals',
+        searchValue: `"${channel}"`,
+      });
+    }
+    if (type !== '全部种类') {
+      searchParams.push({
+        searchName: 'type',
+        searchType: 'equals',
+        searchValue: `"${type}"`,
+      });
+    }
+    if (validationStatus !== '全部状态') {
+      searchParams.push({
+        searchName: 'validationStatus',
+        searchType: 'equals',
+        searchValue: validationStatus,
+      });
+    }
+    if (showSearchText) {
+      searchParams.push({
+        searchName: 'customerName',
+        searchType: 'like',
+        searchValue: `${showSearchText}`,
+      });
+    }
+    if (showTaxSearchText) {
+      searchParams.push({
+        searchName: 'tax',
+        searchType: 'like',
+        searchValue: `${showTaxSearchText}`,
+      });
+    }
+    getInvoiceCustomerPage({
+      pageNo: pagination.current,
+      pageSize: pagination.pageSize,
+      searchStr: JSON.stringify(searchParams),
+    });
   };
 
   // 处理筛选参数方法
@@ -165,14 +230,14 @@ const CustomerInfo: React.FC = () => {
       searchParams.push({
         searchName: 'channel',
         searchType: 'equals',
-        searchValue: `\"${channel}\"`,
+        searchValue: `"${channel}"`,
       });
     }
     if (type !== '全部种类') {
       searchParams.push({
         searchName: 'type',
         searchType: 'equals',
-        searchValue: `\"${type}\"`,
+        searchValue: `"${type}"`,
       });
     }
     if (validationStatus !== '全部状态') {
@@ -207,6 +272,17 @@ const CustomerInfo: React.FC = () => {
     setChannel('全部渠道');
     setType('全部种类');
     setValidationStatus('全部状态');
+    // 重置后刷新列表，回到第一页
+    setPagination({
+      ...pagination,
+      current: 1,
+    });
+    // 直接发起请求获取重置后的数据
+    getInvoiceCustomerPage({
+      pageNo: 1,
+      pageSize: pagination.pageSize,
+      searchStr: '[]',
+    });
   };
   //#endregion
 
@@ -309,6 +385,39 @@ const CustomerInfo: React.FC = () => {
       }
     });
   };
+
+  // 验证通过方法
+  const handleValidatePass = (record: DataType) => {
+    Modal.confirm({
+      title: `确认将客户 ${record.customerName} 标记为验证通过吗？`,
+      icon: <ExclamationCircleFilled />,
+      content: '此操作将清空备注信息',
+      okText: '确定',
+      okType: 'primary',
+      cancelText: '取消',
+      maskClosable: true,
+      width: 500,
+      onOk() {
+        InvoiceApi.postInvoiceCustomerUpdate({
+          id: record.id,
+          channel: record.channel,
+          customerName: record.customerName,
+          tax: record.tax,
+          type: record.type,
+          validationStatus: 1,
+          validationMessage: '',
+        }).then((res: any) => {
+          if (res.code === 200) {
+            message.success('验证通过成功');
+            refreshPagination();
+          }
+        });
+      },
+      onCancel() {
+        // 取消操作
+      },
+    });
+  };
   //#endregion
 
   // 处理删除点击事件
@@ -321,8 +430,8 @@ const CustomerInfo: React.FC = () => {
       okText: '确定',
       okType: 'danger',
       cancelText: '取消',
-      closable: true,
       maskClosable: true,
+      width: 500,
       onOk() {
         // console.log('OK');
         postInvoiceCustomerDelete([record.id]);
