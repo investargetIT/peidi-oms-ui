@@ -520,6 +520,7 @@ const CustomerInfo: React.FC = () => {
           total,
           pageSizeOptions: [10, 50, 100],
           showSizeChanger: true,
+          showTotal: (total) => `共 ${total} 条记录`,
           onChange: (page, pageSize) => handlePaginationChange(page, pageSize),
         }}
       />
