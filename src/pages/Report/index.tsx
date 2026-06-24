@@ -38,6 +38,7 @@ const Report: React.FC = () => {
     undefined,
   );
   const [searchMonth, setSearchMonth] = useState<Dayjs | null>(dayjs());
+  const [searchGroup, setSearchGroup] = useState<string>('');
 
   // 分页查询
   const fetchData = async (params: FinanceUnitCostPageReq = {}) => {
@@ -52,6 +53,7 @@ const Report: React.FC = () => {
         productNo: searchProductNo || undefined,
         u9No: searchU9No || undefined,
         isNewProduct: searchIsNewProduct || undefined,
+        group: searchGroup || undefined,
         ...params,
       };
 
@@ -101,6 +103,7 @@ const Report: React.FC = () => {
     setSearchU9No('');
     setSearchIsNewProduct(undefined);
     setSearchMonth(null);
+    setSearchGroup('');
     setPagination((prev) => ({ ...prev, current: 1 }));
   };
 
@@ -206,6 +209,13 @@ const Report: React.FC = () => {
 
   // 成本核算表格列定义
   const costColumns = [
+    {
+      title: '组织',
+      dataIndex: 'group',
+      key: 'group',
+      width: 100,
+      fixed: 'left' as const,
+    },
     {
       title: '品牌',
       dataIndex: 'brandName',
@@ -336,6 +346,14 @@ const Report: React.FC = () => {
                 allowClear
               />
               <Input
+                placeholder="搜索组织（模糊匹配）"
+                prefix={<SearchOutlined />}
+                style={{ width: 220 }}
+                value={searchGroup}
+                onChange={(e) => setSearchGroup(e.target.value)}
+                allowClear
+              />
+              <Input
                 placeholder="搜索品牌（模糊匹配）"
                 prefix={<SearchOutlined />}
                 style={{ width: 220 }}
@@ -403,7 +421,7 @@ const Report: React.FC = () => {
             rowKey="id"
             loading={loading}
             size="small"
-            scroll={{ x: 1900 }}
+            scroll={{ x: 2000 }}
             pagination={{
               ...pagination,
               showSizeChanger: true,
