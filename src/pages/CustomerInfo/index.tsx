@@ -167,6 +167,7 @@ const CustomerInfo: React.FC = () => {
   const [taxSearchText, setTaxSearchText] = useState('');
   const [showTaxSearchText, setShowTaxSearchText] = useState('');
   const [validationStatus, setValidationStatus] = useState('全部状态');
+  const [hasRemark, setHasRemark] = useState('不限');
 
   const handleSearchText = (value: string) => {
     setShowSearchText(value);
@@ -201,6 +202,22 @@ const CustomerInfo: React.FC = () => {
         searchType: 'equals',
         searchValue: validationStatus,
       });
+    }
+    if (hasRemark !== '不限') {
+      if (hasRemark === '有备注') {
+        searchParams.push({
+          searchName: 'validationMessage',
+          searchType: 'like',
+          searchValue: '{',
+        });
+      } else {
+        // 无备注的情况，搜索空值
+        searchParams.push({
+          searchName: 'validationMessage',
+          searchType: 'equals',
+          searchValue: '""',
+        });
+      }
     }
     if (showSearchText) {
       searchParams.push({
@@ -247,6 +264,22 @@ const CustomerInfo: React.FC = () => {
         searchValue: validationStatus,
       });
     }
+    if (hasRemark !== '不限') {
+      if (hasRemark === '有备注') {
+        searchParams.push({
+          searchName: 'validationMessage',
+          searchType: 'like',
+          searchValue: '{',
+        });
+      } else {
+        // 无备注的情况，搜索空值
+        searchParams.push({
+          searchName: 'validationMessage',
+          searchType: 'equals',
+          searchValue: '""',
+        });
+      }
+    }
     if (searchText) {
       searchParams.push({
         searchName: 'customerName',
@@ -272,6 +305,7 @@ const CustomerInfo: React.FC = () => {
     setChannel('全部渠道');
     setType('全部种类');
     setValidationStatus('全部状态');
+    setHasRemark('不限');
     // 重置后刷新列表，回到第一页
     setPagination({
       ...pagination,
@@ -391,7 +425,7 @@ const CustomerInfo: React.FC = () => {
     Modal.confirm({
       title: `确认将客户 ${record.customerName} 标记为验证通过吗？`,
       icon: <ExclamationCircleFilled />,
-      content: '此操作将清空备注信息',
+      content: '此操作将标记为验证通过，备注信息将保留',
       okText: '确定',
       okType: 'primary',
       cancelText: '取消',
@@ -405,7 +439,7 @@ const CustomerInfo: React.FC = () => {
           tax: record.tax,
           type: record.type,
           validationStatus: 1,
-          validationMessage: '',
+          validationMessage: record.validationMessage,
         }).then((res: any) => {
           if (res.code === 200) {
             message.success('验证通过成功');
@@ -444,26 +478,32 @@ const CustomerInfo: React.FC = () => {
   return (
     <PageContainer>
       {/* 操作栏 */}
-      <Row style={{ marginBottom: 16 }}>
-        <Col span={22}>
+      <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '12px',
+            alignItems: 'center',
+            marginBottom: '12px'
+          }}
+        >
           <Input
             value={showSearchText}
             placeholder="搜索购买方名称..."
             prefix={<SearchOutlined style={{ color: '#737373' }} />}
-            style={{ maxWidth: 250, marginRight: 16 }}
             onChange={(e) => handleSearchText(e.target.value)}
           />
           <Input
             value={showTaxSearchText}
             placeholder="搜索税号/身份证号..."
             prefix={<SearchOutlined style={{ color: '#737373' }} />}
-            style={{ maxWidth: 250, marginRight: 16 }}
             onChange={(e) => handleTaxSearchText(e.target.value)}
           />
           <Select
             value={channel}
             defaultValue="全部渠道"
-            style={{ width: 150, marginRight: 16 }}
+            style={{ width: '100%' }}
             options={[
               { value: '全部渠道', label: '全部渠道' },
               { value: '线上', label: '线上' },
@@ -474,7 +514,7 @@ const CustomerInfo: React.FC = () => {
           <Select
             value={type}
             defaultValue="全部种类"
-            style={{ width: 200, marginRight: 16 }}
+            style={{ width: '100%' }}
             options={[
               { value: '全部种类', label: '全部种类' },
               { value: 'pc', label: '数电普票（电子）' },
@@ -485,7 +525,7 @@ const CustomerInfo: React.FC = () => {
           <Select
             value={validationStatus}
             defaultValue="全部状态"
-            style={{ width: 150, marginRight: 16 }}
+            style={{ width: '100%' }}
             options={[
               { value: '全部状态', label: '全部状态' },
               { value: '0', label: '未校验' },
@@ -494,12 +534,25 @@ const CustomerInfo: React.FC = () => {
             ]}
             onChange={(value) => setValidationStatus(value)}
           />
-          <Button type="primary" style={{ marginRight: 16 }} icon={<SearchOutlined />} onClick={() => handleSearch()}>
-            搜索
-          </Button>
-          <Button onClick={() => handleReset()}>重置</Button>
-        </Col>
-        <Col span={2} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Select
+            value={hasRemark}
+            defaultValue="不限"
+            style={{ width: '100%' }}
+            options={[
+              { value: '不限', label: '不限' },
+              { value: '有备注', label: '有备注' },
+              { value: '无备注', label: '无备注' },
+            ]}
+            onChange={(value) => setHasRemark(value)}
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <Button type="primary" icon={<SearchOutlined />} onClick={() => handleSearch()}>
+              搜索
+            </Button>
+            <Button onClick={() => handleReset()}>重置</Button>
+          </div>
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -507,8 +560,8 @@ const CustomerInfo: React.FC = () => {
           >
             新增客户
           </Button>
-        </Col>
-      </Row>
+        </div>
+      </div>
       <Table<DataType>
         columns={columns}
         dataSource={tableData}
