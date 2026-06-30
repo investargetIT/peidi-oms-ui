@@ -109,7 +109,7 @@ export default [
     icon: 'PayCircleOutlined',
     path: '/report',
     component: './Report',
-    access: 'canFinance',
+    access: 'canGeneralPermissions',
   },
   // {
   //   name: 'repurchaseRate',
