@@ -50,7 +50,7 @@ const SalesmanAccounting: React.FC = () => {
     total: 0,
   });
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>(dayjs().format('YYYY-MM'));
+  const [selectedDate, setSelectedDate] = useState<string>(dayjs().subtract(1, 'month').format('YYYY-MM'));
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [checkModalVisible, setCheckModalVisible] = useState(false);
@@ -65,9 +65,14 @@ const SalesmanAccounting: React.FC = () => {
   // 搜索条件
   const [searchUsername, setSearchUsername] = useState<string>('');
   const [searchIsChecked, setSearchIsChecked] = useState<string | undefined>(undefined);
+  const [searchDate, setSearchDate] = useState<string>(dayjs().subtract(1, 'month').format('YYYY-MM'));
 
   // 分页查询
   const fetchData = async (params: PageParams = {}) => {
+    if (!searchDate) {
+      message.warning('请选择日期');
+      return;
+    }
     setLoading(true);
     try {
       const res = await SalesmanBillCheckApi.getPage({
@@ -75,6 +80,7 @@ const SalesmanAccounting: React.FC = () => {
         pageSize: pagination.pageSize,
         username: searchUsername || undefined,
         isChecked: searchIsChecked ? Number(searchIsChecked) : undefined,
+        checkedDate: dayjs(searchDate).format('YYYY-MM-01'),
         ...params,
       });
       if (res.code === 200) {
@@ -126,7 +132,7 @@ const SalesmanAccounting: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [searchUsername, searchIsChecked]);
+  }, [searchUsername, searchIsChecked, searchDate]);
 
   // 上传文件配置
   const uploadProps: UploadProps = {
@@ -312,6 +318,12 @@ const SalesmanAccounting: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <DatePicker.MonthPicker
+            placeholder="请选择月份 *"
+            style={{ width: 200 }}
+            value={searchDate ? dayjs(searchDate) : null}
+            onChange={(date) => setSearchDate(date ? date.format('YYYY-MM') : '')}
+          />
           <Input
             placeholder="搜索业务员"
             prefix={<SearchOutlined />}
@@ -396,6 +408,13 @@ const SalesmanAccounting: React.FC = () => {
             </Upload>
             <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
               支持 .xlsx, .xls, .csv 格式文件
+            </div>
+            <div style={{ marginTop: 12, padding: 12, background: '#f5f5f5', borderRadius: 4, fontSize: 12, color: '#666' }}>
+              <p style={{ margin: '0 0 8px 0', fontWeight: 500 }}>📌 数据说明：</p>
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                <li>数据按月份隔离，不同月份的数据互不影响</li>
+                <li>同月上传时：若业务员已存在则覆盖其数据并取消已核对状态，若不存在则增量添加</li>
+              </ul>
             </div>
           </div>
         </div>
