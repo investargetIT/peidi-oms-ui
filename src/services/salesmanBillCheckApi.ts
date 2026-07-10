@@ -83,6 +83,15 @@ export class SalesmanBillCheckApi {
   static async check(id: number): Promise<ResponseData<any>> {
     return salesmanBillCheckRequest.post(`/check/${id}`);
   }
+
+  /**
+   * 删除
+   */
+  static async delete(data: { date: string; userId: number }): Promise<ResponseData<any>> {
+    return salesmanBillCheckRequest.delete('/delete', {
+      params: data,
+    });
+  }
 }
 
 // 默认导出实例

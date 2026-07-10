@@ -6,6 +6,8 @@ import {
   CheckCircleOutlined,
   FileTextOutlined,
   DownloadOutlined,
+  DeleteOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import {
   Button,
@@ -235,6 +237,42 @@ const SalesmanAccounting: React.FC = () => {
     }
   };
 
+  // 删除操作 - 显示确认弹窗
+  const handleDelete = (record: SalesmanBillCheckVo) => {
+    if (!record.userId || !record.checkedDate) {
+      message.error('缺少必要参数，无法删除');
+      return;
+    }
+
+    Modal.confirm({
+      title: '确认删除',
+      icon: <ExclamationCircleOutlined />,
+      content: `确定要删除业务员「${record.username}」在「${dayjs(record.checkedDate).format('YYYY-MM')}」的账单数据吗？此操作不可恢复。`,
+      okText: '确认删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const res = await SalesmanBillCheckApi.delete({
+            date: dayjs(record.checkedDate).format('YYYY-MM'),
+            userId: record.userId,
+          });
+          if (res.code === 200) {
+            message.success('删除成功');
+            fetchData();
+          } else if (res.code === 500) {
+            message.error(res.data || res.msg || '删除失败');
+          } else {
+            message.error(res.msg || '删除失败');
+          }
+        } catch (error) {
+          console.error('删除失败:', error);
+          message.error('删除失败');
+        }
+      },
+    });
+  };
+
   // 表格列定义
   const columns = [
     {
@@ -296,6 +334,17 @@ const SalesmanAccounting: React.FC = () => {
                 size="small"
                 icon={<CheckCircleOutlined />}
                 onClick={() => handleCheck(record)}
+              />
+            </Tooltip>
+          )}
+          {canUpload && (
+            <Tooltip title="删除">
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleDelete(record)}
               />
             </Tooltip>
           )}
