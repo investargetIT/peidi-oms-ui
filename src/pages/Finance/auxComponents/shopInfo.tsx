@@ -111,6 +111,20 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
     }));
   }, [dataSource]);
 
+  // 自动生成平台筛选选项
+  const platformFilters = React.useMemo(() => {
+    if (!dataSource.length) return [];
+
+    const uniquePlatforms = Array.from(
+      new Set(dataSource.filter((item) => item.platform).map((item) => item.platform)),
+    );
+
+    return uniquePlatforms.map((platform) => ({
+      text: platform,
+      value: platform,
+    }));
+  }, [dataSource]);
+
   // 自动生成旺店通店铺名称筛选选项
   const wdtNameFilters = React.useMemo(() => {
     if (!dataSource.length) return [];
@@ -161,6 +175,10 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       title: '平台',
       dataIndex: 'platform',
       key: 'platform',
+      filters: platformFilters,
+      onFilter: (value: string, record: { platform: string | string[] }) =>
+        record.platform === value,
+      filterSearch: true,
     },
     {
       title: '组织',
