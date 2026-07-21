@@ -10,9 +10,24 @@ import FinanceUnitCostApi, {
   type FinanceUnitCostPageReq,
   type FinanceUnitCostUpdateReq,
 } from '@/services/financeUnitCostApi';
+import ChannelExtendCostApi, {
+  type PageRequest,
+  type FinanceChannelExtendCostShopGroupVo,
+  type FinanceChannelExtendCostMonthGroupVo,
+  type FinanceChannelExtendCostDetailVo,
+  type ShopVo,
+} from '@/services/channelExtendCostApi';
 
 const Report: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('cost');
+  // 从localStorage读取上次激活的tab，刷新后保持不变
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('report_active_tab') || 'cost';
+  });
+
+  // 保存激活的tab到localStorage
+  useEffect(() => {
+    localStorage.setItem('report_active_tab', activeTab);
+  }, [activeTab]);
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<FinanceUnitCostVo[]>([]);
   const [pagination, setPagination] = useState({
@@ -29,7 +44,7 @@ const Report: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
 
-  // 搜索条件
+  // 搜索条件 - 成本核算
   const [searchBrandName, setSearchBrandName] = useState<string>('');
   const [searchMerchantCode, setSearchMerchantCode] = useState<string>('');
   const [searchProductNo, setSearchProductNo] = useState<string>('');
@@ -39,6 +54,60 @@ const Report: React.FC = () => {
   );
   const [searchMonth, setSearchMonth] = useState<Dayjs | null>(dayjs());
   const [searchGroup, setSearchGroup] = useState<string>('');
+
+  // 渠道枚举选项
+  const channelOptions = [
+    { label: '拼多多', value: '拼多多' },
+    { label: '天猫', value: '天猫' },
+    { label: '抖音', value: '抖音' },
+    { label: '京东', value: '京东' },
+  ];
+
+  // 渠道推广费用状态
+  const [channelLoading, setChannelLoading] = useState(false);
+  const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostShopGroupVo[]>([]);
+  const [channelPagination, setChannelPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
+  const [shopList, setShopList] = useState<ShopVo[]>([]);
+  const [shopsLoading, setShopsLoading] = useState(false);
+
+  // 明细弹窗状态
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [detailModalTitle, setDetailModalTitle] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailDataSource, setDetailDataSource] = useState<FinanceChannelExtendCostDetailVo[]>([]);
+  const [detailPagination, setDetailPagination] = useState({
+    current: 1,
+    pageSize: 20,
+    total: 0,
+  });
+  // 当前查看明细的查询参数
+  const [detailQueryParams, setDetailQueryParams] = useState<{
+    shopId?: number;
+    channel?: string;
+    yearMonth?: string;
+    accountType?: string;
+  }>({});
+
+  // 费用分类统计弹窗状态
+  const [statModalVisible, setStatModalVisible] = useState(false);
+  const [statModalTitle, setStatModalTitle] = useState('');
+  const [statLoading, setStatLoading] = useState(false);
+  const [statDataSource, setStatDataSource] = useState<{
+    costCategory?: string;
+    costType?: string;
+    totalExpense?: number;
+    wdtName?: string;
+  }[]>([]);
+
+  // 搜索条件 - 渠道推广费用
+  const [searchAccountType, setSearchAccountType] = useState<string>('');
+  const [searchChannel, setSearchChannel] = useState<string | undefined>(undefined);
+  const [searchShopId, setSearchShopId] = useState<number | undefined>(undefined);
+  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(dayjs());
 
   // 分页查询
   const fetchData = async (params: FinanceUnitCostPageReq = {}) => {
@@ -95,6 +164,16 @@ const Report: React.FC = () => {
     fetchData();
   }, []);
 
+  // 切换tab时自动加载数据，若已有渠道自动加载店铺
+  useEffect(() => {
+    if (activeTab === 'channel-extend-cost' && channelDataSource.length === 0) {
+      fetchChannelData();
+    }
+    if (activeTab === 'channel-extend-cost' && searchChannel && shopList.length === 0) {
+      fetchShops(searchChannel);
+    }
+  }, [activeTab]);
+
   // 重置搜索
   const handleReset = () => {
     setSearchBrandName('');
@@ -105,6 +184,104 @@ const Report: React.FC = () => {
     setSearchMonth(null);
     setSearchGroup('');
     setPagination((prev) => ({ ...prev, current: 1 }));
+  };
+
+  // 获取店铺列表
+  const fetchShops = async (channel?: string) => {
+    setShopsLoading(true);
+    try {
+      const params: any = {
+        sortStr: '',
+      };
+      if (channel) {
+        // 根据渠道名称搜索，将JSON放到searchStr里
+        params.searchStr = JSON.stringify({
+          searchName: 'platform',
+          searchValue: channel,
+          searchType: 'like',
+        });
+      }
+      const res = await ChannelExtendCostApi.getShops(params);
+      if (res.code === 200) {
+        setShopList(res.data || []);
+      } else {
+        message.error('获取店铺列表失败');
+      }
+    } catch (error) {
+      console.error('获取店铺列表失败:', error);
+      message.error('获取店铺列表失败');
+    } finally {
+      setShopsLoading(false);
+    }
+  };
+
+  // 渠道推广费用分页查询
+  const fetchChannelData = async (params: PageRequest = {}) => {
+    setChannelLoading(true);
+    try {
+      let searchParams: any = {
+        pageNum: channelPagination.current,
+        pageSize: channelPagination.pageSize,
+        accountType: searchAccountType || undefined,
+        channel: searchChannel || undefined,
+        shopId: searchShopId || undefined,
+        ...params,
+      };
+
+      if (searchYearMonth) {
+        searchParams.yearMonth = searchYearMonth.format('YYYY-MM');
+      }
+
+      const res = await ChannelExtendCostApi.getGroupPage(searchParams);
+      if (res.code === 200) {
+        setChannelDataSource(res.data.records || []);
+        setChannelPagination({
+          current: res.data.current || 1,
+          pageSize: res.data.size || 10,
+          total: res.data.total || 0,
+        });
+      } else if (res.code === 500) {
+        message.error(typeof res.data === 'string' ? res.data : '获取数据失败');
+      } else {
+        message.error('获取数据失败');
+      }
+    } catch (error) {
+      console.error('获取数据失败:', error);
+      message.error('获取数据失败');
+    } finally {
+      setChannelLoading(false);
+    }
+  };
+
+  // 渠道变化时重新获取店铺列表并清空已选店铺
+  const handleChannelChange = (channel: string | undefined) => {
+    setSearchChannel(channel);
+    setSearchShopId(undefined);
+    if (channel) {
+      fetchShops(channel);
+    } else {
+      setShopList([]);
+    }
+  };
+
+  // 渠道推广费用搜索
+  const handleChannelSearch = () => {
+    if (!searchYearMonth) {
+      message.error('请选择年月');
+      return;
+    }
+    setChannelPagination((prev) => ({ ...prev, current: 1 }));
+    fetchChannelData({ pageNum: 1 });
+  };
+
+  // 渠道推广费用重置搜索
+  const handleChannelReset = () => {
+    setSearchAccountType('');
+    setSearchChannel(undefined);
+    setSearchShopId(undefined);
+    setSearchYearMonth(dayjs());
+    setShopList([]);
+    setChannelPagination((prev) => ({ ...prev, current: 1 }));
   };
 
   // 上传文件配置
@@ -313,7 +490,290 @@ const Report: React.FC = () => {
       key: 'cost',
       label: '成本核算',
     },
+    {
+      key: 'channel-extend-cost',
+      label: '渠道推广费用',
+    },
   ];
+
+  // 渠道推广费用明细表格列
+  const detailColumns = [
+    {
+      title: '账务类型',
+      dataIndex: 'accountType',
+      key: 'accountType',
+      minWidth: 80,
+      whiteSpace: 'nowrap',
+      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
+    },
+    {
+      title: '业务描述',
+      dataIndex: 'businessDesc',
+      key: 'businessDesc',
+      minWidth: 200,
+      whiteSpace: 'nowrap',
+      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
+    },
+    {
+      title: '渠道',
+      dataIndex: 'channel',
+      key: 'channel',
+      minWidth: 60,
+      whiteSpace: 'nowrap',
+      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
+    },
+    {
+      title: '支出金额',
+      dataIndex: 'expenseAmount',
+      key: 'expenseAmount',
+      minWidth: 80,
+      whiteSpace: 'nowrap',
+      render: (value: number) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{value !== undefined ? value.toFixed(2) : '-'}</span>,
+    },
+    {
+      title: '发生时间',
+      dataIndex: 'occurredAt',
+      key: 'occurredAt',
+      minWidth: 140,
+      whiteSpace: 'nowrap',
+      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
+    },
+    {
+      title: '店铺ID',
+      dataIndex: 'shopId',
+      key: 'shopId',
+      minWidth: 60,
+      whiteSpace: 'nowrap',
+      render: (text: number) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
+    },
+    {
+      title: '店铺名称',
+      dataIndex: 'wdtName',
+      key: 'wdtName',
+      minWidth: 150,
+      whiteSpace: 'nowrap',
+      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
+    },
+  ];
+
+  // 获取明细数据
+  const fetchDetailData = async (params: {
+    shopId?: number;
+    channel?: string;
+    yearMonth?: string;
+    accountType?: string;
+    pageNum?: number;
+    pageSize?: number;
+  } = {}) => {
+    setDetailLoading(true);
+    try {
+      const searchParams: any = {
+        pageNum: detailPagination.current,
+        pageSize: detailPagination.pageSize,
+        ...detailQueryParams,
+        ...params,
+      };
+
+      const res = await ChannelExtendCostApi.getDetails(searchParams);
+      if (res.code === 200) {
+        setDetailDataSource(res.data.records || []);
+        setDetailPagination({
+          current: res.data.current || 1,
+          pageSize: res.data.size || 20,
+          total: res.data.total || 0,
+        });
+      } else if (res.code === 500) {
+        message.error(typeof res.data === 'string' ? res.data : '获取明细失败');
+      } else {
+        message.error('获取明细失败');
+      }
+    } catch (error) {
+      console.error('获取明细失败:', error);
+      message.error('获取明细失败');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  // 打开明细弹窗
+  const openDetailModal = (
+    wdtName: string | undefined,
+    yearMonth: string | undefined,
+    shopId: number | undefined,
+    channel: string | undefined,
+  ) => {
+    const title = `${wdtName || ''} ${yearMonth || ''} 渠道推广费用明细`;
+    setDetailModalTitle(title);
+    // 打开前先清空旧数据
+    setDetailDataSource([]);
+    // 设置查询参数
+    const queryParams = {
+      shopId,
+      channel,
+      yearMonth,
+      accountType: searchAccountType,
+    };
+    setDetailQueryParams(queryParams);
+    // 重置分页
+    setDetailPagination({
+      current: 1,
+      pageSize: 20,
+      total: 0,
+    });
+    setDetailModalVisible(true);
+    // 加载第一页数据
+    fetchDetailData({ ...queryParams, pageNum: 1 });
+  };
+
+  // 打开费用分类统计弹窗
+  const openStatModal = async (
+    wdtName: string | undefined,
+    yearMonth: string | undefined,
+    shopId: number | undefined,
+  ) => {
+    const title = `${wdtName || ''} ${yearMonth} 站内外推广费统计`;
+    setStatModalTitle(title);
+    // 打开前先清空旧数据
+    setStatDataSource([]);
+    setStatModalVisible(true);
+    setStatLoading(true);
+    try {
+      const res = await ChannelExtendCostApi.getCostCategoryStat({
+        shopId: shopId!,
+        yearMonth: yearMonth!,
+      });
+      if (res.code === 200) {
+        setStatDataSource(res.data || []);
+      } else {
+        message.error('获取统计数据失败');
+      }
+    } catch (error) {
+      console.error('获取统计数据失败:', error);
+      message.error('获取统计数据失败');
+    } finally {
+      setStatLoading(false);
+    }
+  };
+
+  // 渠道推广费用年月分组表格列（展开店铺后显示）
+  const monthGroupColumns = [
+    {
+      title: '年月',
+      dataIndex: 'yearMonth',
+      key: 'yearMonth',
+      width: 120,
+    },
+    {
+      title: '明细数量',
+      dataIndex: 'detailCount',
+      key: 'detailCount',
+      width: 100,
+    },
+    {
+      title: '总支出金额（元）',
+      dataIndex: 'totalExpenseAmount',
+      key: 'totalExpenseAmount',
+      width: 150,
+      render: (value: number) => (value !== undefined ? value.toFixed(2) : '-'),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 180,
+      fixed: 'right' as const,
+      render: (_: any, record: any) => {
+        // record已经包含了shopId、wdtName等店铺信息，是展开时添加的
+        return (
+          <Space size={0}>
+            <Button
+              type="link"
+              size="small"
+              style={{ fontSize: 12, padding: 0 }}
+              onClick={() => openDetailModal(
+                record.wdtName,
+                record.yearMonth,
+                record.shopId,
+                record.channel,
+              )}
+            >
+              查看明细
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              style={{ fontSize: 12, padding: '0 0 0 8px' }}
+              onClick={() => openStatModal(
+                record.wdtName,
+                record.yearMonth,
+                record.shopId,
+              )}
+            >
+              费用统计
+            </Button>
+          </Space>
+        );
+      },
+    },
+  ];
+
+  // 渠道推广费用店铺分组表格列（最外层）
+  const shopGroupColumns = [
+    {
+      title: '店铺ID',
+      dataIndex: 'shopId',
+      key: 'shopId',
+      width: 100,
+      fixed: 'left' as const,
+    },
+    {
+      title: '店铺名称',
+      dataIndex: 'wdtName',
+      key: 'wdtName',
+      width: 150,
+      fixed: 'left' as const,
+    },
+    {
+      title: '渠道',
+      dataIndex: 'channel',
+      key: 'channel',
+      width: 120,
+    },
+    {
+      title: '明细总数量',
+      dataIndex: 'totalCount',
+      key: 'totalCount',
+      width: 120,
+    },
+    {
+      title: '总支出金额（元）',
+      dataIndex: 'totalExpenseAmount',
+      key: 'totalExpenseAmount',
+      width: 150,
+      render: (value: number) => (value !== undefined ? value.toFixed(2) : '-'),
+    },
+  ];
+
+  // 渲染年月分组表格（展开店铺后显示）
+  const expandedMonthRowRender = (record: FinanceChannelExtendCostShopGroupVo) => {
+    const monthGroups = record.monthGroups || [];
+    // 添加店铺信息到每条记录，方便获取shopId
+    const monthGroupsWithShopInfo = monthGroups.map(item => ({
+      ...item,
+      shopId: record.shopId,
+      wdtName: record.wdtName,
+      channel: record.channel,
+    }));
+    return (
+      <Table
+        columns={monthGroupColumns}
+        dataSource={monthGroupsWithShopInfo}
+        rowKey="yearMonth"
+        size="small"
+        pagination={false}
+        scroll={{ y: 250 }}
+      />
+    );
+  };
 
   return (
     <PageContainer>
@@ -564,6 +1024,217 @@ const Report: React.FC = () => {
                 </div>
               </div>
             </div>
+          </Modal>
+        </>
+      )}
+
+      {activeTab === 'channel-extend-cost' && (
+        <>
+          {/* 搜索栏 */}
+          <div
+            style={{
+              marginBottom: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+            }}
+          >
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Select
+                placeholder="选择渠道"
+                style={{ width: 150 }}
+                value={searchChannel}
+                onChange={handleChannelChange}
+                allowClear
+                options={channelOptions}
+              />
+              <Select
+                placeholder="选择店铺"
+                style={{ width: 220 }}
+                value={searchShopId}
+                onChange={(value) => setSearchShopId(value)}
+                allowClear
+                loading={shopsLoading}
+                options={shopList.map(shop => ({
+                  label: shop.wdtName || shop.shopName,
+                  value: shop.id,
+                }))}
+                showSearch
+                optionFilterProp="label"
+                disabled={!searchChannel}
+              />
+              <DatePicker.MonthPicker
+                placeholder="选择年月 *"
+                style={{ width: 180 }}
+                value={searchYearMonth}
+                onChange={(date) => setSearchYearMonth(date)}
+                allowClear={false}
+              />
+              <Input
+                placeholder="搜索账务类型"
+                prefix={<SearchOutlined />}
+                style={{ width: 200 }}
+                value={searchAccountType}
+                onChange={(e) => setSearchAccountType(e.target.value)}
+                allowClear
+              />
+              <Space>
+                <Button type="primary" onClick={handleChannelSearch} icon={<SearchOutlined />}>
+                  搜索
+                </Button>
+                <Button onClick={handleChannelReset}>重置</Button>
+              </Space>
+            </div>
+          </div>
+
+          {/* 表格 */}
+          <Table
+            columns={shopGroupColumns}
+            dataSource={channelDataSource}
+            rowKey="shopId"
+            loading={channelLoading}
+            size="small"
+            scroll={{ x: 1000 }}
+            expandable={{
+              expandedRowRender: expandedMonthRowRender,
+            }}
+            pagination={{
+              ...channelPagination,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              pageSizeOptions: [10, 20, 50, 100],
+              showTotal: (total) => `共 ${total} 条记录`,
+              onChange: (page, pageSize) => {
+                setChannelPagination((prev) => ({
+                  ...prev,
+                  current: page,
+                  pageSize: pageSize || 10,
+                }));
+                fetchChannelData({ pageNum: page, pageSize });
+              },
+            }}
+          />
+
+          {/* 明细弹窗 - 单例模式 */}
+          <Modal
+            title={detailModalTitle}
+            open={detailModalVisible}
+            onCancel={() => setDetailModalVisible(false)}
+            footer={null}
+            width={900}
+            destroyOnClose
+            maskClosable={false}
+            bodyStyle={{ padding: '16px' }}
+          >
+            <style>{`
+              .detail-table-small tr td {
+                padding: 4px 8px !important;
+                line-height: 1.3 !important;
+                height: 28px !important;
+                white-space: nowrap !important;
+              }
+              .detail-table-small tr th {
+                padding: 6px 8px !important;
+                line-height: 1.3 !important;
+                white-space: nowrap !important;
+              }
+            `}</style>
+            <Table
+              columns={detailColumns}
+              dataSource={detailDataSource}
+              rowKey="id"
+              loading={detailLoading}
+              size="small"
+              className="detail-table-small"
+              style={{ fontSize: 12 }}
+              scroll={{ x: 800 }}
+              pagination={{
+                ...detailPagination,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                pageSizeOptions: [20, 50, 100, 200],
+                showTotal: (total) => `共 ${total} 条记录`,
+                size: 'small',
+                onChange: (page, pageSize) => {
+                  setDetailPagination((prev) => ({
+                    ...prev,
+                    current: page,
+                    pageSize: pageSize || 20,
+                  }));
+                  fetchDetailData({ pageNum: page, pageSize });
+                },
+              }}
+            />
+          </Modal>
+
+          {/* 费用分类统计弹窗 */}
+          <Modal
+            title={statModalTitle}
+            open={statModalVisible}
+            onCancel={() => setStatModalVisible(false)}
+            footer={null}
+            width={500}
+            destroyOnClose
+            maskClosable={false}
+            bodyStyle={{ padding: '12px 16px' }}
+          >
+            <style>{`
+              .stat-table-small tr td {
+                padding: 4px 8px !important;
+                line-height: 1.3 !important;
+                height: 28px !important;
+                white-space: nowrap !important;
+              }
+              .stat-table-small tr th {
+                padding: 6px 8px !important;
+                line-height: 1.3 !important;
+                white-space: nowrap !important;
+              }
+            `}</style>
+            <Table
+              columns={[
+                {
+                  title: '费用分类',
+                  dataIndex: 'costCategory',
+                  key: 'costCategory',
+                  render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
+                },
+                {
+                  title: '费用类型',
+                  dataIndex: 'costType',
+                  key: 'costType',
+                  render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
+                },
+                {
+                  title: '总费用(元)',
+                  dataIndex: 'totalExpense',
+                  key: 'totalExpense',
+                  width: 120,
+                  render: (value: number) => <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>,
+                },
+              ]}
+              dataSource={statDataSource}
+              rowKey={(record, index) => `${record.costType}-${index}`}
+              loading={statLoading}
+              size="small"
+              className="stat-table-small"
+              style={{ fontSize: 12 }}
+              pagination={false}
+              summary={() => {
+                // 计算总费用合计
+                const total = statDataSource.reduce((sum, item) => sum + (item.totalExpense || 0), 0);
+                return (
+                  <tr>
+                    <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold' }}>
+                      <span style={{ fontSize: 12 }}>合计：</span>
+                    </td>
+                    <td style={{ fontWeight: 'bold' }}>
+                      <span style={{ fontSize: 12 }}>{total.toFixed(2)}</span>
+                    </td>
+                  </tr>
+                );
+              }}
+            />
           </Modal>
         </>
       )}
