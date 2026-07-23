@@ -96,18 +96,100 @@ export interface PageResponse {
   [property: string]: any;
 }
 
+export interface FinanceCostCategoryStatVo {
+  businessCode: string;
+  businessDesc: string;
+  totalIncome: number;
+  totalExpense: number;
+  calculate: number;
+  [key: string]: any;
+}
+
+/**
+ * 财务渠道推广费用表
+ */
+export interface FinanceChannelExtendCost {
+  /**
+   * 账务类型
+   */
+  accountType: string;
+  /**
+   * 业务编码
+   */
+  businessCode: string;
+  /**
+   * 业务描述
+   */
+  businessDesc?: string;
+  /**
+   * 渠道
+   */
+  channel: string;
+  /**
+   * 创建时间
+   */
+  createdAt?: string;
+  /**
+   * 支出金额（-元）
+   */
+  expenseAmount?: number;
+  /**
+   * 主键ID
+   */
+  id?: number;
+  /**
+   * 收入金额（+元）
+   */
+  incomeAmount?: number;
+  /**
+   * 是否删除 0-未删除 1-已删除
+   */
+  isDel?: number;
+  /**
+   * 商户订单号
+   */
+  merchantOrderNo: string;
+  /**
+   * 发生时间
+   */
+  occurredAt: string;
+  /**
+   * 备注
+   */
+  remark?: string;
+  /**
+   * 关联shoptarget表
+   */
+  shopId: number;
+  /**
+   * 更新时间
+   */
+  updatedAt?: string;
+  [property: string]: any;
+}
+
+export interface EndingBalanceRequest {
+  accountType: string;
+  shopId: number;
+  yearMonth: string;
+  [property: string]: any;
+}
+
 // 创建渠道推广费用的request实例
 // 测试环境使用
-// const channelExtendCostRequest = createRequest(`http://12.18.1.36:8085/oms/finance/channel-extend-cost`, {
-//   timeout: 1000 * 60,
-// });
-// 生产环境使用
 const channelExtendCostRequest = createRequest(
-  `${process.env.BASE_URL}/finance/channel-extend-cost`,
+  `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
   {
     timeout: 1000 * 60,
   },
 );
+// 生产环境使用
+// const channelExtendCostRequest = createRequest(
+//   `${process.env.BASE_URL}/finance/channel-extend-cost`,
+//   {
+//     timeout: 1000 * 60,
+//   },
+// );
 
 // 渠道推广费用API类
 export class ChannelExtendCostApi {
@@ -171,17 +253,25 @@ export class ChannelExtendCostApi {
     [key: string]: any;
   }): Promise<{
     code: number;
-    data: {
-      costCategory?: string;
-      costType?: string;
-      totalExpense?: number;
-      wdtName?: string;
-      [key: string]: any;
-    }[];
+    data: FinanceCostCategoryStatVo[];
     msg: string;
     success?: boolean;
   }> {
     return channelExtendCostRequest.get('/cost-category-stat', {
+      params,
+    });
+  }
+
+  /**
+   * 查询期末余额
+   */
+  static async queryEndingBalance(params: EndingBalanceRequest): Promise<{
+    code: number;
+    data: FinanceChannelExtendCost;
+    msg: string;
+    success?: boolean;
+  }> {
+    return channelExtendCostRequest.get('/query', {
       params,
     });
   }
