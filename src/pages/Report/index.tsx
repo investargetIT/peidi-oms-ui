@@ -1,7 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { SearchOutlined, EditOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
-import { Button, Input, Select, Table, Tabs, message, Space, Modal, Form, InputNumber, DatePicker, Upload } from 'antd';
+import {
+  Button,
+  Input,
+  Select,
+  Table,
+  Tabs,
+  message,
+  Space,
+  Modal,
+  Form,
+  InputNumber,
+  DatePicker,
+  Upload,
+  Collapse,
+} from 'antd';
 import type { UploadProps } from 'antd';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
@@ -15,6 +29,7 @@ import ChannelExtendCostApi, {
   type FinanceChannelExtendCostShopGroupVo,
   type FinanceChannelExtendCostMonthGroupVo,
   type FinanceChannelExtendCostDetailVo,
+  type FinanceCostCategoryStatVo,
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 
@@ -49,9 +64,7 @@ const Report: React.FC = () => {
   const [searchMerchantCode, setSearchMerchantCode] = useState<string>('');
   const [searchProductNo, setSearchProductNo] = useState<string>('');
   const [searchU9No, setSearchU9No] = useState<string>('');
-  const [searchIsNewProduct, setSearchIsNewProduct] = useState<string | undefined>(
-    undefined,
-  );
+  const [searchIsNewProduct, setSearchIsNewProduct] = useState<string | undefined>(undefined);
   const [searchMonth, setSearchMonth] = useState<Dayjs | null>(dayjs());
   const [searchGroup, setSearchGroup] = useState<string>('');
 
@@ -65,7 +78,9 @@ const Report: React.FC = () => {
 
   // 渠道推广费用状态
   const [channelLoading, setChannelLoading] = useState(false);
-  const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostShopGroupVo[]>([]);
+  const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostShopGroupVo[]>(
+    [],
+  );
   const [channelPagination, setChannelPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -96,18 +111,101 @@ const Report: React.FC = () => {
   const [statModalVisible, setStatModalVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
-  const [statDataSource, setStatDataSource] = useState<{
-    costCategory?: string;
-    costType?: string;
-    totalExpense?: number;
-    wdtName?: string;
-  }[]>([]);
+  const [statDataSource, setStatDataSource] = useState<FinanceCostCategoryStatVo[]>([]);
+  const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
+  const [endingBalance, setEndingBalance] = useState<number | null>(null);
+  const [currentShopName, setCurrentShopName] = useState<string>('');
+  const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
+  const [currentChannel, setCurrentChannel] = useState<string>('');
+
+  // 汇总分组配置
+  const summaryGroups = [
+    {
+      name: '收款',
+      codes: [
+        '0010002',
+        '0010005',
+        '0020002',
+        '0020005',
+        '0040001',
+        '0040002',
+        '0040003',
+        '0090001',
+        '0130005',
+        '0140002',
+      ],
+    },
+    {
+      name: '扣款',
+      codes: [
+        '0030001',
+        '0030002',
+        '0030003',
+        '0030023',
+        '0040004',
+        '0040005',
+        '0050002',
+        '0060001',
+      ],
+    },
+    {
+      name: '提现',
+      codes: ['0080001'],
+    },
+  ];
+
+  // 计算汇总数据 - 返回新格式的汇总行
+  const calculateSummaryData = () => {
+    // 计算各项汇总
+    const collectionTotal = statDataSource
+      .filter((item) => summaryGroups[0].codes.includes(item.businessCode))
+      .reduce((sum, item) => sum + (item.calculate || 0), 0);
+
+    const deductionTotal = statDataSource
+      .filter((item) => summaryGroups[1].codes.includes(item.businessCode))
+      .reduce((sum, item) => sum + (item.calculate || 0), 0);
+
+    const withdrawTotal = statDataSource
+      .filter((item) => summaryGroups[2].codes.includes(item.businessCode))
+      .reduce((sum, item) => sum + (item.calculate || 0), 0);
+
+    // 结息 - 暂时按0处理，如果后续需要可以添加业务编码分组
+    const interestTotal = 0;
+
+    // 上月余额 = 上个月期末余额
+    const lastMonthBalance = beginningBalance || 0;
+
+    // 期末余额 = 本月期末余额
+    const currentMonthEndBalance = endingBalance || 0;
+
+    // 计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
+    const calculatedBalance = lastMonthBalance + collectionTotal + deductionTotal + withdrawTotal + interestTotal;
+
+    // 校验 = 计算余额 - 期末余额
+    const checkDiff = calculatedBalance - currentMonthEndBalance;
+
+    return [{
+      billMonth: currentYearMonth,
+      platform: currentChannel,
+      accountName: currentShopName || '',
+      endBalance: currentMonthEndBalance,
+      lastMonthBalance: lastMonthBalance,
+      currentCollection: collectionTotal,
+      currentExpense: deductionTotal,
+      withdraw: withdrawTotal,
+      interest: interestTotal,
+      calculatedBalance: calculatedBalance,
+      checkDiff: checkDiff,
+    }];
+  };
 
   // 搜索条件 - 渠道推广费用
   const [searchAccountType, setSearchAccountType] = useState<string>('');
-  const [searchChannel, setSearchChannel] = useState<string | undefined>(undefined);
+  const [searchChannel, setSearchChannel] = useState<string | undefined>(channelOptions[0].value);
   const [searchShopId, setSearchShopId] = useState<number | undefined>(undefined);
-  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(dayjs());
+  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(
+    dayjs().subtract(1, 'month'),
+  );
 
   // 分页查询
   const fetchData = async (params: FinanceUnitCostPageReq = {}) => {
@@ -266,6 +364,10 @@ const Report: React.FC = () => {
 
   // 渠道推广费用搜索
   const handleChannelSearch = () => {
+    if (!searchChannel) {
+      message.error('请选择渠道');
+      return;
+    }
     if (!searchYearMonth) {
       message.error('请选择年月');
       return;
@@ -277,10 +379,10 @@ const Report: React.FC = () => {
   // 渠道推广费用重置搜索
   const handleChannelReset = () => {
     setSearchAccountType('');
-    setSearchChannel(undefined);
+    setSearchChannel(channelOptions[0].value);
     setSearchShopId(undefined);
-    setSearchYearMonth(dayjs());
-    setShopList([]);
+    setSearchYearMonth(dayjs().subtract(1, 'month'));
+    fetchShops(channelOptions[0].value);
     setChannelPagination((prev) => ({ ...prev, current: 1 }));
   };
 
@@ -528,7 +630,11 @@ const Report: React.FC = () => {
       key: 'expenseAmount',
       minWidth: 80,
       whiteSpace: 'nowrap',
-      render: (value: number) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{value !== undefined ? value.toFixed(2) : '-'}</span>,
+      render: (value: number) => (
+        <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+          {value !== undefined ? value.toFixed(2) : '-'}
+        </span>
+      ),
     },
     {
       title: '发生时间',
@@ -557,14 +663,16 @@ const Report: React.FC = () => {
   ];
 
   // 获取明细数据
-  const fetchDetailData = async (params: {
-    shopId?: number;
-    channel?: string;
-    yearMonth?: string;
-    accountType?: string;
-    pageNum?: number;
-    pageSize?: number;
-  } = {}) => {
+  const fetchDetailData = async (
+    params: {
+      shopId?: number;
+      channel?: string;
+      yearMonth?: string;
+      accountType?: string;
+      pageNum?: number;
+      pageSize?: number;
+    } = {},
+  ) => {
     setDetailLoading(true);
     try {
       const searchParams: any = {
@@ -630,20 +738,78 @@ const Report: React.FC = () => {
     wdtName: string | undefined,
     yearMonth: string | undefined,
     shopId: number | undefined,
+    channel: string | undefined,
   ) => {
     const title = `${wdtName || ''} ${yearMonth} 站内外推广费统计`;
     setStatModalTitle(title);
     // 打开前先清空旧数据
     setStatDataSource([]);
+    setBeginningBalance(null);
+    setEndingBalance(null);
+    setCurrentShopName(wdtName || '');
+    setCurrentYearMonth(yearMonth || '');
+    setCurrentChannel(channel || '');
     setStatModalVisible(true);
     setStatLoading(true);
     try {
-      const res = await ChannelExtendCostApi.getCostCategoryStat({
+      // 获取分类统计数据
+      const statRes = await ChannelExtendCostApi.getCostCategoryStat({
         shopId: shopId!,
         yearMonth: yearMonth!,
       });
-      if (res.code === 200) {
-        setStatDataSource(res.data || []);
+
+      // 计算上个月的年月用于查询期初余额（上月期末）
+      const [year, month] = yearMonth!.split('-').map(Number);
+      let prevYear = year;
+      let prevMonth = month - 1;
+      if (prevMonth === 0) {
+        prevYear = year - 1;
+        prevMonth = 12;
+      }
+      const prevYearMonth = `${prevYear}-${prevMonth.toString().padStart(2, '0')}`;
+
+      // 查询期初余额（上月期末）
+      const beginningBalanceRes = await ChannelExtendCostApi.queryEndingBalance({
+        accountType: '期末余额',
+        shopId: shopId!,
+        yearMonth: prevYearMonth,
+      });
+
+      // 查询本月期末余额
+      const endingBalanceRes = await ChannelExtendCostApi.queryEndingBalance({
+        accountType: '期末余额',
+        shopId: shopId!,
+        yearMonth: yearMonth!,
+      });
+
+      if (statRes.code === 200) {
+        let data = statRes.data || [];
+
+        // 如果获取到期初余额，保存
+        if (
+          beginningBalanceRes.code === 200 &&
+          beginningBalanceRes.data &&
+          beginningBalanceRes.data.incomeAmount !== undefined
+        ) {
+          setBeginningBalance(beginningBalanceRes.data.incomeAmount);
+        } else {
+          setBeginningBalance(null);
+          console.warn('获取期初余额失败或数据为空');
+        }
+
+        // 如果获取到本月期末余额，保存
+        if (
+          endingBalanceRes.code === 200 &&
+          endingBalanceRes.data &&
+          endingBalanceRes.data.incomeAmount !== undefined
+        ) {
+          setEndingBalance(endingBalanceRes.data.incomeAmount);
+        } else {
+          setEndingBalance(null);
+          console.warn('获取本月期末余额失败或数据为空');
+        }
+
+        setStatDataSource(data);
       } else {
         message.error('获取统计数据失败');
       }
@@ -689,12 +855,9 @@ const Report: React.FC = () => {
               type="link"
               size="small"
               style={{ fontSize: 12, padding: 0 }}
-              onClick={() => openDetailModal(
-                record.wdtName,
-                record.yearMonth,
-                record.shopId,
-                record.channel,
-              )}
+              onClick={() =>
+                openDetailModal(record.wdtName, record.yearMonth, record.shopId, record.channel)
+              }
             >
               查看明细
             </Button>
@@ -702,11 +865,7 @@ const Report: React.FC = () => {
               type="link"
               size="small"
               style={{ fontSize: 12, padding: '0 0 0 8px' }}
-              onClick={() => openStatModal(
-                record.wdtName,
-                record.yearMonth,
-                record.shopId,
-              )}
+              onClick={() => openStatModal(record.wdtName, record.yearMonth, record.shopId, record.channel)}
             >
               费用统计
             </Button>
@@ -757,7 +916,7 @@ const Report: React.FC = () => {
   const expandedMonthRowRender = (record: FinanceChannelExtendCostShopGroupVo) => {
     const monthGroups = record.monthGroups || [];
     // 添加店铺信息到每条记录，方便获取shopId
-    const monthGroupsWithShopInfo = monthGroups.map(item => ({
+    const monthGroupsWithShopInfo = monthGroups.map((item) => ({
       ...item,
       shopId: record.shopId,
       wdtName: record.wdtName,
@@ -909,6 +1068,7 @@ const Report: React.FC = () => {
             okText="确认更新"
             cancelText="取消"
             width={600}
+            styles={{ body: { padding: '16px' } }}
           >
             <Form form={form} layout="vertical">
               <div style={{ marginBottom: 16 }}>
@@ -961,10 +1121,7 @@ const Report: React.FC = () => {
                   min={0}
                 />
               </Form.Item>
-              <Form.Item
-                label="是否新品"
-                name="isNewProduct"
-              >
+              <Form.Item label="是否新品" name="isNewProduct">
                 <Select
                   placeholder="请选择"
                   allowClear
@@ -975,14 +1132,8 @@ const Report: React.FC = () => {
                   ]}
                 />
               </Form.Item>
-              <Form.Item
-                label="备注"
-                name="remark"
-              >
-                <Input.TextArea
-                  placeholder="请输入备注"
-                  rows={3}
-                />
+              <Form.Item label="备注" name="remark">
+                <Input.TextArea placeholder="请输入备注" rows={3} />
               </Form.Item>
             </Form>
           </Modal>
@@ -999,6 +1150,7 @@ const Report: React.FC = () => {
             confirmLoading={importing}
             okText="导入"
             cancelText="取消"
+            styles={{ body: { padding: '8px 0' } }}
           >
             <div style={{ padding: '8px 0' }}>
               <div style={{ marginBottom: 16 }}>
@@ -1041,11 +1193,10 @@ const Report: React.FC = () => {
           >
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
               <Select
-                placeholder="选择渠道"
+                placeholder="选择渠道 *"
                 style={{ width: 150 }}
                 value={searchChannel}
                 onChange={handleChannelChange}
-                allowClear
                 options={channelOptions}
               />
               <Select
@@ -1055,7 +1206,7 @@ const Report: React.FC = () => {
                 onChange={(value) => setSearchShopId(value)}
                 allowClear
                 loading={shopsLoading}
-                options={shopList.map(shop => ({
+                options={shopList.map((shop) => ({
                   label: shop.wdtName || shop.shopName,
                   value: shop.id,
                 }))}
@@ -1124,7 +1275,7 @@ const Report: React.FC = () => {
             width={900}
             destroyOnClose
             maskClosable={false}
-            bodyStyle={{ padding: '16px' }}
+            styles={{ body: { padding: '16px' } }}
           >
             <style>{`
               .detail-table-small tr td {
@@ -1173,10 +1324,10 @@ const Report: React.FC = () => {
             open={statModalVisible}
             onCancel={() => setStatModalVisible(false)}
             footer={null}
-            width={500}
+            width={1200}
             destroyOnClose
             maskClosable={false}
-            bodyStyle={{ padding: '12px 16px' }}
+            styles={{ body: { padding: '12px 16px' } }}
           >
             <style>{`
               .stat-table-small tr td {
@@ -1191,48 +1342,202 @@ const Report: React.FC = () => {
                 white-space: nowrap !important;
               }
             `}</style>
+
+            {/* 汇总表格 - 放在最顶部 */}
             <Table
               columns={[
                 {
-                  title: '费用分类',
-                  dataIndex: 'costCategory',
-                  key: 'costCategory',
+                  title: '账单月份',
+                  dataIndex: 'billMonth',
+                  key: 'billMonth',
+                  width: 80,
+                  render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+                },
+                {
+                  title: '平台',
+                  dataIndex: 'platform',
+                  key: 'platform',
+                  width: 60,
+                  render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+                },
+                {
+                  title: '账户名称',
+                  dataIndex: 'accountName',
+                  key: 'accountName',
+                  width: 150,
+                  render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+                },
+                {
+                  title: '期末余额（元）',
+                  dataIndex: 'endBalance',
+                  key: 'endBalance',
+                  width: 100,
+                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                },
+                {
+                  title: '上月余额',
+                  dataIndex: 'lastMonthBalance',
+                  key: 'lastMonthBalance',
+                  width: 80,
+                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                },
+                {
+                  title: '本期收款',
+                  dataIndex: 'currentCollection',
+                  key: 'currentCollection',
+                  width: 80,
+                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                },
+                {
+                  title: '本期费用',
+                  dataIndex: 'currentExpense',
+                  key: 'currentExpense',
+                  width: 80,
+                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                },
+                {
+                  title: '提现',
+                  dataIndex: 'withdraw',
+                  key: 'withdraw',
+                  width: 60,
+                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                },
+                {
+                  title: '结息',
+                  dataIndex: 'interest',
+                  key: 'interest',
+                  width: 60,
+                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                },
+                {
+                  title: '计算余额',
+                  dataIndex: 'calculatedBalance',
+                  key: 'calculatedBalance',
+                  width: 100,
+                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                },
+                {
+                  title: '校验',
+                  dataIndex: 'checkDiff',
+                  key: 'checkDiff',
+                  width: 80,
+                  render: (value: number) => (
+                    <span style={{
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      color: Math.abs(value || 0) < 0.001 ? 'green' : 'red'
+                    }}>
+                      {value?.toFixed(2)}
+                    </span>
+                  ),
+                },
+              ]}
+              dataSource={calculateSummaryData()}
+              rowKey="billMonth"
+              size="small"
+              className="stat-table-small"
+              style={{ fontSize: 12, marginBottom: 16 }}
+              pagination={false}
+              scroll={{ x: 1100 }}
+            />
+
+            {/* 计算逻辑说明 - 默认折叠 */}
+            <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
+              <Collapse.Panel header="计算逻辑说明" key="1">
+                <div style={{
+                  background: '#f5f5f5',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  fontSize: 12,
+                  margin: -16
+                }}>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    <li style={{ marginBottom: 2 }}><strong>账单月份：</strong>当前统计的月份</li>
+                    <li style={{ marginBottom: 2 }}><strong>平台：</strong>当前统计的渠道</li>
+                    <li style={{ marginBottom: 2 }}><strong>账户名称：</strong>店铺名称</li>
+                    <li style={{ marginBottom: 2 }}><strong>期末余额：</strong>系统查询到的本月实际期末余额</li>
+                    <li style={{ marginBottom: 2 }}><strong>上月余额：</strong>上个月末的账户余额，作为本月期初</li>
+                    <li style={{ marginBottom: 2 }}><strong>本期收款：</strong>本月所有收款类业务编码汇总，收款业务编码包括：{summaryGroups[0].codes.join(', ')}</li>
+                    <li style={{ marginBottom: 2 }}><strong>本期费用：</strong>本月所有扣款类业务编码汇总，扣款业务编码包括：{summaryGroups[1].codes.join(', ')}</li>
+                    <li style={{ marginBottom: 2 }}><strong>提现：</strong>本月提现业务汇总，业务编码：{summaryGroups[2].codes.join(', ')}</li>
+                    <li style={{ marginBottom: 2 }}><strong>结息：</strong>默认 0，如有结息业务后续调整</li>
+                    <li style={{ marginBottom: 2 }}><strong>计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</strong></li>
+                    <li style={{ marginBottom: 2 }}><strong>校验 = 计算余额 - 期末余额</strong>，差异绝对值小于0.001则平衡（绿色），否则不平衡（红色）</li>
+                    <li><strong>明细表格颜色区分：</strong>
+                      <span style={{ background: '#f6ffed', padding: '2px 6px', borderRadius: 2, margin: '0 4px' }}>浅绿色 = 收款类</span>
+                      <span style={{ background: '#fff7e6', padding: '2px 6px', borderRadius: 2, margin: '0 4px' }}>浅橙色 = 扣款(本期费用)类</span>
+                      <span style={{ background: '#e6f7ff', padding: '2px 6px', borderRadius: 2, margin: '0 4px' }}>浅蓝色 = 提现类</span>
+                    </li>
+                  </ul>
+                </div>
+              </Collapse.Panel>
+            </Collapse>
+
+            {/* 业务编码明细表格 - 放底部 */}
+            <Table
+              columns={[
+                {
+                  title: '业务编码',
+                  dataIndex: 'businessCode',
+                  key: 'businessCode',
+                  width: 100,
                   render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
                 },
                 {
-                  title: '费用类型',
-                  dataIndex: 'costType',
-                  key: 'costType',
+                  title: '业务描述',
+                  dataIndex: 'businessDesc',
+                  key: 'businessDesc',
                   render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
                 },
                 {
-                  title: '总费用(元)',
+                  title: '收入金额',
+                  dataIndex: 'totalIncome',
+                  key: 'totalIncome',
+                  width: 100,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
+                  ),
+                },
+                {
+                  title: '支出金额',
                   dataIndex: 'totalExpense',
                   key: 'totalExpense',
+                  width: 100,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
+                  ),
+                },
+                {
+                  title: '计算结果',
+                  dataIndex: 'calculate',
+                  key: 'calculate',
                   width: 120,
-                  render: (value: number) => <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
+                  ),
                 },
               ]}
               dataSource={statDataSource}
-              rowKey={(record, index) => `${record.costType}-${index}`}
+              rowKey={(record, index) => `${record.businessCode}-${index}`}
               loading={statLoading}
               size="small"
               className="stat-table-small"
               style={{ fontSize: 12 }}
               pagination={false}
-              summary={() => {
-                // 计算总费用合计
-                const total = statDataSource.reduce((sum, item) => sum + (item.totalExpense || 0), 0);
-                return (
-                  <tr>
-                    <td colSpan={2} style={{ textAlign: 'right', fontWeight: 'bold' }}>
-                      <span style={{ fontSize: 12 }}>合计：</span>
-                    </td>
-                    <td style={{ fontWeight: 'bold' }}>
-                      <span style={{ fontSize: 12 }}>{total.toFixed(2)}</span>
-                    </td>
-                  </tr>
-                );
+              scroll={{ x: 500 }}
+              onRow={(record) => {
+                // 根据业务编码所属分组设置不同背景色
+                let backgroundColor = 'transparent';
+                if (summaryGroups[0].codes.includes(record.businessCode)) {
+                  backgroundColor = '#f6ffed'; // 收款 - 浅绿色
+                } else if (summaryGroups[1].codes.includes(record.businessCode)) {
+                  backgroundColor = '#fff7e6'; // 本期费用(扣款) - 浅橙色
+                } else if (summaryGroups[2].codes.includes(record.businessCode)) {
+                  backgroundColor = '#e6f7ff'; // 提现 - 浅蓝色
+                }
+                return {
+                  style: { backgroundColor },
+                };
               }}
             />
           </Modal>
@@ -1243,4 +1548,3 @@ const Report: React.FC = () => {
 };
 
 export default Report;
-
