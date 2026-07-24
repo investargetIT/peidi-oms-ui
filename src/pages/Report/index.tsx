@@ -118,6 +118,12 @@ const Report: React.FC = () => {
   const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
   const [currentChannel, setCurrentChannel] = useState<string>('');
 
+  // 店铺名称显示映射：部分店铺展示时替换为规范名称
+  const shopNameDisplayMap: Record<string, string> = {
+    '瑞驰派特-拼多多-萌宠嘉年华': '瑞驰派特-拼多多-帕特店',
+  };
+  const displayShopName = (name?: string) => (name ? shopNameDisplayMap[name] || name : name);
+
   // 汇总分组配置
   const summaryGroups = [
     {
@@ -133,6 +139,8 @@ const Report: React.FC = () => {
         '0090001',
         '0130005',
         '0140002',
+        '0090002',
+        '0130010',
       ],
     },
     {
@@ -146,6 +154,8 @@ const Report: React.FC = () => {
         '0040005',
         '0050002',
         '0060001',
+        '0040006',
+        '0070004',
       ],
     },
     {
@@ -153,6 +163,37 @@ const Report: React.FC = () => {
       codes: ['0080001'],
     },
   ];
+
+  // 业务编码分类配置（站内外推广费统计明细左侧分类列）
+  const feeCategories: { name: string; codes: string[] }[] = [
+    { name: '运费险', codes: ['0050002'] },
+    { name: '技术服务费', codes: ['0030001', '0030002', '0030003', '0030023'] },
+    { name: '赔付', codes: ['0040004', '0040005', '0040006'] },
+    { name: '多多进宝', codes: ['0060001'] },
+    { name: '好评有礼', codes: ['0070004'] },
+    { name: '全站推广费', codes: ['PDD_PROMOTION'] },
+  ];
+  // 根据业务编码获取所属分类名称，未匹配的归入"其他"
+  const getFeeCategory = (businessCode: string) => {
+    const found = feeCategories.find((c) => c.codes.includes(businessCode));
+    return found ? found.name : '其他';
+  };
+  // 分类展示顺序：配置的分类在前，"其他"在最后
+  const feeCategoryOrder = [...feeCategories.map((c) => c.name), '其他'];
+
+  // 一级大类配置（站内外推广费统计明细最左侧大类列）
+  const feeMajorCategories: { name: string; categories: string[] }[] = [
+    { name: '平台费用', categories: ['运费险', '技术服务费', '赔付'] },
+    { name: '推广费用', categories: ['多多进宝', '好评有礼', '全站推广费'] },
+    { name: '其他', categories: ['其他'] },
+  ];
+  // 根据分类名称获取所属一级大类，未匹配的归入"其他"
+  const getFeeMajorCategory = (categoryName: string) => {
+    const found = feeMajorCategories.find((m) => m.categories.includes(categoryName));
+    return found ? found.name : '其他';
+  };
+  // 一级大类展示顺序
+  const feeMajorCategoryOrder = feeMajorCategories.map((m) => m.name);
 
   // 计算汇总数据 - 返回新格式的汇总行
   const calculateSummaryData = () => {
@@ -179,24 +220,27 @@ const Report: React.FC = () => {
     const currentMonthEndBalance = endingBalance || 0;
 
     // 计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
-    const calculatedBalance = lastMonthBalance + collectionTotal + deductionTotal + withdrawTotal + interestTotal;
+    const calculatedBalance =
+      lastMonthBalance + collectionTotal + deductionTotal + withdrawTotal + interestTotal;
 
     // 校验 = 计算余额 - 期末余额
     const checkDiff = calculatedBalance - currentMonthEndBalance;
 
-    return [{
-      billMonth: currentYearMonth,
-      platform: currentChannel,
-      accountName: currentShopName || '',
-      endBalance: currentMonthEndBalance,
-      lastMonthBalance: lastMonthBalance,
-      currentCollection: collectionTotal,
-      currentExpense: deductionTotal,
-      withdraw: withdrawTotal,
-      interest: interestTotal,
-      calculatedBalance: calculatedBalance,
-      checkDiff: checkDiff,
-    }];
+    return [
+      {
+        billMonth: currentYearMonth,
+        platform: currentChannel,
+        accountName: currentShopName || '',
+        endBalance: currentMonthEndBalance,
+        lastMonthBalance: lastMonthBalance,
+        currentCollection: collectionTotal,
+        currentExpense: deductionTotal,
+        withdraw: withdrawTotal,
+        interest: interestTotal,
+        calculatedBalance: calculatedBalance,
+        checkDiff: checkDiff,
+      },
+    ];
   };
 
   // 搜索条件 - 渠道推广费用
@@ -206,6 +250,8 @@ const Report: React.FC = () => {
   const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(
     dayjs().subtract(1, 'month'),
   );
+  // 渠道推广费用 - 展开的行
+  const [channelExpandedRowKeys, setChannelExpandedRowKeys] = useState<React.Key[]>([]);
 
   // 分页查询
   const fetchData = async (params: FinanceUnitCostPageReq = {}) => {
@@ -373,6 +419,7 @@ const Report: React.FC = () => {
       return;
     }
     setChannelPagination((prev) => ({ ...prev, current: 1 }));
+    setChannelExpandedRowKeys([]); // 搜索时收起所有展开行
     fetchChannelData({ pageNum: 1 });
   };
 
@@ -384,6 +431,7 @@ const Report: React.FC = () => {
     setSearchYearMonth(dayjs().subtract(1, 'month'));
     fetchShops(channelOptions[0].value);
     setChannelPagination((prev) => ({ ...prev, current: 1 }));
+    setChannelExpandedRowKeys([]); // 重置时收起所有展开行
   };
 
   // 上传文件配置
@@ -658,7 +706,9 @@ const Report: React.FC = () => {
       key: 'wdtName',
       minWidth: 150,
       whiteSpace: 'nowrap',
-      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
+      render: (text: string) => (
+        <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{displayShopName(text)}</span>
+      ),
     },
   ];
 
@@ -710,7 +760,7 @@ const Report: React.FC = () => {
     shopId: number | undefined,
     channel: string | undefined,
   ) => {
-    const title = `${wdtName || ''} ${yearMonth || ''} 渠道推广费用明细`;
+    const title = `${displayShopName(wdtName) || ''} ${yearMonth || ''} 渠道推广费用明细`;
     setDetailModalTitle(title);
     // 打开前先清空旧数据
     setDetailDataSource([]);
@@ -740,13 +790,13 @@ const Report: React.FC = () => {
     shopId: number | undefined,
     channel: string | undefined,
   ) => {
-    const title = `${wdtName || ''} ${yearMonth} 站内外推广费统计`;
+    const title = `${displayShopName(wdtName) || ''} ${yearMonth} 站内外推广费统计`;
     setStatModalTitle(title);
     // 打开前先清空旧数据
     setStatDataSource([]);
     setBeginningBalance(null);
     setEndingBalance(null);
-    setCurrentShopName(wdtName || '');
+    setCurrentShopName(displayShopName(wdtName) || '');
     setCurrentYearMonth(yearMonth || '');
     setCurrentChannel(channel || '');
     setStatModalVisible(true);
@@ -865,7 +915,9 @@ const Report: React.FC = () => {
               type="link"
               size="small"
               style={{ fontSize: 12, padding: '0 0 0 8px' }}
-              onClick={() => openStatModal(record.wdtName, record.yearMonth, record.shopId, record.channel)}
+              onClick={() =>
+                openStatModal(record.wdtName, record.yearMonth, record.shopId, record.channel)
+              }
             >
               费用统计
             </Button>
@@ -890,6 +942,7 @@ const Report: React.FC = () => {
       key: 'wdtName',
       width: 150,
       fixed: 'left' as const,
+      render: (text: string) => displayShopName(text),
     },
     {
       title: '渠道',
@@ -1207,7 +1260,7 @@ const Report: React.FC = () => {
                 allowClear
                 loading={shopsLoading}
                 options={shopList.map((shop) => ({
-                  label: shop.wdtName || shop.shopName,
+                  label: displayShopName(shop.wdtName || shop.shopName),
                   value: shop.id,
                 }))}
                 showSearch
@@ -1248,6 +1301,8 @@ const Report: React.FC = () => {
             scroll={{ x: 1000 }}
             expandable={{
               expandedRowRender: expandedMonthRowRender,
+              expandedRowKeys: channelExpandedRowKeys,
+              onExpandedRowsChange: (keys) => setChannelExpandedRowKeys(keys),
             }}
             pagination={{
               ...channelPagination,
@@ -1351,85 +1406,113 @@ const Report: React.FC = () => {
                   dataIndex: 'billMonth',
                   key: 'billMonth',
                   width: 80,
-                  render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+                  render: (text: string) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+                  ),
                 },
                 {
                   title: '平台',
                   dataIndex: 'platform',
                   key: 'platform',
                   width: 60,
-                  render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+                  render: (text: string) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+                  ),
                 },
                 {
                   title: '账户名称',
                   dataIndex: 'accountName',
                   key: 'accountName',
                   width: 150,
-                  render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+                  render: (text: string) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+                  ),
                 },
                 {
                   title: '期末余额（元）',
                   dataIndex: 'endBalance',
                   key: 'endBalance',
                   width: 100,
-                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
+                  ),
                 },
                 {
                   title: '上月余额',
                   dataIndex: 'lastMonthBalance',
                   key: 'lastMonthBalance',
                   width: 80,
-                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
+                  ),
                 },
                 {
                   title: '本期收款',
                   dataIndex: 'currentCollection',
                   key: 'currentCollection',
                   width: 80,
-                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
+                  ),
                 },
                 {
                   title: '本期费用',
                   dataIndex: 'currentExpense',
                   key: 'currentExpense',
                   width: 80,
-                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
+                  ),
                 },
                 {
                   title: '提现',
                   dataIndex: 'withdraw',
                   key: 'withdraw',
                   width: 60,
-                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
+                  ),
                 },
                 {
                   title: '结息',
                   dataIndex: 'interest',
                   key: 'interest',
                   width: 60,
-                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
+                  ),
                 },
                 {
                   title: '计算余额',
                   dataIndex: 'calculatedBalance',
                   key: 'calculatedBalance',
                   width: 100,
-                  render: (value: number) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>,
+                  render: (value: number) => (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
+                  ),
                 },
                 {
                   title: '校验',
                   dataIndex: 'checkDiff',
                   key: 'checkDiff',
                   width: 80,
-                  render: (value: number) => (
-                    <span style={{
-                      fontSize: 12,
-                      fontWeight: 'bold',
-                      color: Math.abs(value || 0) < 0.001 ? 'green' : 'red'
-                    }}>
-                      {value?.toFixed(2)}
-                    </span>
-                  ),
+                  render: (value: number) => {
+                    const num = value || 0;
+                    const isBalanced = Math.abs(num) < 0.001;
+                    // -0.00 时展示为 0.00
+                    const display = isBalanced ? '0.00' : num.toFixed(2);
+                    return (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          color: isBalanced ? 'green' : 'red',
+                        }}
+                      >
+                        {display}
+                      </span>
+                    );
+                  },
                 },
               ]}
               dataSource={calculateSummaryData()}
@@ -1444,29 +1527,86 @@ const Report: React.FC = () => {
             {/* 计算逻辑说明 - 默认折叠 */}
             <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
               <Collapse.Panel header="计算逻辑说明" key="1">
-                <div style={{
-                  background: '#f5f5f5',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  fontSize: 12,
-                  margin: -16
-                }}>
+                <div
+                  style={{
+                    background: '#f5f5f5',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    fontSize: 12,
+                    margin: -16,
+                  }}
+                >
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    <li style={{ marginBottom: 2 }}><strong>账单月份：</strong>当前统计的月份</li>
-                    <li style={{ marginBottom: 2 }}><strong>平台：</strong>当前统计的渠道</li>
-                    <li style={{ marginBottom: 2 }}><strong>账户名称：</strong>店铺名称</li>
-                    <li style={{ marginBottom: 2 }}><strong>期末余额：</strong>系统查询到的本月实际期末余额</li>
-                    <li style={{ marginBottom: 2 }}><strong>上月余额：</strong>上个月末的账户余额，作为本月期初</li>
-                    <li style={{ marginBottom: 2 }}><strong>本期收款：</strong>本月所有收款类业务编码汇总，收款业务编码包括：{summaryGroups[0].codes.join(', ')}</li>
-                    <li style={{ marginBottom: 2 }}><strong>本期费用：</strong>本月所有扣款类业务编码汇总，扣款业务编码包括：{summaryGroups[1].codes.join(', ')}</li>
-                    <li style={{ marginBottom: 2 }}><strong>提现：</strong>本月提现业务汇总，业务编码：{summaryGroups[2].codes.join(', ')}</li>
-                    <li style={{ marginBottom: 2 }}><strong>结息：</strong>默认 0，如有结息业务后续调整</li>
-                    <li style={{ marginBottom: 2 }}><strong>计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</strong></li>
-                    <li style={{ marginBottom: 2 }}><strong>校验 = 计算余额 - 期末余额</strong>，差异绝对值小于0.001则平衡（绿色），否则不平衡（红色）</li>
-                    <li><strong>明细表格颜色区分：</strong>
-                      <span style={{ background: '#f6ffed', padding: '2px 6px', borderRadius: 2, margin: '0 4px' }}>浅绿色 = 收款类</span>
-                      <span style={{ background: '#fff7e6', padding: '2px 6px', borderRadius: 2, margin: '0 4px' }}>浅橙色 = 扣款(本期费用)类</span>
-                      <span style={{ background: '#e6f7ff', padding: '2px 6px', borderRadius: 2, margin: '0 4px' }}>浅蓝色 = 提现类</span>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>账单月份：</strong>当前统计的月份
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>平台：</strong>当前统计的渠道
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>账户名称：</strong>店铺名称
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>期末余额：</strong>系统查询到的本月实际期末余额
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>上月余额：</strong>上个月末的账户余额，作为本月期初
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>本期收款：</strong>本月所有收款类业务编码汇总，收款业务编码包括：
+                      {summaryGroups[0].codes.join(', ')}
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>本期费用：</strong>本月所有扣款类业务编码汇总，扣款业务编码包括：
+                      {summaryGroups[1].codes.join(', ')}
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>提现：</strong>本月提现业务汇总，业务编码：
+                      {summaryGroups[2].codes.join(', ')}
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>结息：</strong>默认 0，如有结息业务后续调整
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</strong>
+                    </li>
+                    <li style={{ marginBottom: 2 }}>
+                      <strong>校验 = 计算余额 - 期末余额</strong>
+                      ，差异绝对值小于0.001则视为平衡，统一展示为
+                      <strong>0.00</strong>（绿色），否则展示实际差异（红色）
+                    </li>
+                    <li>
+                      <strong>明细表格颜色区分：</strong>
+                      <span
+                        style={{
+                          background: '#f6ffed',
+                          padding: '2px 6px',
+                          borderRadius: 2,
+                          margin: '0 4px',
+                        }}
+                      >
+                        浅绿色 = 收款类
+                      </span>
+                      <span
+                        style={{
+                          background: '#fff7e6',
+                          padding: '2px 6px',
+                          borderRadius: 2,
+                          margin: '0 4px',
+                        }}
+                      >
+                        浅橙色 = 扣款(本期费用)类
+                      </span>
+                      <span
+                        style={{
+                          background: '#e6f7ff',
+                          padding: '2px 6px',
+                          borderRadius: 2,
+                          margin: '0 4px',
+                        }}
+                      >
+                        浅蓝色 = 提现类
+                      </span>
                     </li>
                   </ul>
                 </div>
@@ -1474,72 +1614,185 @@ const Report: React.FC = () => {
             </Collapse>
 
             {/* 业务编码明细表格 - 放底部 */}
-            <Table
-              columns={[
-                {
-                  title: '业务编码',
-                  dataIndex: 'businessCode',
-                  key: 'businessCode',
-                  width: 100,
-                  render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
-                },
-                {
-                  title: '业务描述',
-                  dataIndex: 'businessDesc',
-                  key: 'businessDesc',
-                  render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
-                },
-                {
-                  title: '收入金额',
-                  dataIndex: 'totalIncome',
-                  key: 'totalIncome',
-                  width: 100,
-                  render: (value: number) => (
-                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
-                  ),
-                },
-                {
-                  title: '支出金额',
-                  dataIndex: 'totalExpense',
-                  key: 'totalExpense',
-                  width: 100,
-                  render: (value: number) => (
-                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
-                  ),
-                },
-                {
-                  title: '计算结果',
-                  dataIndex: 'calculate',
-                  key: 'calculate',
-                  width: 120,
-                  render: (value: number) => (
-                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
-                  ),
-                },
-              ]}
-              dataSource={statDataSource}
-              rowKey={(record, index) => `${record.businessCode}-${index}`}
-              loading={statLoading}
-              size="small"
-              className="stat-table-small"
-              style={{ fontSize: 12 }}
-              pagination={false}
-              scroll={{ x: 500 }}
-              onRow={(record) => {
-                // 根据业务编码所属分组设置不同背景色
-                let backgroundColor = 'transparent';
-                if (summaryGroups[0].codes.includes(record.businessCode)) {
-                  backgroundColor = '#f6ffed'; // 收款 - 浅绿色
-                } else if (summaryGroups[1].codes.includes(record.businessCode)) {
-                  backgroundColor = '#fff7e6'; // 本期费用(扣款) - 浅橙色
-                } else if (summaryGroups[2].codes.includes(record.businessCode)) {
-                  backgroundColor = '#e6f7ff'; // 提现 - 浅蓝色
+            {(() => {
+              // 先按一级大类，再按分类顺序排序，便于同类相邻并合并单元格
+              const sortedStatData = [...statDataSource].sort((a, b) => {
+                const ca = getFeeCategory(a.businessCode);
+                const cb = getFeeCategory(b.businessCode);
+                const ma = feeMajorCategoryOrder.indexOf(getFeeMajorCategory(ca));
+                const mb = feeMajorCategoryOrder.indexOf(getFeeMajorCategory(cb));
+                if (ma !== mb) return ma - mb;
+                const ia = feeCategoryOrder.indexOf(ca);
+                const ib = feeCategoryOrder.indexOf(cb);
+                if (ia !== ib) return ia - ib;
+                return (a.businessCode || '').localeCompare(b.businessCode || '');
+              });
+              // 计算每个一级大类的行数及首次出现索引，用于 rowSpan 合并
+              const majorCount: Record<string, number> = {};
+              const majorFirstIndex: Record<string, number> = {};
+              // 计算每个分类的行数，用于 rowSpan 合并
+              const categoryCount: Record<string, number> = {};
+              const categoryFirstIndex: Record<string, number> = {};
+              // 计算每个分类（管报名称）的收入、支出合计
+              const categoryIncomeSum: Record<string, number> = {};
+              const categoryExpenseSum: Record<string, number> = {};
+              sortedStatData.forEach((item, idx) => {
+                const cat = getFeeCategory(item.businessCode);
+                const major = getFeeMajorCategory(cat);
+                majorCount[major] = (majorCount[major] || 0) + 1;
+                if (majorFirstIndex[major] === undefined) {
+                  majorFirstIndex[major] = idx;
                 }
-                return {
-                  style: { backgroundColor },
-                };
-              }}
-            />
+                categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+                if (categoryFirstIndex[cat] === undefined) {
+                  categoryFirstIndex[cat] = idx;
+                }
+                categoryIncomeSum[cat] = (categoryIncomeSum[cat] || 0) + (item.totalIncome || 0);
+                categoryExpenseSum[cat] = (categoryExpenseSum[cat] || 0) + (item.totalExpense || 0);
+              });
+              return (
+                <Table
+                  columns={[
+                    {
+                      title: '分类',
+                      dataIndex: 'feeMajorCategory',
+                      key: 'feeMajorCategory',
+                      width: 90,
+                      render: (_: unknown, record: any, index: number) => {
+                        const major = getFeeMajorCategory(getFeeCategory(record.businessCode));
+                        const isFirst = majorFirstIndex[major] === index;
+                        return {
+                          children: (
+                            <span style={{ fontSize: 12, fontWeight: 'bold' }}>{major}</span>
+                          ),
+                          props: {
+                            rowSpan: isFirst ? majorCount[major] : 0,
+                          },
+                        };
+                      },
+                    },
+                    {
+                      title: '管报名称',
+                      dataIndex: 'feeCategory',
+                      key: 'feeCategory',
+                      width: 100,
+                      render: (_: unknown, record: any, index: number) => {
+                        const cat = getFeeCategory(record.businessCode);
+                        const isFirst = categoryFirstIndex[cat] === index;
+                        return {
+                          children: <span style={{ fontSize: 12, fontWeight: 'bold' }}>{cat}</span>,
+                          props: {
+                            rowSpan: isFirst ? categoryCount[cat] : 0,
+                          },
+                        };
+                      },
+                    },
+                    {
+                      title: '收入金额合计',
+                      dataIndex: 'incomeSum',
+                      key: 'incomeSum',
+                      width: 110,
+                      render: (_: unknown, record: any, index: number) => {
+                        const cat = getFeeCategory(record.businessCode);
+                        const isFirst = categoryFirstIndex[cat] === index;
+                        return {
+                          children: (
+                            <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                              {categoryIncomeSum[cat]?.toFixed(2) || '-'}
+                            </span>
+                          ),
+                          props: {
+                            rowSpan: isFirst ? categoryCount[cat] : 0,
+                          },
+                        };
+                      },
+                    },
+                    {
+                      title: '支出金额合计',
+                      dataIndex: 'expenseSum',
+                      key: 'expenseSum',
+                      width: 110,
+                      render: (_: unknown, record: any, index: number) => {
+                        const cat = getFeeCategory(record.businessCode);
+                        const isFirst = categoryFirstIndex[cat] === index;
+                        return {
+                          children: (
+                            <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                              {categoryExpenseSum[cat]?.toFixed(2) || '-'}
+                            </span>
+                          ),
+                          props: {
+                            rowSpan: isFirst ? categoryCount[cat] : 0,
+                          },
+                        };
+                      },
+                    },
+                    {
+                      title: '业务编码',
+                      dataIndex: 'businessCode',
+                      key: 'businessCode',
+                      width: 100,
+                      render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
+                    },
+                    {
+                      title: '业务描述',
+                      dataIndex: 'businessDesc',
+                      key: 'businessDesc',
+                      render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
+                    },
+                    {
+                      title: '收入金额',
+                      dataIndex: 'totalIncome',
+                      key: 'totalIncome',
+                      width: 100,
+                      render: (value: number) => (
+                        <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
+                      ),
+                    },
+                    {
+                      title: '支出金额',
+                      dataIndex: 'totalExpense',
+                      key: 'totalExpense',
+                      width: 100,
+                      render: (value: number) => (
+                        <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
+                      ),
+                    },
+                    {
+                      title: '计算结果',
+                      dataIndex: 'calculate',
+                      key: 'calculate',
+                      width: 120,
+                      render: (value: number) => (
+                        <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
+                      ),
+                    },
+                  ]}
+                  dataSource={sortedStatData}
+                  rowKey={(record, index) => `${record.businessCode}-${index}`}
+                  loading={statLoading}
+                  size="small"
+                  className="stat-table-small"
+                  style={{ fontSize: 12 }}
+                  pagination={false}
+                  scroll={{ x: 920 }}
+                  onRow={(record) => {
+                    // 根据业务编码所属分组设置不同背景色
+                    let backgroundColor = 'transparent';
+                    if (summaryGroups[0].codes.includes(record.businessCode)) {
+                      backgroundColor = '#f6ffed'; // 收款 - 浅绿色
+                    } else if (summaryGroups[1].codes.includes(record.businessCode)) {
+                      backgroundColor = '#fff7e6'; // 本期费用(扣款) - 浅橙色
+                    } else if (summaryGroups[2].codes.includes(record.businessCode)) {
+                      backgroundColor = '#e6f7ff'; // 提现 - 浅蓝色
+                    }
+                    return {
+                      style: { backgroundColor },
+                    };
+                  }}
+                />
+              );
+            })()}
           </Modal>
         </>
       )}
