@@ -116,6 +116,15 @@ const UploadComponent: React.FC<{
           message.error(`${info.file.name} 上传失败  ${response.msg}`);
           setPercent(0); // 上传失败时重置进度
         }
+      } else if (status === 'error') {
+        setIsUploading(false);
+        setPercent(0);
+        const errorMsg =
+          info.file.error?.response?.data?.msg ||
+          info.file.error?.response?.data?.message ||
+          info.file.error?.message ||
+          '服务器内部错误(500)，请稍后重试';
+        message.error(`${info.file.name} 上传失败: ${errorMsg}`);
       }
 
       // 更新文件列表
