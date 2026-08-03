@@ -58,6 +58,38 @@ const Report: React.FC = () => {
   const [importDate, setImportDate] = useState<string>(dayjs().format('YYYY-MM'));
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  // 导入结果详情弹窗
+  const [importResult, setImportResult] = useState<{
+    addCount: number;
+    updateCount: number;
+    skipCount: number;
+    skippedLines: string[];
+  } | null>(null);
+
+  /**
+   * 解析后端导入接口返回的 data 字符串
+   * 格式: 导入完成: 新增 X 条, 更新 Y 条, 跳过 Z 条\n跳过详情:\n第N行: ...
+   */
+  const parseImportResult = (raw: unknown) => {
+    const text = typeof raw === 'string' ? raw : '';
+    const summary =
+      text.match(
+        /导入完成[：:]\s*新增\s*(\d+)\s*条[，,]\s*更新\s*(\d+)\s*条[，,]\s*跳过\s*(\d+)\s*条/,
+      );
+    const addCount = summary ? Number(summary[1]) : 0;
+    const updateCount = summary ? Number(summary[2]) : 0;
+    const skipCount = summary ? Number(summary[3]) : 0;
+    const detailIndex = text.indexOf('跳过详情');
+    const skippedLines =
+      detailIndex >= 0
+        ? text
+            .slice(detailIndex)
+            .split('\n')
+            .map((s) => s.trim())
+            .filter((s) => /^第\d+行/.test(s))
+        : [];
+    return { addCount, updateCount, skipCount, skippedLines };
+  };
 
   // 搜索条件 - 成本核算
   const [searchBrandName, setSearchBrandName] = useState<string>('');
@@ -465,12 +497,25 @@ const Report: React.FC = () => {
         file: selectedFile,
       });
       if (res.code === 200 || res.success) {
-        message.success('导入成功');
-        setImportModalVisible(false);
-        setSelectedFile(null);
-        fetchData({ pageNum: 1 });
+        const result = parseImportResult(res.data);
+
+        // 全部成功（无跳过）→ 顶部简短提示
+        if (result.skipCount === 0) {
+          message.success(
+            `导入成功：新增 ${result.addCount} 条，更新 ${result.updateCount} 条`,
+          );
+          setImportModalVisible(false);
+          setSelectedFile(null);
+          fetchData({ pageNum: 1 });
+        } else {
+          // 含跳过数据 → 弹出结果详情弹窗，并刷新列表
+          setImportResult(result);
+          setImportModalVisible(false);
+          setSelectedFile(null);
+          fetchData({ pageNum: 1 });
+        }
       } else if (res.code === 500) {
-        message.error(res.data || res.msg || '导入失败');
+        message.error(typeof res.data === 'string' ? res.data : res.msg || '导入失败');
       } else {
         message.error(res.msg || '导入失败');
       }
@@ -1227,6 +1272,85 @@ const Report: React.FC = () => {
                 </div>
               </div>
             </div>
+          </Modal>
+
+          {/* 导入结果详情弹窗（含跳过数据时弹出） */}
+          <Modal
+            title={
+              importResult
+                ? importResult.skipCount > 0 && importResult.addCount + importResult.updateCount === 0
+                  ? '导入完成（数据全部跳过）'
+                  : '导入完成（含跳过数据）'
+                : '导入结果'
+            }
+            open={!!importResult}
+            onCancel={() => setImportResult(null)}
+            onOk={() => setImportResult(null)}
+            okText="我知道了"
+            cancelButtonProps={{ style: { display: 'none' } }}
+            width={720}
+          >
+            {importResult && (
+              <div>
+                <div
+                  style={{
+                    marginBottom: 16,
+                    padding: 12,
+                    background: '#fafafa',
+                    borderRadius: 4,
+                    fontSize: 14,
+                  }}
+                >
+                  <Space size={16} wrap>
+                    <span>
+                      新增{' '}
+                      <span style={{ color: '#52c41a', fontWeight: 600 }}>
+                        {importResult.addCount}
+                      </span>{' '}
+                      条
+                    </span>
+                    <span>
+                      更新{' '}
+                      <span style={{ color: '#1890ff', fontWeight: 600 }}>
+                        {importResult.updateCount}
+                      </span>{' '}
+                      条
+                    </span>
+                    <span>
+                      跳过{' '}
+                      <span style={{ color: '#faad14', fontWeight: 600 }}>
+                        {importResult.skipCount}
+                      </span>{' '}
+                      条
+                    </span>
+                  </Space>
+                </div>
+
+                {importResult.skippedLines.length > 0 && (
+                  <>
+                    <div style={{ marginBottom: 8, fontWeight: 500 }}>
+                      跳过详情（共 {importResult.skippedLines.length} 条）：
+                    </div>
+                    <div
+                      style={{
+                        maxHeight: 360,
+                        overflowY: 'auto',
+                        background: '#fffbe6',
+                        border: '1px solid #ffe58f',
+                        borderRadius: 4,
+                        padding: 12,
+                        fontSize: 12,
+                        lineHeight: 1.8,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                      }}
+                    >
+                      {importResult.skippedLines.join('\n')}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </Modal>
         </>
       )}
