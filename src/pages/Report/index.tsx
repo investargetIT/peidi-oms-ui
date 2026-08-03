@@ -487,11 +487,11 @@ const Report: React.FC = () => {
     if (!record.id) return;
     setEditingRecord(record);
     form.setFieldsValue({
-      matchedCost: record.matchedCost,
       financeCost: record.financeCost,
       internalPrice: record.internalPrice,
-      isNewProduct: record.isNewProduct,
       remark: record.remark,
+      own: record.own,
+      isNewProduct: record.isNewProduct,
     });
     setEditModalVisible(true);
   };
@@ -509,11 +509,11 @@ const Report: React.FC = () => {
       setUpdating(true);
       const updateParams: FinanceUnitCostUpdateReq = {
         id: editingRecord.id,
-        matchedCost: values.matchedCost,
         financeCost: values.financeCost,
         internalPrice: values.internalPrice,
-        isNewProduct: values.isNewProduct,
         remark: values.remark,
+        own: values.own,
+        isNewProduct: values.isNewProduct,
       };
 
       const res = await FinanceUnitCostApi.update(updateParams);
@@ -551,7 +551,7 @@ const Report: React.FC = () => {
       fixed: 'left' as const,
     },
     {
-      title: 'SPU',
+      title: '系列分类',
       dataIndex: 'spu',
       key: 'spu',
       width: 150,
@@ -582,25 +582,30 @@ const Report: React.FC = () => {
       width: 250,
     },
     {
-      title: '匹配成本',
-      dataIndex: 'matchedCost',
-      key: 'matchedCost',
-      width: 120,
-      render: (value: number) => (value !== undefined ? value.toFixed(5) : '-'),
-    },
-    {
-      title: '财务成本',
+      title: '财务单位成本',
       dataIndex: 'financeCost',
       key: 'financeCost',
       width: 120,
       render: (value: number) => (value !== undefined ? value.toFixed(2) : '-'),
     },
     {
-      title: '内结价',
+      title: '内部转移单价',
       dataIndex: 'internalPrice',
       key: 'internalPrice',
       width: 120,
       render: (value: number) => (value !== undefined ? value.toFixed(2) : '-'),
+    },
+    {
+      title: '备注',
+      dataIndex: 'remark',
+      key: 'remark',
+      width: 150,
+    },
+    {
+      title: '自有/外采',
+      dataIndex: 'own',
+      key: 'own',
+      width: 100,
     },
     {
       title: '是否新品',
@@ -612,12 +617,6 @@ const Report: React.FC = () => {
         if (value === '0') return '否';
         return value || '-';
       },
-    },
-    {
-      title: '备注',
-      dataIndex: 'remark',
-      key: 'remark',
-      width: 150,
     },
     {
       title: '操作',
@@ -1139,39 +1138,41 @@ const Report: React.FC = () => {
                 </p>
               </div>
               <Form.Item
-                label="匹配成本"
-                name="matchedCost"
-                rules={[{ type: 'number', min: 0, message: '请输入有效数字' }]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  placeholder="请输入匹配成本"
-                  precision={5}
-                  min={0}
-                />
-              </Form.Item>
-              <Form.Item
-                label="财务成本"
+                label="财务单位成本"
                 name="financeCost"
                 rules={[{ type: 'number', min: 0, message: '请输入有效数字' }]}
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  placeholder="请输入财务成本"
+                  placeholder="请输入财务单位成本"
                   precision={2}
                   min={0}
                 />
               </Form.Item>
               <Form.Item
-                label="内结价"
+                label="内部转移单价"
                 name="internalPrice"
                 rules={[{ type: 'number', min: 0, message: '请输入有效数字' }]}
               >
                 <InputNumber
                   style={{ width: '100%' }}
-                  placeholder="请输入内结价"
+                  placeholder="请输入内部转移单价"
                   precision={2}
                   min={0}
+                />
+              </Form.Item>
+              <Form.Item label="备注" name="remark">
+                <Input.TextArea placeholder="请输入备注" rows={3} />
+              </Form.Item>
+              <Form.Item label="自有/外采" name="own">
+                <Select
+                  placeholder="请选择"
+                  allowClear
+                  style={{ width: '100%' }}
+                  options={[
+                    { label: '自有', value: '自有' },
+                    { label: '外采', value: '外采' },
+                  ]}
                 />
               </Form.Item>
               <Form.Item label="是否新品" name="isNewProduct">
@@ -1184,9 +1185,6 @@ const Report: React.FC = () => {
                     { label: '否', value: '0' },
                   ]}
                 />
-              </Form.Item>
-              <Form.Item label="备注" name="remark">
-                <Input.TextArea placeholder="请输入备注" rows={3} />
               </Form.Item>
             </Form>
           </Modal>

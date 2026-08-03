@@ -32,6 +32,7 @@ export interface FinanceUnitCostUpdateReq {
   internalPrice?: number;
   isNewProduct?: string;
   matchedCost?: number;
+  own?: string;
   remark?: string;
   [property: string]: any;
 }
@@ -47,6 +48,7 @@ export interface FinanceUnitCostVo {
   isNewProduct?: string;
   matchedCost?: number;
   merchantCode?: string;
+  own?: string;
   productNo?: string;
   remark?: string;
   spu?: string;

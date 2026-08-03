@@ -11,6 +11,7 @@ import { PageContainer } from '@ant-design/pro-components';
 import {
   Button,
   Card,
+  Checkbox,
   Col,
   DatePicker,
   Flex,
@@ -243,6 +244,8 @@ const Invoice: React.FC = () => {
     useDebounceSearch('');
   const [searchOrganizationText, showSearchOrganizationText, handleSearchOrganizationText] =
     useDebounceSearch('');
+  // 是否仅显示累计立账数量为 0 的数据
+  const [onlyUnaccounted, setOnlyUnaccounted] = useState(false);
   // const [type, setType] = useState('全部类型');
   // const [custom, setCustom] = useState('全部客户');
 
@@ -303,6 +306,13 @@ const Invoice: React.FC = () => {
         searchName: 'organizationName',
         searchType: 'like',
         searchValue: `${searchOrganizationText}`,
+      });
+    }
+    if (onlyUnaccounted) {
+      searchParams.push({
+        searchName: 'accountedQty',
+        searchType: 'equals',
+        searchValue: 0,
       });
     }
     return JSON.stringify(searchParams);
@@ -410,6 +420,7 @@ const Invoice: React.FC = () => {
     // searchMaterialNameText,
     searchSourceDocumentText,
     searchOrganizationText,
+    onlyUnaccounted,
     dateRange,
   ]);
 
@@ -734,6 +745,14 @@ const Invoice: React.FC = () => {
           onChange={(e) => handleSearchOrganizationText(e.target.value)}
           allowClear
         />
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Checkbox
+            checked={onlyUnaccounted}
+            onChange={(e) => setOnlyUnaccounted(e.target.checked)}
+          >
+            仅显示累计立账数量为0
+          </Checkbox>
+        </div>
         {/* <Select
           defaultValue="全部类型"
           style={{ width: 150, marginRight: 16 }}
