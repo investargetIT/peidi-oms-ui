@@ -11,6 +11,8 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
   const [isShopInfoModalOpen, setIsShopInfoModalOpen] = useState(false);
   const shopInfoFormRef = useRef<FormInstance<any>>(null);
   const [shopInfoModalTitle, setShopInfoModalTitle] = useState('新增店铺');
+  // 成本取值组织枚举（来自 financeUnitCostApi.getGroupList）
+  const [unitCostOrgOptions, setUnitCostOrgOptions] = useState<{ value: string; label: string }[]>([]);
 
   //#region 请求相关
   const fetchShopPage = () => {
@@ -82,7 +84,23 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
 
   useEffect(() => {
     fetchShopPage();
+    fetchUnitCostOrgOptions();
   }, []);
+
+  // 获取成本取值组织枚举
+  const fetchUnitCostOrgOptions = async () => {
+    try {
+      const res = await FinanceApi.getUnitCostOrgList();
+      if (res.code === 200 && Array.isArray(res.data)) {
+        setUnitCostOrgOptions(
+          res.data.map((item) => ({ value: item, label: item })),
+        );
+      }
+    } catch (error) {
+      message.error('获取成本取值组织失败: ' + error);
+      console.error('Failed to fetch unit cost org list:', error);
+    }
+  };
 
   // 自动生成店铺名称筛选选项
   const shopNameFilters = React.useMemo(() => {
@@ -200,6 +218,15 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       key: 'org',
       filters: orgFilters,
       onFilter: (value: string, record: { org: string | string[] }) => record.org === value,
+      filterSearch: true,
+    },
+    {
+      title: '成本取值组织',
+      dataIndex: 'unitCostOrg',
+      key: 'unitCostOrg',
+      filters: unitCostOrgOptions.map((o) => ({ text: o.label, value: o.value })),
+      onFilter: (value: string, record: { unitCostOrg: string | string[] }) =>
+        record.unitCostOrg === value,
       filterSearch: true,
     },
     {
@@ -381,16 +408,20 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
           <Form.Item<any>
             label="组织"
             name="org"
-            rules={[{ required: true, message: '请选择组织' }]}
+            rules={[{ required: true, message: '请输入组织' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item<any>
+            label="成本取值组织"
+            name="unitCostOrg"
+            rules={[{ required: true, message: '请选择成本取值组织' }]}
           >
             <Select
-              placeholder="请选择组织"
+              placeholder="请选择成本取值组织"
               showSearch
               allowClear
-              options={[
-                ...orgFilters.map((f) => ({ value: f.value, label: f.text })),
-                { value: '其他', label: '其他' },
-              ]}
+              options={unitCostOrgOptions}
             />
           </Form.Item>
           <Form.Item<any>
