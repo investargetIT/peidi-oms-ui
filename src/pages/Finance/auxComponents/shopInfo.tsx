@@ -1,6 +1,6 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import FinanceApi from '@/services/financeApi';
-import { Button, Form, FormInstance, Input, message, Modal, Radio, Table } from 'antd';
+import { Button, Form, FormInstance, Input, message, Modal, Radio, Select, Table } from 'antd';
 
 export interface ShopInfoModalRef {
   handleShopInfoAdd: () => void;
@@ -139,6 +139,20 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
     }));
   }, [dataSource]);
 
+  // 自动生成组织筛选选项
+  const orgFilters = React.useMemo(() => {
+    if (!dataSource.length) return [];
+
+    const uniqueOrgs = Array.from(
+      new Set(dataSource.filter((item) => item.org).map((item) => item.org)),
+    );
+
+    return uniqueOrgs.map((org) => ({
+      text: org,
+      value: org,
+    }));
+  }, [dataSource]);
+
   const columns: any = [
     {
       title: 'ID',
@@ -184,6 +198,9 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       title: '组织',
       dataIndex: 'org',
       key: 'org',
+      filters: orgFilters,
+      onFilter: (value: string, record: { org: string | string[] }) => record.org === value,
+      filterSearch: true,
     },
     {
       title: '团队',
@@ -340,23 +357,41 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
           <Form.Item<any>
             label="渠道"
             name="channel"
-            rules={[{ required: true, message: '请输入渠道' }]}
+            rules={[{ required: true, message: '请选择渠道' }]}
           >
-            <Input />
+            <Select
+              placeholder="请选择渠道"
+              showSearch
+              allowClear
+              options={channelFilters.map((f) => ({ value: f.value, label: f.text }))}
+            />
           </Form.Item>
           <Form.Item<any>
             label="平台"
             name="platform"
-            rules={[{ required: true, message: '请输入平台' }]}
+            rules={[{ required: true, message: '请选择平台' }]}
           >
-            <Input />
+            <Select
+              placeholder="请选择平台"
+              showSearch
+              allowClear
+              options={platformFilters.map((f) => ({ value: f.value, label: f.text }))}
+            />
           </Form.Item>
           <Form.Item<any>
             label="组织"
             name="org"
-            rules={[{ required: true, message: '请输入组织' }]}
+            rules={[{ required: true, message: '请选择组织' }]}
           >
-            <Input />
+            <Select
+              placeholder="请选择组织"
+              showSearch
+              allowClear
+              options={[
+                ...orgFilters.map((f) => ({ value: f.value, label: f.text })),
+                { value: '其他', label: '其他' },
+              ]}
+            />
           </Form.Item>
           <Form.Item<any>
             label="负责人"
