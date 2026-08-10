@@ -1,25 +1,25 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
 // 创建财务上传的axios实例 - 调试地址
-const financeRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
-  timeout: 1000 * 60,
-});
-// 生产环境使用
-// const financeRequest = createRequest(`${process.env.BASE_URL}/finance`, {
+// const financeRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
 //   timeout: 1000 * 60,
 // });
+// 生产环境使用
+const financeRequest = createRequest(`${process.env.BASE_URL}/finance`, {
+  timeout: 1000 * 60,
+});
 
 // 成本取值组织枚举走的是 finance-unit-cost 服务，需要单独的axios实例
 // 调试地址
-const financeUnitCostRequest = createRequest(
-  `http://12.18.1.36:8085/oms/finance-unit-cost`,
-  { timeout: 1000 * 60 },
-);
-// 生产环境使用
 // const financeUnitCostRequest = createRequest(
-//   `${process.env.BASE_URL}/finance-unit-cost`,
+//   `http://12.18.1.36:8085/oms/finance-unit-cost`,
 //   { timeout: 1000 * 60 },
 // );
+// 生产环境使用
+const financeUnitCostRequest = createRequest(
+  `${process.env.BASE_URL}/finance-unit-cost`,
+  { timeout: 1000 * 60 },
+);
 
 
 export interface ShopInfo {

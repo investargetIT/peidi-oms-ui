@@ -224,12 +224,18 @@ const ReprocessForShop = () => {
       },
     ];
     // 遍历源数据，将数据填充到模板中
+    // 未识别组织的文件（用于提示用户）
+    const unrecognizedFiles: any[] = [];
     sourceData.forEach((item: any) => {
       // 先按&切割
       const userName = item.split('&')[0];
       const url = item;
       // url里包含dataTemplate里的哪个org，就将数据填充到那个org的fileList中
-      const orgPattern = (org: string) => new RegExp(`[-_]${org}[-_]`);
+      // 修复：原来正则 `[-_]${org}[-_]` 要求组织名后面必须是 - 或 _，
+      // 导致类似 `2026.07.22-U9订单-Amazon美国4-智创.xlsx` 这种以 -${org}.xlsx 结尾的文件无法被归类
+      // 这里把结尾规则放宽为：- / _ / . / 字符串结尾 之一
+      const orgPattern = (org: string) =>
+        new RegExp(`[-_]${org}(?:[-_.]|$)`);
       let targetOrg: any = dataTemplate.find((item) => orgPattern(item.org).test(url));
       // console.log('targetOrg', targetOrg);
 
@@ -244,8 +250,17 @@ const ReprocessForShop = () => {
           // 如果目标组织的fileList中已存在该用户，就将该url添加到该用户的urllist中
           targetOrg.fileList.find((item2: any) => item2.userName === userName)?.urllist.push(url);
         }
+      } else {
+        // 未匹配到任何组织，记录下来
+        unrecognizedFiles.push({ userName, url });
       }
     });
+    if (unrecognizedFiles.length > 0) {
+      console.warn(
+        '[Finance] 以下文件未匹配到任何组织，请检查文件名是否包含组织名（如：智创/哈宠/旺妙/宠珍/瑞驰派特）：',
+        unrecognizedFiles,
+      );
+    }
     console.log('dataTemplate', dataTemplate);
     // 处理后的文件列表
     setProcessedFileList(dataTemplate);
