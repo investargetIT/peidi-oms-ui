@@ -46,6 +46,7 @@ const TmallBillPanel: React.FC = () => {
   const [configList, setConfigList] = useState<FinanceZfbBillConfig[]>([]);
   const [configLoading, setConfigLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | undefined>(undefined);
+  const [selectedShopId, setSelectedShopId] = useState<number | undefined>(undefined);
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopLoading, setShopLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -147,6 +148,7 @@ const TmallBillPanel: React.FC = () => {
     setUploadModalOpen(true);
     setUploadDate(dayjs().subtract(1, 'month'));
     setSelectedConfigId(undefined);
+    setSelectedShopId(undefined);
     setUploadFile(null);
     setImportResult(null);
     setConfigList([]);
@@ -172,24 +174,15 @@ const TmallBillPanel: React.FC = () => {
       return;
     }
     if (!selectedConfigId) {
-      message.error('请选择店铺配置');
+      message.error('请选择账单配置');
+      return;
+    }
+    if (selectedShopId === undefined || selectedShopId === null) {
+      message.error('请选择店铺');
       return;
     }
     if (!uploadFile) {
       message.error('请选择要上传的账单文件');
-      return;
-    }
-    const config = configList.find((c) => c.id === selectedConfigId);
-    if (!config) {
-      message.error('未找到对应的账单配置');
-      return;
-    }
-    // 通过 shopName 反查 shopId（账单配置接口不返回 shopId，需走店铺列表）
-    const shop = shopList.find((s) => s.shopName === config.shopName);
-    if (!shop || shop.id === undefined || shop.id === null) {
-      message.error(
-        `未找到店铺「${config.shopName || ''}」对应的 shopId，请先在【店铺信息维护】中维护该店铺`,
-      );
       return;
     }
     setUploading(true);
@@ -198,7 +191,7 @@ const TmallBillPanel: React.FC = () => {
         channel: 'tm',
         date: uploadDate.format('YYYY-MM'),
         financeBillConfigId: selectedConfigId,
-        shopId: shop.id,
+        shopId: selectedShopId,
         file: uploadFile,
       });
       const result: FinanceChannelExtendCostImportVo =
@@ -211,6 +204,7 @@ const TmallBillPanel: React.FC = () => {
         setUploadModalOpen(false);
         setUploadFile(null);
         setSelectedConfigId(undefined);
+        setSelectedShopId(undefined);
         fetchBill({ pageNum: 1 });
       } else {
         message.error(res.msg || '上传失败');
@@ -379,47 +373,37 @@ const TmallBillPanel: React.FC = () => {
               style={{ width: '100%' }}
               value={selectedConfigId}
               onChange={(v) => setSelectedConfigId(v)}
-              placeholder={configLoading ? '加载中...' : '请选择账单配置（仅显示平台为"天猫"的配置）'}
+              placeholder={configLoading ? '加载中...' : '请选择账单配置（来自 /oms/finance/bill-config/list）'}
               loading={configLoading}
               allowClear
               showSearch
               optionFilterProp="label"
               options={configList.map((c) => ({
-                label: `${c.shopName || '-'}${c.merchantName ? `（${c.merchantName}）` : ''}`,
+                label: `${c.merchantName || c.shopName || '-'}${c.appId ? `（AppId: ${c.appId}）` : ''}`,
                 value: c.id,
               }))}
             />
-            {selectedConfigId && (() => {
-              const c = configList.find((x) => x.id === selectedConfigId);
-              if (!c) return null;
-              return (
-                <div
-                  style={{
-                    background: '#f5f5f5',
-                    border: '1px solid #d9d9d9',
-                    borderRadius: 4,
-                    padding: '8px 12px',
-                    fontSize: 12,
-                    lineHeight: 1.8,
-                    color: '#444',
-                    marginTop: 4,
-                  }}
-                >
-                  <Descriptions
-                    size="small"
-                    column={1}
-                    items={[
-                      { key: 'shopName', label: '店铺名称', children: c.shopName || '-' },
-                      { key: 'merchantName', label: '授权商家', children: c.merchantName || '-' },
-                      { key: 'appId', label: 'AppId', children: c.appId || '-' },
-                      { key: 'alipayMerchantNo', label: '商户号', children: c.alipayMerchantNo || '-' },
-                      { key: 'accessToken', label: 'AccessToken', children: c.accessToken || '-' },
-                      { key: 'companyName', label: '公司名称', children: c.companyName || '-' },
-                    ]}
-                  />
-                </div>
-              );
-            })()}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              店铺 <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <Select
+              style={{ width: '100%' }}
+              value={selectedShopId}
+              onChange={(v) => setSelectedShopId(v)}
+              placeholder={shopLoading ? '加载中...' : '请选择店铺（来自 /oms/orders/shopTarget，平台=天猫）'}
+              loading={shopLoading}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={shopList
+                .filter((s) => s.platform === '天猫' && s.id !== undefined && s.id !== null)
+                .map((s) => ({
+                  label: s.shopName || '-',
+                  value: s.id as number,
+                }))}
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
