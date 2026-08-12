@@ -120,7 +120,16 @@ const TmallBillPanel: React.FC = () => {
   const fetchShopList = async () => {
     setShopLoading(true);
     try {
-      const res = await ChannelExtendCostApi.getShops({});
+      // 与 channel-extend-cost 保持一致：通过 searchStr JSON 过滤 platform
+      const params = {
+        sortStr: '',
+        searchStr: JSON.stringify({
+          searchName: 'platform',
+          searchValue: '天猫',
+          searchType: 'like',
+        }),
+      };
+      const res = await ChannelExtendCostApi.getShops(params);
       if (res.code === 200) {
         setShopList(res.data || []);
       } else {
