@@ -239,6 +239,18 @@ const TmallBillPanel: React.FC = () => {
   }, []);
   return (
     <>
+      <style>{`
+        .grayblue-btn.ant-btn-primary[disabled],
+        .grayblue-btn.ant-btn-primary[disabled]:hover,
+        .grayblue-btn.ant-btn-primary[disabled]:focus,
+        .grayblue-btn.ant-btn-primary[disabled]:active {
+          background: #d9d9d9 !important;
+          border-color: #d9d9d9 !important;
+          color: #ffffff !important;
+          cursor: not-allowed !important;
+          opacity: 1 !important;
+        }
+      `}</style>
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -325,8 +337,12 @@ const TmallBillPanel: React.FC = () => {
         confirmLoading={uploading}
         okText="开始上传"
         cancelText="取消"
-        width={560}
+        width={640}
         destroyOnClose
+        okButtonProps={{
+          className: 'grayblue-btn',
+          style: { background: '#2f54eb', borderColor: '#2f54eb' },
+        }}
       >
         <Alert
           type="info"
@@ -357,13 +373,13 @@ const TmallBillPanel: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
-              店铺配置 <span style={{ color: '#ff4d4f' }}>*</span>
+              账单配置 <span style={{ color: '#ff4d4f' }}>*</span>
             </span>
             <Select
               style={{ width: '100%' }}
               value={selectedConfigId}
               onChange={(v) => setSelectedConfigId(v)}
-              placeholder={configLoading ? '加载中...' : '请选择店铺配置（仅显示平台为"天猫"的配置）'}
+              placeholder={configLoading ? '加载中...' : '请选择账单配置（仅显示平台为"天猫"的配置）'}
               loading={configLoading}
               allowClear
               showSearch
@@ -373,6 +389,37 @@ const TmallBillPanel: React.FC = () => {
                 value: c.id,
               }))}
             />
+            {selectedConfigId && (() => {
+              const c = configList.find((x) => x.id === selectedConfigId);
+              if (!c) return null;
+              return (
+                <div
+                  style={{
+                    background: '#f5f5f5',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 4,
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    lineHeight: 1.8,
+                    color: '#444',
+                    marginTop: 4,
+                  }}
+                >
+                  <Descriptions
+                    size="small"
+                    column={1}
+                    items={[
+                      { key: 'shopName', label: '店铺名称', children: c.shopName || '-' },
+                      { key: 'merchantName', label: '授权商家', children: c.merchantName || '-' },
+                      { key: 'appId', label: 'AppId', children: c.appId || '-' },
+                      { key: 'alipayMerchantNo', label: '商户号', children: c.alipayMerchantNo || '-' },
+                      { key: 'accessToken', label: 'AccessToken', children: c.accessToken || '-' },
+                      { key: 'companyName', label: '公司名称', children: c.companyName || '-' },
+                    ]}
+                  />
+                </div>
+              );
+            })()}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
