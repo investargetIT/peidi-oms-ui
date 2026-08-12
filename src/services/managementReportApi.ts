@@ -200,6 +200,84 @@ export interface FinanceZfbBillGenerateReq {
   [property: string]: any;
 }
 
+/**
+ * 账单配置列表（不分页）
+ * /oms/finance/bill-config/list 返回
+ */
+export interface FinanceZfbBillConfig {
+  accessToken?: string;
+  alipayMerchantNo?: string;
+  appId?: string;
+  companyName?: string;
+  createdAt?: string;
+  id?: number;
+  isDel?: number;
+  merchantName?: string;
+  platform?: string;
+  shopName?: string;
+  updatedAt?: string;
+  [property: string]: any;
+}
+
+/**
+ * 上传账单导入结果
+ * /oms/finance/tm-bill/upload 等上传类接口返回
+ */
+export interface FinanceChannelExtendCostImportVo {
+  /**
+   * 错误信息列表
+   */
+  errorMessages?: string[];
+  /**
+   * 失败数
+   */
+  failCount?: number;
+  /**
+   * 处理日志
+   */
+  logs?: string[];
+  /**
+   * 是否成功
+   */
+  success?: boolean;
+  /**
+   * 成功导入数
+   */
+  successCount?: number;
+  /**
+   * 总记录数
+   */
+  totalCount?: number;
+  [property: string]: any;
+}
+
+/**
+ * 上传天猫账单请求
+ */
+export interface FinanceTmBillUploadReq {
+  /**
+   * 渠道（tm）
+   */
+  channel: string;
+  /**
+   * 账单日期，格式：yyyy-MM
+   */
+  date: string;
+  /**
+   * 关联账单配置ID
+   */
+  financeBillConfigId: number;
+  /**
+   * 店铺ID
+   */
+  shopId: number;
+  /**
+   * 账单文件（Excel/CSV）
+   */
+  file: File;
+  [property: string]: any;
+}
+
 // 创建管报数据的request实例
 // 测试环境使用
 const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
@@ -266,6 +344,33 @@ export class ManagementReportApi {
       responseType: 'blob',
     });
     return resp as unknown as Blob;
+  }
+  /**
+   * 账单配置列表（不分页）
+   * GET /oms/finance/bill-config/list
+   */
+  static async getBillConfigList(params?: {
+    platform?: string;
+    shopName?: string;
+  }): Promise<ResponseData<FinanceZfbBillConfig[]>> {
+    return channelBillRequest.get('/bill-config/list', { params });
+  }
+  /**
+   * 上传天猫账单
+   * POST /oms/finance/tm-bill/upload（multipart/form-data）
+   */
+  static async uploadTmallBill(
+    data: FinanceTmBillUploadReq,
+  ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
+    const formData = new FormData();
+    formData.append('channel', data.channel);
+    formData.append('date', data.date);
+    formData.append('financeBillConfigId', String(data.financeBillConfigId));
+    formData.append('shopId', String(data.shopId));
+    formData.append('file', data.file);
+    return channelBillRequest.post('/tm-bill/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   }
   // 拼多多、抖音、小红书 待补
 }
