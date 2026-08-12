@@ -15,6 +15,7 @@ import {
   DatePicker,
   Upload,
   Collapse,
+  Tag,
 } from 'antd';
 import type { UploadProps } from 'antd';
 import dayjs from 'dayjs';
@@ -32,6 +33,16 @@ import ChannelExtendCostApi, {
   type FinanceCostCategoryStatVo,
   type ShopVo,
 } from '@/services/channelExtendCostApi';
+import ManagementReportApi, {
+  type ManagementReportQueryReq,
+  type FinanceGoodsSalesSummaryAllCostVo,
+  type SalesOutDetailsCostVo,
+  type WalmartRebateQueryVo,
+  type FinanceZfbBillInfoPageReq,
+  type FinanceZfbBillInfoVo,
+  type IPageFinanceZfbBillInfoVo,
+  type FinanceZfbBillGenerateReq,
+} from '@/services/managementReportApi';
 
 const Report: React.FC = () => {
   // 从localStorage读取上次激活的tab，刷新后保持不变
@@ -285,6 +296,40 @@ const Report: React.FC = () => {
   // 渠道推广费用 - 展开的行
   const [channelExpandedRowKeys, setChannelExpandedRowKeys] = useState<React.Key[]>([]);
 
+  // 管报数据查询 - 状态
+  // 数据类型：1-线上 2-线下 3-沃尔玛
+  const [mrType, setMrType] = useState<number>(1);
+  // 销售月份（单月选择，起止都用同一个值）
+  const [mrStartMonth, setMrStartMonth] = useState<Dayjs | null>(
+    dayjs().subtract(1, 'month'),
+  );
+  const [mrEndMonth, setMrEndMonth] = useState<Dayjs | null>(
+    dayjs().subtract(1, 'month'),
+  );
+  const [mrLoading, setMrLoading] = useState(false);
+  const [mrOnlineList, setMrOnlineList] = useState<FinanceGoodsSalesSummaryAllCostVo[]>([]);
+  const [mrOfflineList, setMrOfflineList] = useState<SalesOutDetailsCostVo[]>([]);
+  const [mrWalmartList, setMrWalmartList] = useState<WalmartRebateQueryVo[]>([]);
+
+  // 各渠道月账单 - 状态
+  // 当前激活的子 tab：zfb/pdd/dy/tmall/xhs
+  const [billSubTab, setBillSubTab] = useState<string>('zfb');
+  // 支付宝账单搜索条件
+  const [zfbBillDate, setZfbBillDate] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
+  const [zfbShopName, setZfbShopName] = useState<string>('');
+  const [zfbCompanyName, setZfbCompanyName] = useState<string>('');
+  const [zfbAlipayMerchantNo, setZfbAlipayMerchantNo] = useState<string>('');
+  const [zfbMerchantName, setZfbMerchantName] = useState<string>('');
+  const [zfbGenerateStatus, setZfbGenerateStatus] = useState<number | undefined>(undefined);
+  const [zfbBillLoading, setZfbBillLoading] = useState(false);
+  const [zfbBillData, setZfbBillData] = useState<FinanceZfbBillInfoVo[]>([]);
+  const [zfbBillPagination, setZfbBillPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
+  const [zfbGenerateLoading, setZfbGenerateLoading] = useState(false);
+
   // 分页查询
   const fetchData = async (params: FinanceUnitCostPageReq = {}) => {
     setLoading(true);
@@ -438,6 +483,168 @@ const Report: React.FC = () => {
     } else {
       setShopList([]);
     }
+  };
+
+  // 管报数据查询
+  // overrides 用于"重置"等场景：直接传默认值查询，避免依赖 state 异步更新
+  const fetchManagementReport = async (overrides?: {
+    type?: number;
+    startMonth?: Dayjs | null;
+    endMonth?: Dayjs | null;
+  }) => {
+    const _type = overrides?.type !== undefined ? overrides.type : mrType;
+    const _startMonth = overrides?.startMonth !== undefined ? overrides.startMonth : mrStartMonth;
+    const _endMonth = overrides?.endMonth !== undefined ? overrides.endMonth : mrEndMonth;
+
+    if (!_startMonth || !_endMonth) {
+      message.error('请选择销售月份');
+      return;
+    }
+
+    // 请求体只传 type / startDate / endDate（取月份的首日/末日）
+    const params: ManagementReportQueryReq = {
+      type: _type,
+      startDate: _startMonth.startOf('month').format('YYYY-MM-DD'),
+      endDate: _endMonth.endOf('month').format('YYYY-MM-DD'),
+    };
+
+    setMrLoading(true);
+    try {
+      const res = await ManagementReportApi.query(params);
+      if (res.code === 200) {
+        const data = res.data || ({} as any);
+        setMrOnlineList(data.onlineList || []);
+        setMrOfflineList(data.offlineList || []);
+        setMrWalmartList(data.walmartList || []);
+        message.success('查询成功');
+      } else if (res.code === 500) {
+        message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
+      } else {
+        message.error(res.msg || '查询失败');
+      }
+    } catch (error) {
+      console.error('查询管报数据失败:', error);
+      message.error('查询管报数据失败');
+    } finally {
+      setMrLoading(false);
+    }
+  };
+
+  // 重置管报数据查询条件
+  const handleMrReset = () => {
+    const defaults = {
+      type: 1 as number,
+      startMonth: dayjs().subtract(1, 'month'),
+      endMonth: dayjs().subtract(1, 'month'),
+    };
+    setMrType(defaults.type);
+    setMrStartMonth(defaults.startMonth);
+    setMrEndMonth(defaults.endMonth);
+    setMrOnlineList([]);
+    setMrOfflineList([]);
+    setMrWalmartList([]);
+    // 用默认值直接触发一次查询（不依赖 state 异步更新）
+    fetchManagementReport(defaults);
+  };
+
+  // 支付宝月账单分页查询
+  const fetchZfbBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
+    setZfbBillLoading(true);
+    try {
+      const searchParams: FinanceZfbBillInfoPageReq = {
+        pageNum: zfbBillPagination.current,
+        pageSize: zfbBillPagination.pageSize,
+        billDate: zfbBillDate ? zfbBillDate.format('YYYY-MM') : undefined,
+        shopName: zfbShopName || undefined,
+        companyName: zfbCompanyName || undefined,
+        alipayMerchantNo: zfbAlipayMerchantNo || undefined,
+        merchantName: zfbMerchantName || undefined,
+        generateStatus: zfbGenerateStatus,
+        ...params,
+      };
+      const res: { code: number; data?: IPageFinanceZfbBillInfoVo; msg?: string; success?: boolean } =
+        await ManagementReportApi.getZfbBillPage(searchParams);
+      if (res.code === 200) {
+        const data = res.data || ({} as IPageFinanceZfbBillInfoVo);
+        setZfbBillData(data.records || []);
+        setZfbBillPagination({
+          current: data.current || 1,
+          pageSize: data.size || 10,
+          total: data.total || 0,
+        });
+      } else if (res.code === 500) {
+        message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
+      } else {
+        message.error(res.msg || '查询失败');
+      }
+    } catch (error) {
+      console.error('查询支付宝账单失败:', error);
+      message.error('查询支付宝账单失败');
+    } finally {
+      setZfbBillLoading(false);
+    }
+  };
+
+  // 切换到各渠道月账单 tab 时自动加载支付宝账单
+  useEffect(() => {
+    if (activeTab === 'channel-bills' && billSubTab === 'zfb' && zfbBillData.length === 0) {
+      fetchZfbBill({ pageNum: 1 });
+    }
+  }, [activeTab, billSubTab]);
+
+  // 支付宝账单搜索
+  const handleZfbBillSearch = () => {
+    setZfbBillPagination((prev) => ({ ...prev, current: 1 }));
+    fetchZfbBill({ pageNum: 1 });
+  };
+
+  // 支付宝账单重置
+  const handleZfbBillReset = () => {
+    setZfbBillDate(null);
+    setZfbShopName('');
+    setZfbCompanyName('');
+    setZfbAlipayMerchantNo('');
+    setZfbMerchantName('');
+    setZfbGenerateStatus(undefined);
+    setZfbBillPagination({ current: 1, pageSize: 10, total: 0 });
+    fetchZfbBill({ pageNum: 1 });
+  };
+
+  // 生成支付宝月账单
+  const handleGenerateZfbBill = async () => {
+    if (!zfbBillDate) {
+      message.error('请先选择账单日期');
+      return;
+    }
+    const params: FinanceZfbBillGenerateReq = {
+      billDate: zfbBillDate.format('YYYY-MM'),
+    };
+    Modal.confirm({
+      title: '生成支付宝月账单',
+      content: `确定要生成 ${params.billDate} 的支付宝月账单吗？`,
+      okText: '确认生成',
+      cancelText: '取消',
+      onOk: async () => {
+        setZfbGenerateLoading(true);
+        try {
+          const res = await ManagementReportApi.generateZfbBill(params);
+          if (res.code === 200 || res.success) {
+            message.success('生成任务已提交，请稍后刷新查看');
+            // 重新查询列表
+            fetchZfbBill({ pageNum: 1 });
+          } else if (res.code === 500) {
+            message.error(typeof res.data === 'string' ? res.data : res.msg || '生成失败');
+          } else {
+            message.error(res.msg || '生成失败');
+          }
+        } catch (error) {
+          console.error('生成支付宝账单失败:', error);
+          message.error('生成支付宝账单失败');
+        } finally {
+          setZfbGenerateLoading(false);
+        }
+      },
+    });
   };
 
   // 渠道推广费用搜索
@@ -681,12 +888,20 @@ const Report: React.FC = () => {
 
   const tabItems = [
     {
+      key: 'management-report',
+      label: '管报数据查询',
+    },
+    {
       key: 'cost',
       label: '成本核算',
     },
     {
       key: 'channel-extend-cost',
       label: '渠道推广费用',
+    },
+    {
+      key: 'channel-bills',
+      label: '各渠道月账单',
     },
   ];
 
@@ -1031,6 +1246,646 @@ const Report: React.FC = () => {
     );
   };
 
+  // 管报数据查询 - 线上表格列（type=1）
+  const mrOnlineColumns = [
+    {
+      title: '订货客户',
+      dataIndex: 'orderCustomer',
+      key: 'orderCustomer',
+      width: 160,
+      fixed: 'left' as const,
+    },
+    {
+      title: '货号',
+      dataIndex: 'merchantCode',
+      key: 'merchantCode',
+      width: 140,
+    },
+    {
+      title: '料号',
+      dataIndex: 'u9',
+      key: 'u9',
+      width: 120,
+    },
+    {
+      title: '品名',
+      dataIndex: 'productName',
+      key: 'productName',
+      width: 200,
+    },
+    {
+      title: '品牌',
+      dataIndex: 'brandName',
+      key: 'brandName',
+      width: 100,
+    },
+    {
+      title: '自有/外采',
+      dataIndex: 'own',
+      key: 'own',
+      width: 80,
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 80,
+    },
+    {
+      title: '单价',
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: 100,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '退款金额',
+      dataIndex: 'refundAmount',
+      key: 'refundAmount',
+      width: 100,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '价税合计',
+      dataIndex: 'totalWithTax',
+      key: 'totalWithTax',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '税率',
+      dataIndex: 'taxRate',
+      key: 'taxRate',
+      width: 80,
+    },
+    {
+      title: '不含税金额',
+      dataIndex: 'amountWithoutTax',
+      key: 'amountWithoutTax',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '财务单位成本',
+      dataIndex: 'financeUnitCost',
+      key: 'financeUnitCost',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '财务总成本',
+      dataIndex: 'financeTotalCost',
+      key: 'financeTotalCost',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '内部转移单价',
+      dataIndex: 'internalTransferUnitPrice',
+      key: 'internalTransferUnitPrice',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '内部转移总价',
+      dataIndex: 'internalTransferTotalPrice',
+      key: 'internalTransferTotalPrice',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '成本匹配来源',
+      dataIndex: 'costMatchSource',
+      key: 'costMatchSource',
+      width: 140,
+    },
+  ];
+
+  // 管报数据查询 - 线下表格列（type=2）
+  const mrOfflineColumns = [
+    {
+      title: '创建时间',
+      dataIndex: 'created',
+      key: 'created',
+      width: 160,
+      fixed: 'left' as const,
+    },
+    {
+      title: '订货客户',
+      dataIndex: 'orderCustomer',
+      key: 'orderCustomer',
+      width: 160,
+    },
+    {
+      title: '货号',
+      dataIndex: 'merchantCode',
+      key: 'merchantCode',
+      width: 140,
+    },
+    {
+      title: '料号',
+      dataIndex: 'u9',
+      key: 'u9',
+      width: 120,
+    },
+    {
+      title: '规格编码',
+      dataIndex: 'specNo',
+      key: 'specNo',
+      width: 140,
+    },
+    {
+      title: '品名',
+      dataIndex: 'productName',
+      key: 'productName',
+      width: 200,
+    },
+    {
+      title: '品牌',
+      dataIndex: 'brandName',
+      key: 'brandName',
+      width: 100,
+    },
+    {
+      title: '自有/外采',
+      dataIndex: 'own',
+      key: 'own',
+      width: 80,
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 80,
+    },
+    {
+      title: '单价',
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: 100,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '价税合计',
+      dataIndex: 'totalWithTax',
+      key: 'totalWithTax',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '税率',
+      dataIndex: 'taxRate',
+      key: 'taxRate',
+      width: 80,
+    },
+    {
+      title: '不含税金额',
+      dataIndex: 'amountWithoutTax',
+      key: 'amountWithoutTax',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '财务单位成本',
+      dataIndex: 'financeUnitCost',
+      key: 'financeUnitCost',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '财务总成本',
+      dataIndex: 'financeTotalCost',
+      key: 'financeTotalCost',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '内部转移单价',
+      dataIndex: 'internalTransferUnitPrice',
+      key: 'internalTransferUnitPrice',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '内部转移总价',
+      dataIndex: 'internalTransferTotalPrice',
+      key: 'internalTransferTotalPrice',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '店铺名称',
+      dataIndex: 'shopName',
+      key: 'shopName',
+      width: 180,
+    },
+  ];
+
+  // 管报数据查询 - 沃尔玛/山姆表格列（type=3）
+  const mrWalmartColumns = [
+    {
+      title: '创建时间',
+      dataIndex: 'created',
+      key: 'created',
+      width: 160,
+      fixed: 'left' as const,
+    },
+    {
+      title: '订货客户',
+      dataIndex: 'orderCustomer',
+      key: 'orderCustomer',
+      width: 160,
+    },
+    {
+      title: '货号',
+      dataIndex: 'merchantCode',
+      key: 'merchantCode',
+      width: 140,
+    },
+    {
+      title: '料号',
+      dataIndex: 'u9',
+      key: 'u9',
+      width: 120,
+    },
+    {
+      title: '规格编码',
+      dataIndex: 'specNo',
+      key: 'specNo',
+      width: 140,
+    },
+    {
+      title: '品名',
+      dataIndex: 'productName',
+      key: 'productName',
+      width: 200,
+    },
+    {
+      title: '品牌',
+      dataIndex: 'brandName',
+      key: 'brandName',
+      width: 100,
+    },
+    {
+      title: '店铺品牌',
+      dataIndex: 'shopBrand',
+      key: 'shopBrand',
+      width: 100,
+    },
+    {
+      title: '自有/外采',
+      dataIndex: 'own',
+      key: 'own',
+      width: 80,
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 80,
+    },
+    {
+      title: '单价',
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: 100,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '价税合计',
+      dataIndex: 'totalWithTax',
+      key: 'totalWithTax',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '税率',
+      dataIndex: 'taxRate',
+      key: 'taxRate',
+      width: 80,
+    },
+    {
+      title: '不含税金额',
+      dataIndex: 'amountWithoutTax',
+      key: 'amountWithoutTax',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '返利率',
+      dataIndex: 'rebateRate',
+      key: 'rebateRate',
+      width: 80,
+    },
+    {
+      title: '返利计算(未税)',
+      dataIndex: 'rebateAmountWithoutTax',
+      key: 'rebateAmountWithoutTax',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '返利计算(含税)',
+      dataIndex: 'rebateAmountWithTax',
+      key: 'rebateAmountWithTax',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '财务单位成本',
+      dataIndex: 'financeUnitCost',
+      key: 'financeUnitCost',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '财务总成本',
+      dataIndex: 'financeTotalCost',
+      key: 'financeTotalCost',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '内部转移单价',
+      dataIndex: 'internalTransferUnitPrice',
+      key: 'internalTransferUnitPrice',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '内部转移总价',
+      dataIndex: 'internalTransferTotalPrice',
+      key: 'internalTransferTotalPrice',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '店铺名称',
+      dataIndex: 'shopName',
+      key: 'shopName',
+      width: 180,
+    },
+  ];
+
+  // 支付宝月账单表格列
+  const zfbBillColumns = [
+    {
+      title: '账单日期',
+      dataIndex: 'billDate',
+      key: 'billDate',
+      width: 110,
+      fixed: 'left' as const,
+    },
+    {
+      title: '公司名称',
+      dataIndex: 'companyName',
+      key: 'companyName',
+      width: 180,
+    },
+    {
+      title: '店铺名称',
+      dataIndex: 'shopName',
+      key: 'shopName',
+      width: 180,
+    },
+    {
+      title: '授权商家名称',
+      dataIndex: 'merchantName',
+      key: 'merchantName',
+      width: 200,
+    },
+    {
+      title: '支付宝商户号',
+      dataIndex: 'alipayMerchantNo',
+      key: 'alipayMerchantNo',
+      width: 180,
+    },
+    {
+      title: '期初余额',
+      dataIndex: 'beginningBalance',
+      key: 'beginningBalance',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '期末余额',
+      dataIndex: 'endingBalance',
+      key: 'endingBalance',
+      width: 120,
+      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+    },
+    {
+      title: '生成状态',
+      dataIndex: 'generateStatus',
+      key: 'generateStatus',
+      width: 110,
+      render: (v?: number) => {
+        const map: Record<number, { text: string; color: string }> = {
+          0: { text: '待生成', color: 'default' },
+          1: { text: '生成中', color: 'processing' },
+          2: { text: '生成成功', color: 'success' },
+          3: { text: '生成失败', color: 'error' },
+          5: { text: '无业务数据', color: 'warning' },
+          6: { text: '未知错误', color: 'error' },
+        };
+        const item = v !== undefined && map[v] ? map[v] : { text: '-', color: 'default' };
+        return <Tag color={item.color}>{item.text}</Tag>;
+      },
+    },
+    {
+      title: '账单文件',
+      dataIndex: 'fileUrl',
+      key: 'fileUrl',
+      width: 240,
+      render: (v?: string) =>
+        v ? (
+          <a href={v} target="_blank" rel="noopener noreferrer">
+            查看文件
+          </a>
+        ) : (
+          '-'
+        ),
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 160,
+    },
+    {
+      title: '更新时间',
+      dataIndex: 'updatedAt',
+      key: 'updatedAt',
+      width: 160,
+    },
+  ];
+
+  // 各渠道月账单 - 子 tab 配置
+  const billSubTabItems = [
+    { key: 'zfb', label: '支付宝' },
+    { key: 'pdd', label: '拼多多' },
+    { key: 'dy', label: '抖音' },
+    { key: 'tmall', label: '天猫' },
+    { key: 'xhs', label: '小红书' },
+  ];
+
+  // 各渠道月账单 - 子 tab 内容
+  const renderBillSubTabContent = () => {
+    if (billSubTab === 'zfb') {
+      return (
+        <>
+          {/* 搜索栏 */}
+          <div style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 16,
+                flexWrap: 'wrap',
+                alignItems: 'flex-start',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>账单日期</span>
+                <DatePicker.MonthPicker
+                  style={{ width: 160 }}
+                  value={zfbBillDate}
+                  onChange={(date) => setZfbBillDate(date)}
+                  format="YYYY-MM"
+                  placeholder="请选择月份"
+                  allowClear
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>公司名称</span>
+                <Input
+                  style={{ width: 180 }}
+                  value={zfbCompanyName}
+                  onChange={(e) => setZfbCompanyName(e.target.value)}
+                  placeholder="模糊匹配"
+                  allowClear
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>店铺名称</span>
+                <Input
+                  style={{ width: 180 }}
+                  value={zfbShopName}
+                  onChange={(e) => setZfbShopName(e.target.value)}
+                  placeholder="模糊匹配"
+                  allowClear
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>授权商家名称</span>
+                <Input
+                  style={{ width: 180 }}
+                  value={zfbMerchantName}
+                  onChange={(e) => setZfbMerchantName(e.target.value)}
+                  placeholder="模糊匹配"
+                  allowClear
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>支付宝商户号</span>
+                <Input
+                  style={{ width: 180 }}
+                  value={zfbAlipayMerchantNo}
+                  onChange={(e) => setZfbAlipayMerchantNo(e.target.value)}
+                  placeholder="模糊匹配"
+                  allowClear
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>生成状态</span>
+                <Select
+                  style={{ width: 140 }}
+                  value={zfbGenerateStatus}
+                  onChange={(v) => setZfbGenerateStatus(v)}
+                  placeholder="请选择"
+                  allowClear
+                  options={[
+                    { label: '待生成', value: 0 },
+                    { label: '生成中', value: 1 },
+                    { label: '生成成功', value: 2 },
+                    { label: '生成失败', value: 3 },
+                    { label: '无业务数据', value: 5 },
+                    { label: '未知错误', value: 6 },
+                  ]}
+                />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: 'transparent' }}>操作</span>
+                <Space>
+                  <Button
+                    type="primary"
+                    onClick={handleZfbBillSearch}
+                    icon={<SearchOutlined />}
+                    loading={zfbBillLoading}
+                  >
+                    搜索
+                  </Button>
+                  <Button onClick={handleZfbBillReset}>重置</Button>
+                  <Button
+                    type="default"
+                    icon={<FileTextOutlined />}
+                    onClick={handleGenerateZfbBill}
+                    loading={zfbGenerateLoading}
+                  >
+                    生成账单
+                  </Button>
+                </Space>
+              </div>
+            </div>
+          </div>
+
+          {/* 表格 */}
+          <Table
+            columns={zfbBillColumns}
+            dataSource={zfbBillData}
+            rowKey="id"
+            loading={zfbBillLoading}
+            size="small"
+            scroll={{ x: 1800 }}
+            pagination={{
+              ...zfbBillPagination,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              pageSizeOptions: [10, 20, 50, 100],
+              showTotal: (total) => `共 ${total} 条记录`,
+              onChange: (page, pageSize) => {
+                setZfbBillPagination((prev) => ({
+                  ...prev,
+                  current: page,
+                  pageSize: pageSize || 10,
+                }));
+                fetchZfbBill({ pageNum: page, pageSize });
+              },
+            }}
+          />
+        </>
+      );
+    }
+    // 其他渠道占位
+    const placeholderMap: Record<string, string> = {
+      pdd: '拼多多',
+      dy: '抖音',
+      tmall: '天猫',
+      xhs: '小红书',
+    };
+    return (
+      <div
+        style={{
+          padding: '60px 0',
+          textAlign: 'center',
+          color: '#999',
+          fontSize: 14,
+        }}
+      >
+        {placeholderMap[billSubTab] || ''}月账单：敬请期待
+      </div>
+    );
+  };
+
   return (
     <PageContainer>
       <Tabs
@@ -1041,6 +1896,128 @@ const Report: React.FC = () => {
         size="large"
         type="card"
       />
+
+      {activeTab === 'management-report' && (
+        <>
+          {/* 搜索栏 */}
+          <div
+            style={{
+              marginBottom: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                gap: 16,
+                flexWrap: 'wrap',
+                alignItems: 'flex-start',
+              }}
+            >
+              {/* 数据类型 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>数据类型</span>
+                <Select
+                  style={{ width: 150 }}
+                  value={mrType}
+                  onChange={(value) => setMrType(value)}
+                  options={[
+                    { label: '线上', value: 1 },
+                    { label: '线下', value: 2 },
+                    { label: '沃尔玛', value: 3 },
+                  ]}
+                />
+              </div>
+
+              {/* 销售月份（不跟数据类型联动，统一用月份选择器） */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>
+                  销售月份 <span style={{ color: 'red' }}>*</span>
+                </span>
+                <DatePicker.MonthPicker
+                  style={{ width: 180 }}
+                  value={mrStartMonth}
+                  onChange={(date) => {
+                    setMrStartMonth(date);
+                    setMrEndMonth(date);
+                  }}
+                  format="YYYY-MM"
+                  placeholder="请选择月份"
+                  allowClear
+                />
+              </div>
+
+              {/* 操作按钮 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: 'transparent' }}>操作</span>
+                <Space>
+                  <Button
+                    type="primary"
+                    onClick={() => fetchManagementReport()}
+                    icon={<SearchOutlined />}
+                    loading={mrLoading}
+                  >
+                    查询
+                  </Button>
+                  <Button onClick={handleMrReset}>重置</Button>
+                </Space>
+              </div>
+            </div>
+          </div>
+
+          {/* 表格 - 根据类型展示对应列表 */}
+          {mrType === 1 && (
+            <Table
+              columns={mrOnlineColumns}
+              dataSource={mrOnlineList}
+              rowKey={(_record, index) => `online-${index ?? 0}`}
+              loading={mrLoading}
+              size="small"
+              scroll={{ x: 2000 }}
+              pagination={{
+                showSizeChanger: true,
+                showQuickJumper: true,
+                pageSizeOptions: [10, 20, 50, 100],
+                showTotal: (total) => `共 ${total} 条记录`,
+              }}
+            />
+          )}
+          {mrType === 2 && (
+            <Table
+              columns={mrOfflineColumns}
+              dataSource={mrOfflineList}
+              rowKey={(_record, index) => `offline-${index ?? 0}`}
+              loading={mrLoading}
+              size="small"
+              scroll={{ x: 2200 }}
+              pagination={{
+                showSizeChanger: true,
+                showQuickJumper: true,
+                pageSizeOptions: [10, 20, 50, 100],
+                showTotal: (total) => `共 ${total} 条记录`,
+              }}
+            />
+          )}
+          {mrType === 3 && (
+            <Table
+              columns={mrWalmartColumns}
+              dataSource={mrWalmartList}
+              rowKey={(_record, index) => `walmart-${index ?? 0}`}
+              loading={mrLoading}
+              size="small"
+              scroll={{ x: 2600 }}
+              pagination={{
+                showSizeChanger: true,
+                showQuickJumper: true,
+                pageSizeOptions: [10, 20, 50, 100],
+                showTotal: (total) => `共 ${total} 条记录`,
+              }}
+            />
+          )}
+        </>
+      )}
 
       {activeTab === 'cost' && (
         <>
@@ -1053,71 +2030,118 @@ const Report: React.FC = () => {
               gap: 16,
             }}
           >
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-              <DatePicker.MonthPicker
-                placeholder="选择月份"
-                style={{ width: 220 }}
-                value={searchMonth}
-                onChange={(date) => setSearchMonth(date)}
-                allowClear
-              />
-              <Input
-                placeholder="搜索组织（模糊匹配）"
-                prefix={<SearchOutlined />}
-                style={{ width: 220 }}
-                value={searchGroup}
-                onChange={(e) => setSearchGroup(e.target.value)}
-                allowClear
-              />
-              <Input
-                placeholder="搜索品牌（模糊匹配）"
-                prefix={<SearchOutlined />}
-                style={{ width: 220 }}
-                value={searchBrandName}
-                onChange={(e) => setSearchBrandName(e.target.value)}
-                allowClear
-              />
-              <Input
-                placeholder="搜索条码（模糊匹配）"
-                prefix={<SearchOutlined />}
-                style={{ width: 220 }}
-                value={searchMerchantCode}
-                onChange={(e) => setSearchMerchantCode(e.target.value)}
-                allowClear
-              />
-              <Input
-                placeholder="搜索货号（模糊匹配）"
-                prefix={<SearchOutlined />}
-                style={{ width: 220 }}
-                value={searchProductNo}
-                onChange={(e) => setSearchProductNo(e.target.value)}
-                allowClear
-              />
-              <Input
-                placeholder="搜索料号（模糊匹配）"
-                prefix={<SearchOutlined />}
-                style={{ width: 220 }}
-                value={searchU9No}
-                onChange={(e) => setSearchU9No(e.target.value)}
-                allowClear
-              />
-              <Select
-                placeholder="是否新品"
-                style={{ width: 150 }}
-                allowClear
-                value={searchIsNewProduct}
-                onChange={(value) => setSearchIsNewProduct(value)}
-                options={[
-                  { label: '是', value: '1' },
-                  { label: '否', value: '0' },
-                ]}
-              />
-              <Space>
-                <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
-                  搜索
-                </Button>
-                <Button onClick={handleReset}>重置</Button>
-              </Space>
+            <div
+              style={{
+                display: 'flex',
+                gap: 16,
+                flexWrap: 'wrap',
+                alignItems: 'flex-start',
+              }}
+            >
+              {/* 月份 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>月份</span>
+                <DatePicker.MonthPicker
+                  style={{ width: 180 }}
+                  value={searchMonth}
+                  onChange={(date) => setSearchMonth(date)}
+                  format="YYYY-MM"
+                  placeholder="请选择月份"
+                  allowClear
+                />
+              </div>
+
+              {/* 组织 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>组织</span>
+                <Input
+                  placeholder="模糊匹配"
+                  prefix={<SearchOutlined />}
+                  style={{ width: 200 }}
+                  value={searchGroup}
+                  onChange={(e) => setSearchGroup(e.target.value)}
+                  allowClear
+                />
+              </div>
+
+              {/* 品牌 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>品牌</span>
+                <Input
+                  placeholder="模糊匹配"
+                  prefix={<SearchOutlined />}
+                  style={{ width: 180 }}
+                  value={searchBrandName}
+                  onChange={(e) => setSearchBrandName(e.target.value)}
+                  allowClear
+                />
+              </div>
+
+              {/* 条码 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>条码</span>
+                <Input
+                  placeholder="模糊匹配"
+                  prefix={<SearchOutlined />}
+                  style={{ width: 180 }}
+                  value={searchMerchantCode}
+                  onChange={(e) => setSearchMerchantCode(e.target.value)}
+                  allowClear
+                />
+              </div>
+
+              {/* 货号 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>货号</span>
+                <Input
+                  placeholder="模糊匹配"
+                  prefix={<SearchOutlined />}
+                  style={{ width: 180 }}
+                  value={searchProductNo}
+                  onChange={(e) => setSearchProductNo(e.target.value)}
+                  allowClear
+                />
+              </div>
+
+              {/* 料号 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>料号</span>
+                <Input
+                  placeholder="模糊匹配"
+                  prefix={<SearchOutlined />}
+                  style={{ width: 180 }}
+                  value={searchU9No}
+                  onChange={(e) => setSearchU9No(e.target.value)}
+                  allowClear
+                />
+              </div>
+
+              {/* 是否新品 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>是否新品</span>
+                <Select
+                  style={{ width: 130 }}
+                  allowClear
+                  value={searchIsNewProduct}
+                  onChange={(value) => setSearchIsNewProduct(value)}
+                  placeholder="请选择"
+                  options={[
+                    { label: '是', value: '1' },
+                    { label: '否', value: '0' },
+                  ]}
+                />
+              </div>
+
+              {/* 操作按钮 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: 'transparent' }}>操作</span>
+                <Space>
+                  <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />}>
+                    搜索
+                  </Button>
+                  <Button onClick={handleReset}>重置</Button>
+                </Space>
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
@@ -1366,50 +2390,90 @@ const Report: React.FC = () => {
               gap: 16,
             }}
           >
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Select
-                placeholder="选择渠道 *"
-                style={{ width: 150 }}
-                value={searchChannel}
-                onChange={handleChannelChange}
-                options={channelOptions}
-              />
-              <Select
-                placeholder="选择店铺"
-                style={{ width: 220 }}
-                value={searchShopId}
-                onChange={(value) => setSearchShopId(value)}
-                allowClear
-                loading={shopsLoading}
-                options={shopList.map((shop) => ({
-                  label: displayShopName(shop.wdtName || shop.shopName),
-                  value: shop.id,
-                }))}
-                showSearch
-                optionFilterProp="label"
-                disabled={!searchChannel}
-              />
-              <DatePicker.MonthPicker
-                placeholder="选择年月 *"
-                style={{ width: 180 }}
-                value={searchYearMonth}
-                onChange={(date) => setSearchYearMonth(date)}
-                allowClear={false}
-              />
-              <Input
-                placeholder="搜索账务类型"
-                prefix={<SearchOutlined />}
-                style={{ width: 200 }}
-                value={searchAccountType}
-                onChange={(e) => setSearchAccountType(e.target.value)}
-                allowClear
-              />
-              <Space>
-                <Button type="primary" onClick={handleChannelSearch} icon={<SearchOutlined />}>
-                  搜索
-                </Button>
-                <Button onClick={handleChannelReset}>重置</Button>
-              </Space>
+            <div
+              style={{
+                display: 'flex',
+                gap: 16,
+                flexWrap: 'wrap',
+                alignItems: 'flex-start',
+              }}
+            >
+              {/* 渠道 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>
+                  渠道 <span style={{ color: 'red' }}>*</span>
+                </span>
+                <Select
+                  style={{ width: 150 }}
+                  value={searchChannel}
+                  onChange={handleChannelChange}
+                  placeholder="请选择"
+                  options={channelOptions}
+                />
+              </div>
+
+              {/* 店铺 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>店铺</span>
+                <Select
+                  style={{ width: 220 }}
+                  value={searchShopId}
+                  onChange={(value) => setSearchShopId(value)}
+                  allowClear
+                  loading={shopsLoading}
+                  placeholder="请选择店铺"
+                  options={shopList.map((shop) => ({
+                    label: displayShopName(shop.wdtName || shop.shopName),
+                    value: shop.id,
+                  }))}
+                  showSearch
+                  optionFilterProp="label"
+                  disabled={!searchChannel}
+                />
+              </div>
+
+              {/* 年月 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>
+                  年月 <span style={{ color: 'red' }}>*</span>
+                </span>
+                <DatePicker.MonthPicker
+                  style={{ width: 160 }}
+                  value={searchYearMonth}
+                  onChange={(date) => setSearchYearMonth(date)}
+                  format="YYYY-MM"
+                  placeholder="请选择年月"
+                  allowClear={false}
+                />
+              </div>
+
+              {/* 账务类型 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: '#666' }}>账务类型</span>
+                <Input
+                  placeholder="模糊匹配"
+                  prefix={<SearchOutlined />}
+                  style={{ width: 180 }}
+                  value={searchAccountType}
+                  onChange={(e) => setSearchAccountType(e.target.value)}
+                  allowClear
+                />
+              </div>
+
+              {/* 操作按钮 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, color: 'transparent' }}>操作</span>
+                <Space>
+                  <Button
+                    type="primary"
+                    onClick={handleChannelSearch}
+                    icon={<SearchOutlined />}
+                  >
+                    搜索
+                  </Button>
+                  <Button onClick={handleChannelReset}>重置</Button>
+                </Space>
+              </div>
             </div>
           </div>
 
@@ -1916,6 +2980,19 @@ const Report: React.FC = () => {
               );
             })()}
           </Modal>
+        </>
+      )}
+
+      {activeTab === 'channel-bills' && (
+        <>
+          <Tabs
+            activeKey={billSubTab}
+            onChange={setBillSubTab}
+            items={billSubTabItems}
+            style={{ marginBottom: 16 }}
+            type="card"
+          />
+          {renderBillSubTabContent()}
         </>
       )}
     </PageContainer>

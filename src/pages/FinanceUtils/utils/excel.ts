@@ -297,9 +297,31 @@ const handleAntdTableData = async (
           row.getCell(colIndex + 1).value = idTemp--;
         }
       }
-      // 如果是shopId-客户则清除前空格
+      // 如果是shopId-客户则清除前空格，且数值保留4位小数（末位0也保留）
       else if (dataIndex === 'shopId') {
-        row.getCell(colIndex + 1).value = item[dataIndex] ? item[dataIndex].trim() : '';
+        const cell = row.getCell(colIndex + 1);
+        const v = item[dataIndex];
+        if (v === null || v === undefined || v === '') {
+          cell.value = '';
+        } else {
+          const strVal = String(v).trim();
+          const numVal = Number(strVal);
+          cell.value = isNaN(numVal) ? strVal : numVal;
+          cell.numFmt = '0.0000';
+        }
+      }
+      // 料品：数值保留4位小数（末位0也保留）
+      else if (dataIndex === 'u9No') {
+        const cell = row.getCell(colIndex + 1);
+        const v = item[dataIndex];
+        if (v === null || v === undefined || v === '') {
+          cell.value = '';
+        } else {
+          const strVal = String(v).trim();
+          const numVal = Number(strVal);
+          cell.value = isNaN(numVal) ? strVal : numVal;
+          cell.numFmt = '0.0000';
+        }
       }
       // 出货原则固定写死004
       else if (dataIndex === 'shippingPrinciple') {
