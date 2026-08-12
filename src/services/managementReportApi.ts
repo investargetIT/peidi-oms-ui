@@ -139,6 +139,10 @@ export interface FinanceZfbBillInfoPageReq {
   merchantName?: string;
   pageNum?: number;
   pageSize?: number;
+  /**
+   * 平台，传中文：拼多多 / 抖音 / 天猫 / 小红书 / 支付宝
+   */
+  platform?: string;
   shopName?: string;
   [property: string]: any;
 }
@@ -234,17 +238,36 @@ export class ManagementReportApi {
   }
 
   /* ---- 各渠道月账单 ---- */
-  /** 支付宝 - 分页查询 */
+  /**
+   * 各渠道月账单 - 分页查询
+   * 统一调用 /zfb-bill/page 接口，通过 platform 参数区分渠道（拼多多/抖音/天猫/小红书/支付宝）
+   */
   static async getZfbBillPage(
     params: FinanceZfbBillInfoPageReq,
   ): Promise<ResponseData<IPageFinanceZfbBillInfoVo>> {
     return channelBillRequest.post('/zfb-bill/page', params);
   }
-  /** 支付宝 - 生成月账单 */
+  /**
+   * 各渠道月账单 - 生成
+   * 统一调用 /zfb-bill/generate 接口，通过 platform 参数区分渠道
+   */
   static async generateZfbBill(params: FinanceZfbBillGenerateReq): Promise<ResponseData<any>> {
     return channelBillRequest.post('/zfb-bill/generate', params);
   }
-  // 拼多多、抖音、天猫、小红书 待补
+  /**
+   * 各渠道月账单 - 批量下载（后端代理打包为 ZIP 返回，避免 OSS CORS 限制）
+   * 后端实现思路：接收 ids 列表，服务端到 OSS 拉取文件，打包成 zip 流式返回（Content-Type: application/zip）
+   */
+  static async batchDownloadZfbBill(params: {
+    ids: number[];
+    platform?: string;
+  }): Promise<Blob> {
+    const resp = await channelBillRequest.post('/zfb-bill/batch-download', params, {
+      responseType: 'blob',
+    });
+    return resp as unknown as Blob;
+  }
+  // 拼多多、抖音、小红书 待补
 }
 
 export default ManagementReportApi;
