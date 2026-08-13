@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Input,
@@ -27,6 +27,7 @@ import {
   getFeeMajorCategory,
   feeMajorCategoryOrder,
 } from '../common/businessCodes';
+import { buildStatResult } from '../common/statBuilder';
 
 export interface ChannelExtendCostBaseProps {
   /**
@@ -34,6 +35,29 @@ export interface ChannelExtendCostBaseProps {
    * 会作为 channel 参数透传给后端 /oms/finance/channel-extend-cost/group/page
    */
   channel: string;
+  /**
+   * 操作区右侧追加的额外按钮（如拼多多的「导出当前选中月份的所有店铺统计费用」）。
+   * 不传则不渲染。
+   */
+  extraActions?: React.ReactNode;
+  /**
+   * 搜索栏的「年月」变化时回调，格式 yyyy-MM。
+   * 用于让外层组件（如 PddExtendCostPanel）拿到当前选中的月份，
+   * 配合「批量导出」按钮使用。
+   */
+  onYearMonthChange?: (yearMonth: string) => void;
+  /**
+   * 自定义「费用统计」点击行为。
+   * 子渠道（如京东）如果要走自己的统计接口，可以传这个回调。
+   * 返回 true 表示已处理，Base 不再弹默认的「站内外推广费统计」弹窗；
+   * 返回 false / undefined 则继续走 Base 默认逻辑。
+   */
+  onCustomStatClick?: (params: {
+    wdtName: string | undefined;
+    yearMonth: string | undefined;
+    shopId: number | undefined;
+    channel: string | undefined;
+  }) => boolean | void;
 }
 
 /**
@@ -43,7 +67,12 @@ export interface ChannelExtendCostBaseProps {
  * 后续如果发现某个渠道有独立的差异（比如 feeCategories 不同、汇总逻辑不同等），
  * 可以在该渠道目录下 fork 一份自己的 panel 实现，不影响其他渠道。
  */
-const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }) => {
+const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
+  channel,
+  extraActions,
+  onYearMonthChange,
+  onCustomStatClick,
+}) => {
   // ============ 状态 ============
   const [channelLoading, setChannelLoading] = useState(false);
   const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostShopGroupVo[]>([]);
@@ -284,41 +313,27 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
     }
   };
 
-  // 计算汇总数据
-  const calculateSummaryData = () => {
-    const collectionTotal = statDataSource
-      .filter((item) => summaryGroups[0].codes.includes(item.businessCode))
-      .reduce((sum, item) => sum + (item.calculate || 0), 0);
-    const deductionTotal = statDataSource
-      .filter((item) => summaryGroups[1].codes.includes(item.businessCode))
-      .reduce((sum, item) => sum + (item.calculate || 0), 0);
-    const withdrawTotal = statDataSource
-      .filter((item) => summaryGroups[2].codes.includes(item.businessCode))
-      .reduce((sum, item) => sum + (item.calculate || 0), 0);
-
-    const interestTotal = 0;
-    const lastMonthBalance = beginningBalance || 0;
-    const currentMonthEndBalance = endingBalance || 0;
-    const calculatedBalance =
-      lastMonthBalance + collectionTotal + deductionTotal + withdrawTotal + interestTotal;
-    const checkDiff = calculatedBalance - currentMonthEndBalance;
-
-    return [
-      {
-        billMonth: currentYearMonth,
-        platform: currentChannel,
-        accountName: currentShopName || '',
-        endBalance: currentMonthEndBalance,
-        lastMonthBalance: lastMonthBalance,
-        currentCollection: collectionTotal,
-        currentExpense: deductionTotal,
-        withdraw: withdrawTotal,
-        interest: interestTotal,
-        calculatedBalance: calculatedBalance,
-        checkDiff: checkDiff,
-      },
-    ];
-  };
+  // 把后端 3 个接口的原始数据组装成「汇总 + 排序后明细」，
+  // 弹窗和「批量导出 Excel」共用此结果，保证两边展示完全一致。
+  const statResult = useMemo(
+    () =>
+      buildStatResult({
+        statData: statDataSource,
+        beginningBalance,
+        endingBalance,
+        yearMonth: currentYearMonth,
+        channel: currentChannel,
+        shopName: currentShopName,
+      }),
+    [
+      statDataSource,
+      beginningBalance,
+      endingBalance,
+      currentYearMonth,
+      currentChannel,
+      currentShopName,
+    ],
+  );
 
   // 初始化加载（每个 tab 切换时都会重新挂载，因此 mount 时拉一次即可）
   useEffect(() => {
@@ -326,6 +341,14 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
     fetchShops();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 通知外层当前选中的年月（用于批量导出按钮显示当前月份）
+  useEffect(() => {
+    if (onYearMonthChange && searchYearMonth) {
+      onYearMonthChange(searchYearMonth.format('YYYY-MM'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchYearMonth]);
 
   // ============ 表格列定义 ============
   const detailColumns = [
@@ -422,7 +445,18 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
             type="link"
             size="small"
             style={{ fontSize: 12, padding: '0 0 0 8px' }}
-            onClick={() => openStatModal(record.wdtName, record.yearMonth, record.shopId, record.channel)}
+            onClick={() => {
+              if (onCustomStatClick) {
+                const handled = onCustomStatClick({
+                  wdtName: record.wdtName,
+                  yearMonth: record.yearMonth,
+                  shopId: record.shopId,
+                  channel: record.channel,
+                });
+                if (handled) return;
+              }
+              openStatModal(record.wdtName, record.yearMonth, record.shopId, record.channel);
+            }}
           >
             费用统计
           </Button>
@@ -554,6 +588,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
                 搜索
               </Button>
               <Button onClick={handleReset}>重置</Button>
+              {extraActions}
             </Space>
           </div>
         </div>
@@ -782,7 +817,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
               },
             },
           ]}
-          dataSource={calculateSummaryData()}
+          dataSource={statModalVisible ? [statResult.summary] : []}
           rowKey="billMonth"
           size="small"
           className="stat-table-small"
@@ -870,33 +905,9 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
 
         {/* 业务编码明细表格 */}
         {(() => {
-          const sortedStatData = [...statDataSource].sort((a, b) => {
-            const ca = getFeeCategory(a.businessCode);
-            const cb = getFeeCategory(b.businessCode);
-            const ma = feeMajorCategoryOrder.indexOf(getFeeMajorCategory(ca));
-            const mb = feeMajorCategoryOrder.indexOf(getFeeMajorCategory(cb));
-            if (ma !== mb) return ma - mb;
-            const ia = feeCategoryOrder.indexOf(ca);
-            const ib = feeCategoryOrder.indexOf(cb);
-            if (ia !== ib) return ia - ib;
-            return (a.businessCode || '').localeCompare(b.businessCode || '');
-          });
-          const majorCount: Record<string, number> = {};
-          const majorFirstIndex: Record<string, number> = {};
-          const categoryCount: Record<string, number> = {};
-          const categoryFirstIndex: Record<string, number> = {};
-          const categoryIncomeSum: Record<string, number> = {};
-          const categoryExpenseSum: Record<string, number> = {};
-          sortedStatData.forEach((item, idx) => {
-            const cat = getFeeCategory(item.businessCode);
-            const major = getFeeMajorCategory(cat);
-            majorCount[major] = (majorCount[major] || 0) + 1;
-            if (majorFirstIndex[major] === undefined) majorFirstIndex[major] = idx;
-            categoryCount[cat] = (categoryCount[cat] || 0) + 1;
-            if (categoryFirstIndex[cat] === undefined) categoryFirstIndex[cat] = idx;
-            categoryIncomeSum[cat] = (categoryIncomeSum[cat] || 0) + (item.totalIncome || 0);
-            categoryExpenseSum[cat] = (categoryExpenseSum[cat] || 0) + (item.totalExpense || 0);
-          });
+          const { detail, detailGroupMeta } = statResult;
+          const { majorCount, majorFirstIndex, categoryCount, categoryFirstIndex } =
+            detailGroupMeta;
           return (
             <Table
               columns={[
@@ -941,7 +952,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
                     return {
                       children: (
                         <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                          {categoryIncomeSum[cat]?.toFixed(2) || '-'}
+                          {record.incomeSum?.toFixed(2) || '-'}
                         </span>
                       ),
                       props: { rowSpan: isFirst ? categoryCount[cat] : 0 },
@@ -959,7 +970,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
                     return {
                       children: (
                         <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                          {categoryExpenseSum[cat]?.toFixed(2) || '-'}
+                          {record.expenseSum?.toFixed(2) || '-'}
                         </span>
                       ),
                       props: { rowSpan: isFirst ? categoryCount[cat] : 0 },
@@ -1007,7 +1018,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({ channel }
                   ),
                 },
               ]}
-              dataSource={sortedStatData}
+              dataSource={detail}
               rowKey={(record, index) => `${record.businessCode}-${index}`}
               loading={statLoading}
               size="small"

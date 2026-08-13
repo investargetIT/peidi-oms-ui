@@ -123,13 +123,18 @@ const ZfbBillPanel: React.FC = () => {
       return;
     }
     const params: FinanceZfbBillGenerateReq = { billDate: billDate.format('YYYY-MM') };
-    startGenerateCooldown();
     Modal.confirm({
       title: '生成支付宝月账单',
       content: `确定要生成 ${params.billDate} 的支付宝月账单吗？`,
       okText: '确认生成',
       cancelText: '取消',
+      okButtonProps: {
+        className: 'grayblue-btn',
+        style: { background: '#2f54eb', borderColor: '#2f54eb' },
+      },
       onOk: async () => {
+        // 只有用户点了"确认生成"才启动 60 秒倒计时，避免取消后仍然处于冷却
+        startGenerateCooldown();
         setGenerateLoading(true);
         try {
           const res = await ManagementReportApi.generateZfbBill(params);

@@ -27,7 +27,7 @@ import ChannelExtendCostApi, {
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
 
-const TmallBillPanel: React.FC = () => {
+const JdBillPanel: React.FC = () => {
   const { addTask, updateTask } = useUploadTasks();
   const [billDate, setBillDate] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
   const [shopName, setShopName] = useState<string>('');
@@ -45,7 +45,9 @@ const TmallBillPanel: React.FC = () => {
   const [selectedShopId, setSelectedShopId] = useState<number | undefined>(undefined);
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopLoading, setShopLoading] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  // 京东上传需要 2 个文件：账单明细(file1) + 财务汇总(file2)
+  const [uploadFile1, setUploadFile1] = useState<File | null>(null);
+  const [uploadFile2, setUploadFile2] = useState<File | null>(null);
   // 上传走异步任务模式：弹窗关掉后由 UploadTaskDrawer 跟踪，无需在面板内阻塞 UI
 
   const fetchBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
@@ -57,7 +59,7 @@ const TmallBillPanel: React.FC = () => {
         billDate: billDate ? billDate.format('YYYY-MM') : undefined,
         shopName: shopName || undefined,
         generateStatus,
-        platform: '天猫',
+        platform: '京东',
         ...params,
       };
       const res: { code: number; data?: IPageFinanceZfbBillInfoVo; msg?: string; success?: boolean } =
@@ -72,8 +74,8 @@ const TmallBillPanel: React.FC = () => {
         message.error(res.msg || '查询失败');
       }
     } catch (error) {
-      console.error('查询天猫账单失败:', error);
-      message.error('查询天猫账单失败');
+      console.error('查询京东账单失败:', error);
+      message.error('查询京东账单失败');
     } finally {
       setBillLoading(false);
     }
@@ -92,11 +94,11 @@ const TmallBillPanel: React.FC = () => {
     fetchBill({ pageNum: 1 });
   };
 
-  // 天猫目前暂不开放生成账单功能，改为支持手动上传账单
+  // 京东目前暂不开放生成账单功能，改为支持手动上传账单
   const fetchConfigList = async () => {
     setConfigLoading(true);
     try {
-      const res = await ManagementReportApi.getBillConfigList({ platform: '天猫' });
+      const res = await ManagementReportApi.getBillConfigList({ platform: '京东' });
       if (res.code === 200) {
         // 过滤掉已删除的
         const list = (res.data || []).filter((c) => c.isDel !== 1);
@@ -120,7 +122,7 @@ const TmallBillPanel: React.FC = () => {
         sortStr: '',
         searchStr: JSON.stringify({
           searchName: 'platform',
-          searchValue: '天猫',
+          searchValue: '京东',
           searchType: 'like',
         }),
       };
@@ -143,20 +145,35 @@ const TmallBillPanel: React.FC = () => {
     setUploadDate(dayjs().subtract(1, 'month'));
     setSelectedConfigId(undefined);
     setSelectedShopId(undefined);
-    setUploadFile(null);
+    setUploadFile1(null);
+    setUploadFile2(null);
     setConfigList([]);
     setShopList([]);
     await Promise.all([fetchConfigList(), fetchShopList()]);
   };
 
-  const uploadProps: UploadProps = {
+  // 账单明细文件 (file1)
+  const uploadFile1Props: UploadProps = {
     beforeUpload: (file) => {
-      setUploadFile(file);
+      setUploadFile1(file);
       return false; // 阻止自动上传
     },
-    fileList: uploadFile ? [{ uid: '1', name: uploadFile.name, status: 'done' }] : [],
+    fileList: uploadFile1 ? [{ uid: '1', name: uploadFile1.name, status: 'done' }] : [],
     onRemove: () => {
-      setUploadFile(null);
+      setUploadFile1(null);
+    },
+    accept: '.xlsx,.xls,.csv',
+  };
+
+  // 财务汇总表文件 (file2)
+  const uploadFile2Props: UploadProps = {
+    beforeUpload: (file) => {
+      setUploadFile2(file);
+      return false; // 阻止自动上传
+    },
+    fileList: uploadFile2 ? [{ uid: '2', name: uploadFile2.name, status: 'done' }] : [],
+    onRemove: () => {
+      setUploadFile2(null);
     },
     accept: '.xlsx,.xls,.csv',
   };
@@ -174,8 +191,12 @@ const TmallBillPanel: React.FC = () => {
       message.error('请选择店铺');
       return;
     }
-    if (!uploadFile) {
-      message.error('请选择要上传的账单文件');
+    if (!uploadFile1) {
+      message.error('请选择账单明细文件');
+      return;
+    }
+    if (!uploadFile2) {
+      message.error('请选择财务汇总表文件');
       return;
     }
 
@@ -183,17 +204,19 @@ const TmallBillPanel: React.FC = () => {
     const selectedShop = shopList.find((s) => s.id === selectedShopId);
     const shopName = selectedShop?.shopName || `店铺#${selectedShopId}`;
     const billDateStr = uploadDate.format('YYYY-MM');
-    const fileName = uploadFile.name;
+    // 任务卡片展示：把 2 个文件名拼成 "明细.xlsx + 汇总.xlsx"
+    const fileName = `${uploadFile1.name} + ${uploadFile2.name}`;
 
     // 1. 立刻关闭上传弹窗 & 重置表单
     setUploadModalOpen(false);
-    setUploadFile(null);
+    setUploadFile1(null);
+    setUploadFile2(null);
     setSelectedConfigId(undefined);
     setSelectedShopId(undefined);
 
     // 2. 创建任务（后端请求异步进行中，不阻塞 UI）
     const taskId = addTask({
-      channel: '天猫',
+      channel: '京东',
       shopName,
       billDate: billDateStr,
       fileName,
@@ -201,12 +224,13 @@ const TmallBillPanel: React.FC = () => {
     message.success(`上传任务已提交，详见右下角任务卡片（共 1 项进行中）`);
 
     // 3. 异步执行上传（不 await 阻塞）
-    ManagementReportApi.uploadTmallBill({
-      channel: 'tm',
+    ManagementReportApi.uploadJdBill({
+      channel: 'jd',
       date: billDateStr,
       financeBillConfigId: selectedConfigId,
       shopId: selectedShopId,
-      file: uploadFile,
+      file1: uploadFile1,
+      file2: uploadFile2,
     })
       .then((res) => {
         const result: FinanceChannelExtendCostImportVo =
@@ -237,7 +261,7 @@ const TmallBillPanel: React.FC = () => {
         }
       })
       .catch((error) => {
-        console.error('上传天猫账单失败:', error);
+        console.error('上传京东账单失败:', error);
         const errMsg =
           (error && (error.msg || error.message)) || '上传失败，请稍后重试';
         updateTask(taskId, {
@@ -342,7 +366,7 @@ const TmallBillPanel: React.FC = () => {
 
       {/* 上传账单弹窗 */}
       <Modal
-        title="上传天猫账单"
+        title="上传京东账单"
         open={uploadModalOpen}
         onCancel={() => setUploadModalOpen(false)}
         onOk={handleUpload}
@@ -362,8 +386,9 @@ const TmallBillPanel: React.FC = () => {
           description={
             <div style={{ fontSize: 12, lineHeight: 1.7 }}>
               1. 支持 .xlsx / .xls / .csv 格式<br />
-              2. 请先在【账单配置】中维护该店铺的天猫账单配置（accessToken、appId 等）<br />
-              3. 账单日期格式：yyyy-MM（如 2026-07）
+              2. 京东一次需要上传 <b>2 个文件</b>：账单明细（file1）+ 财务汇总表（file2），缺一不可<br />
+              3. 请先在【账单配置】中维护该店铺的京东账单配置（accessToken、appId 等）<br />
+              4. 账单日期格式：yyyy-MM（如 2026-07）
             </div>
           }
           style={{ marginBottom: 16 }}
@@ -409,13 +434,13 @@ const TmallBillPanel: React.FC = () => {
               style={{ width: '100%' }}
               value={selectedShopId}
               onChange={(v) => setSelectedShopId(v)}
-              placeholder={shopLoading ? '加载中...' : '请选择店铺（来自 /oms/orders/shopTarget，平台=天猫）'}
+              placeholder={shopLoading ? '加载中...' : '请选择店铺（来自 /oms/orders/shopTarget，平台=京东）'}
               loading={shopLoading}
               allowClear
               showSearch
               optionFilterProp="label"
               options={shopList
-                .filter((s) => s.platform === '天猫' && s.id !== undefined && s.id !== null)
+                .filter((s) => s.platform === '京东' && s.id !== undefined && s.id !== null)
                 .map((s) => ({
                   label: s.shopName || '-',
                   value: s.id as number,
@@ -424,9 +449,19 @@ const TmallBillPanel: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
-              账单文件 <span style={{ color: '#ff4d4f' }}>*</span>
+              账单明细文件（file1） <span style={{ color: '#ff4d4f' }}>*</span>
             </span>
-            <Upload {...uploadProps}>
+            <Upload {...uploadFile1Props}>
+              <Button icon={<UploadOutlined />} disabled={shopLoading}>
+                选择文件
+              </Button>
+            </Upload>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              财务汇总表文件（file2） <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <Upload {...uploadFile2Props}>
               <Button icon={<UploadOutlined />} disabled={shopLoading}>
                 选择文件
               </Button>
@@ -438,4 +473,4 @@ const TmallBillPanel: React.FC = () => {
   );
 };
 
-export default TmallBillPanel;
+export default JdBillPanel;

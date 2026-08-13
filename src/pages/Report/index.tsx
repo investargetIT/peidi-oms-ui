@@ -5,6 +5,8 @@ import ManagementReportTab from './management-report';
 import CostTab from './cost';
 import ChannelExtendCostTab from './channel-extend-cost';
 import ChannelBillsTab from './channel-bills';
+import { UploadTaskProvider } from './channel-bills/common/uploadTaskStore';
+import UploadTaskDrawer from './channel-bills/common/UploadTaskDrawer';
 
 const TAB_KEY = 'report_active_tab';
 
@@ -41,17 +43,21 @@ const Report: React.FC = () => {
   };
 
   return (
-    <PageContainer>
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        items={tabItems}
-        style={{ marginBottom: 16 }}
-        size="large"
-        type="card"
-      />
-      {renderTabContent()}
-    </PageContainer>
+    <UploadTaskProvider>
+      <PageContainer>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={tabItems}
+          style={{ marginBottom: 16 }}
+          size="large"
+          type="card"
+        />
+        {renderTabContent()}
+      </PageContainer>
+      {/* 右侧悬浮上传任务卡片：跨 tab 共享任务列表 */}
+      <UploadTaskDrawer />
+    </UploadTaskProvider>
   );
 };
 

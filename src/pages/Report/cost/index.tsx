@@ -353,8 +353,21 @@ const CostTab: React.FC = () => {
   ];
 
   return (
-        <>
-        {/* 搜索栏 */}
+    <>
+      <style>{`
+        .grayblue-btn.ant-btn-primary[disabled],
+        .grayblue-btn.ant-btn-primary[disabled]:hover,
+        .grayblue-btn.ant-btn-primary[disabled]:focus,
+        .grayblue-btn.ant-btn-primary[disabled]:active {
+          background: #d9d9d9 !important;
+          border-color: #d9d9d9 !important;
+          color: #ffffff !important;
+          cursor: not-allowed !important;
+          opacity: 1 !important;
+        }
+      `}</style>
+
+      {/* 搜索栏 */}
         <div
           style={{
             marginBottom: 16,
@@ -479,6 +492,8 @@ const CostTab: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               type="primary"
+              className="grayblue-btn"
+              style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
               icon={<UploadOutlined />}
               onClick={() => setImportModalVisible(true)}
             >

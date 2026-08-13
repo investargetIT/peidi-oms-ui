@@ -3,7 +3,6 @@ import {
   Alert,
   Button,
   DatePicker,
-  Descriptions,
   Input,
   Modal,
   Select,
@@ -15,8 +14,6 @@ import {
 import {
   SearchOutlined,
   UploadOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
 } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -31,8 +28,10 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { channelBillColumns } from '../columns';
+import { useUploadTasks } from '../common/uploadTaskStore';
 
 const DyBillPanel: React.FC = () => {
+  const { addTask, updateTask } = useUploadTasks();
   const [billDate, setBillDate] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
   const [shopName, setShopName] = useState<string>('');
   const [generateStatus, setGenerateStatus] = useState<number | undefined>(undefined);
@@ -50,9 +49,7 @@ const DyBillPanel: React.FC = () => {
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopLoading, setShopLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [importResult, setImportResult] = useState<FinanceChannelExtendCostImportVo | null>(null);
-  const [resultModalOpen, setResultModalOpen] = useState(false);
+  // 上传走异步任务模式：弹窗关掉后由 UploadTaskDrawer 跟踪，无需在面板内阻塞 UI
 
   const fetchBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
     setBillLoading(true);
@@ -150,7 +147,6 @@ const DyBillPanel: React.FC = () => {
     setSelectedConfigId(undefined);
     setSelectedShopId(undefined);
     setUploadFile(null);
-    setImportResult(null);
     setConfigList([]);
     setShopList([]);
     await Promise.all([fetchConfigList(), fetchShopList()]);
@@ -185,47 +181,75 @@ const DyBillPanel: React.FC = () => {
       message.error('请选择要上传的账单文件');
       return;
     }
-    setUploading(true);
-    try {
-      const res = await ManagementReportApi.uploadDouyinBill({
-        channel: 'dy',
-        date: uploadDate.format('YYYY-MM'),
-        financeBillConfigId: selectedConfigId,
-        shopId: selectedShopId,
-        file: uploadFile,
-      });
-      const result: FinanceChannelExtendCostImportVo =
-        (res.data as FinanceChannelExtendCostImportVo) ||
-        ({} as FinanceChannelExtendCostImportVo);
-      if (res.code === 200 || res.success) {
-        setImportResult(result);
-        setResultModalOpen(true);
-        // 关闭上传弹窗并刷新列表
-        setUploadModalOpen(false);
-        setUploadFile(null);
-        setSelectedConfigId(undefined);
-        setSelectedShopId(undefined);
-        fetchBill({ pageNum: 1 });
-      } else {
-        message.error(res.msg || '上传失败');
-      }
-    } catch (error) {
-      console.error('上传抖音账单失败:', error);
-      message.error('上传抖音账单失败');
-    } finally {
-      setUploading(false);
-    }
-  };
 
-  // 解析后端可能返回的 "new ArrayList<>()" 这种字符串
-  const normalizeMessageList = (raw: unknown): string[] => {
-    if (Array.isArray(raw)) {
-      return raw.filter((s): s is string => typeof s === 'string' && s.trim() !== '');
-    }
-    if (typeof raw === 'string' && raw && raw !== 'new ArrayList<>()') {
-      return [raw];
-    }
-    return [];
+    // 取下店铺名用于任务卡片展示
+    const selectedShop = shopList.find((s) => s.id === selectedShopId);
+    const shopName = selectedShop?.shopName || `店铺#${selectedShopId}`;
+    const billDateStr = uploadDate.format('YYYY-MM');
+    const fileName = uploadFile.name;
+
+    // 1. 立刻关闭上传弹窗 & 重置表单
+    setUploadModalOpen(false);
+    setUploadFile(null);
+    setSelectedConfigId(undefined);
+    setSelectedShopId(undefined);
+
+    // 2. 创建任务（后端请求异步进行中，不阻塞 UI）
+    const taskId = addTask({
+      channel: '抖音',
+      shopName,
+      billDate: billDateStr,
+      fileName,
+    });
+    message.success(`上传任务已提交，详见右下角任务卡片（共 1 项进行中）`);
+
+    // 3. 异步执行上传（不 await 阻塞）
+    ManagementReportApi.uploadDouyinBill({
+      channel: 'dy',
+      date: billDateStr,
+      financeBillConfigId: selectedConfigId,
+      shopId: selectedShopId,
+      file: uploadFile,
+    })
+      .then((res) => {
+        const result: FinanceChannelExtendCostImportVo =
+          (res.data as FinanceChannelExtendCostImportVo) ||
+          ({} as FinanceChannelExtendCostImportVo);
+        if (res.code === 200 || res.success) {
+          updateTask(taskId, {
+            status: 'success',
+            finishedAt: Date.now(),
+            result,
+          });
+          // 任务完成：右下角卡片已展示详细结果，这里只弹一个简洁提示
+          const fail = result.failCount ?? 0;
+          const success = result.successCount ?? 0;
+          const total = result.totalCount ?? 0;
+          message.success(
+            `【${shopName} / ${billDateStr}】上传完成：共 ${total} 条，成功 ${success} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`,
+          );
+          // 刷新列表
+          fetchBill({ pageNum: 1 });
+        } else {
+          updateTask(taskId, {
+            status: 'failed',
+            finishedAt: Date.now(),
+            errorMessage: res.msg || '上传失败',
+          });
+          message.error(res.msg || '上传失败');
+        }
+      })
+      .catch((error) => {
+        console.error('上传抖音账单失败:', error);
+        const errMsg =
+          (error && (error.msg || error.message)) || '上传失败，请稍后重试';
+        updateTask(taskId, {
+          status: 'failed',
+          finishedAt: Date.now(),
+          errorMessage: errMsg,
+        });
+        message.error(errMsg);
+      });
   };
 
   useEffect(() => {
@@ -323,12 +347,8 @@ const DyBillPanel: React.FC = () => {
       <Modal
         title="上传抖音账单"
         open={uploadModalOpen}
-        onCancel={() => {
-          if (uploading) return;
-          setUploadModalOpen(false);
-        }}
+        onCancel={() => setUploadModalOpen(false)}
         onOk={handleUpload}
-        confirmLoading={uploading}
         okText="开始上传"
         cancelText="取消"
         width={640}
@@ -410,104 +430,12 @@ const DyBillPanel: React.FC = () => {
               账单文件 <span style={{ color: '#ff4d4f' }}>*</span>
             </span>
             <Upload {...uploadProps}>
-              <Button icon={<UploadOutlined />} disabled={uploading || shopLoading}>
+              <Button icon={<UploadOutlined />} disabled={shopLoading}>
                 选择文件
               </Button>
             </Upload>
           </div>
         </div>
-      </Modal>
-
-      {/* 上传结果弹窗 */}
-      <Modal
-        title={
-          <Space>
-            {importResult && (importResult.failCount || 0) > 0 ? (
-              <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-            ) : (
-              <CheckCircleOutlined style={{ color: '#52c41a' }} />
-            )}
-            <span>上传结果</span>
-          </Space>
-        }
-        open={resultModalOpen}
-        onOk={() => setResultModalOpen(false)}
-        onCancel={() => setResultModalOpen(false)}
-        okText="关闭"
-        cancelButtonProps={{ style: { display: 'none' } }}
-        width={640}
-      >
-        {importResult && (
-          <div>
-            <Descriptions
-              size="small"
-              column={3}
-              bordered
-              items={[
-                { key: 'total', label: '总记录数', children: importResult.totalCount ?? 0 },
-                { key: 'success', label: '成功', children: importResult.successCount ?? 0 },
-                { key: 'fail', label: '失败', children: importResult.failCount ?? 0 },
-              ]}
-            />
-            {(() => {
-              const errors = normalizeMessageList(importResult.errorMessages);
-              const logs = normalizeMessageList(importResult.logs);
-              if (errors.length === 0 && logs.length === 0) return null;
-              return (
-                <div style={{ marginTop: 16 }}>
-                  {errors.length > 0 && (
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ fontWeight: 500, marginBottom: 6, color: '#ff4d4f' }}>
-                        错误信息（{errors.length}）
-                      </div>
-                      <div
-                        style={{
-                          background: '#fff2f0',
-                          border: '1px solid #ffccc7',
-                          borderRadius: 4,
-                          padding: 8,
-                          maxHeight: 200,
-                          overflow: 'auto',
-                          fontSize: 12,
-                          lineHeight: 1.7,
-                          whiteSpace: 'pre-wrap',
-                        }}
-                      >
-                        {errors.map((m, i) => (
-                          <div key={i}>• {m}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {logs.length > 0 && (
-                    <div>
-                      <div style={{ fontWeight: 500, marginBottom: 6, color: '#666' }}>
-                        处理日志（{logs.length}）
-                      </div>
-                      <div
-                        style={{
-                          background: '#fafafa',
-                          border: '1px solid #d9d9d9',
-                          borderRadius: 4,
-                          padding: 8,
-                          maxHeight: 200,
-                          overflow: 'auto',
-                          fontSize: 12,
-                          lineHeight: 1.7,
-                          whiteSpace: 'pre-wrap',
-                        }}
-                      >
-                        {logs.map((m, i) => (
-                          <div key={i}>• {m}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-        )}
       </Modal>
     </>
   );

@@ -305,6 +305,38 @@ export interface FinanceDyBillUploadReq {
   [property: string]: any;
 }
 
+/**
+ * 上传京东账单请求
+ * 京东特殊：一次需要上传 2 个文件 —— 账单明细（file1）+ 财务汇总表（file2）
+ */
+export interface FinanceJdBillUploadReq {
+  /**
+   * 渠道（jd）
+   */
+  channel: string;
+  /**
+   * 账单日期，格式：yyyy-MM
+   */
+  date: string;
+  /**
+   * 关联账单配置ID
+   */
+  financeBillConfigId: number;
+  /**
+   * 店铺ID
+   */
+  shopId: number;
+  /**
+   * 账单明细文件（Excel/CSV）
+   */
+  file1: File;
+  /**
+   * 财务汇总表文件（Excel/CSV）
+   */
+  file2: File;
+  [property: string]: any;
+}
+
 // 创建管报数据的request实例
 // 测试环境使用
 const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
@@ -385,6 +417,7 @@ export class ManagementReportApi {
   /**
    * 上传天猫账单
    * POST /oms/finance/tm-bill/upload（multipart/form-data）
+   * 后端解析账单比较耗时（10+ 分钟），单独把超时拉到 1 小时
    */
   static async uploadTmallBill(
     data: FinanceTmBillUploadReq,
@@ -397,11 +430,16 @@ export class ManagementReportApi {
     formData.append('file', data.file);
     return channelBillRequest.post('/tm-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
+      timeout: 1000 * 60 * 60,
+      // 关闭 axios 进度条 UI（任务卡自己有 spinner）
+      showLoading: false,
     });
   }
   /**
    * 上传抖音账单
    * POST /oms/finance/dy-bill/upload（multipart/form-data）
+   * 后端解析账单比较耗时（10+ 分钟），单独把超时拉到 1 小时
    */
   static async uploadDouyinBill(
     data: FinanceDyBillUploadReq,
@@ -414,6 +452,34 @@ export class ManagementReportApi {
     formData.append('file', data.file);
     return channelBillRequest.post('/dy-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
+      timeout: 1000 * 60 * 60,
+      // 关闭 axios 进度条 UI（任务卡自己有 spinner）
+      showLoading: false,
+    });
+  }
+  /**
+   * 上传京东账单
+   * POST /oms/finance/jd-bill/upload（multipart/form-data）
+   * 京东一次需要上传 2 个文件：账单明细 file1 + 财务汇总 file2
+   * 后端解析账单比较耗时（10+ 分钟），单独把超时拉到 1 小时
+   */
+  static async uploadJdBill(
+    data: FinanceJdBillUploadReq,
+  ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
+    const formData = new FormData();
+    formData.append('channel', data.channel);
+    formData.append('date', data.date);
+    formData.append('financeBillConfigId', String(data.financeBillConfigId));
+    formData.append('shopId', String(data.shopId));
+    formData.append('file1', data.file1);
+    formData.append('file2', data.file2);
+    return channelBillRequest.post('/jd-bill/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
+      timeout: 1000 * 60 * 60,
+      // 关闭 axios 进度条 UI（任务卡自己有 spinner）
+      showLoading: false,
     });
   }
   // 拼多多、小红书 待补
