@@ -175,21 +175,92 @@ export interface EndingBalanceRequest {
   [property: string]: any;
 }
 
+// ----- 京东费用统计 -----
+
+/**
+ * 京东账单收支计算统计结果
+ */
+export interface FinanceJd1CalculateStatVo {
+  /**
+   * 账单日期
+   */
+  billDate?: string;
+  /**
+   * 业务描述
+   */
+  businessDesc?: string;
+  /**
+   * 收支合计（收入+支出，元）
+   */
+  calculate?: number;
+  [property: string]: any;
+}
+
+/**
+ * 京东钱包支出分类统计结果
+ */
+export interface FinanceJd2ExpenseStatVo {
+  /**
+   * 备注分类
+   */
+  remarkCategory?: string;
+  /**
+   * 支出总额（元）
+   */
+  totalExpense?: number;
+  [property: string]: any;
+}
+
+/**
+ * 京东费用统计结果（京东钱包支出分类 + 京东账单收支计算）
+ */
+export interface FinanceJdCostStatVo {
+  /**
+   * 京东账单收支计算统计
+   */
+  jd1CalculateStat?: FinanceJd1CalculateStatVo[];
+  /**
+   * 京东钱包支出分类统计
+   */
+  jd2ExpenseStat?: FinanceJd2ExpenseStatVo[];
+  [property: string]: any;
+}
+
+/**
+ * 京东费用统计请求
+ * GET /oms/finance/channel-extend-cost/jd-cost-stat
+ */
+export interface FinanceJdCostStatReq {
+  /**
+   * 结束日期，格式：yyyy-MM-dd
+   */
+  endDate: string;
+  /**
+   * 店铺ID
+   */
+  shopId: number;
+  /**
+   * 开始日期，格式：yyyy-MM-dd
+   */
+  startDate: string;
+  [property: string]: any;
+}
+
 // 创建渠道推广费用的request实例
 // 测试环境使用
-// const channelExtendCostRequest = createRequest(
-//   `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
-//   {
-//     timeout: 1000 * 60,
-//   },
-// );
-// 生产环境使用
 const channelExtendCostRequest = createRequest(
-  `${process.env.BASE_URL}/finance/channel-extend-cost`,
+  `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
   {
     timeout: 1000 * 60,
   },
 );
+// 生产环境使用
+// const channelExtendCostRequest = createRequest(
+//   `${process.env.BASE_URL}/finance/channel-extend-cost`,
+//   {
+//     timeout: 1000 * 60,
+//   },
+// );
 
 // 渠道推广费用API类
 export class ChannelExtendCostApi {
@@ -274,6 +345,19 @@ export class ChannelExtendCostApi {
     return channelExtendCostRequest.get('/query', {
       params,
     });
+  }
+
+  /**
+   * 京东费用统计（京东钱包支出分类 + 京东账单收支计算）
+   * GET /oms/finance/channel-extend-cost/jd-cost-stat
+   */
+  static async getJdCostStat(params: FinanceJdCostStatReq): Promise<{
+    code: number;
+    data: FinanceJdCostStatVo;
+    msg: string;
+    success?: boolean;
+  }> {
+    return channelExtendCostRequest.get('/jd-cost-stat', { params });
   }
 }
 

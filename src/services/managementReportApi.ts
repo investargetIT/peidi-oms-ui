@@ -278,6 +278,33 @@ export interface FinanceTmBillUploadReq {
   [property: string]: any;
 }
 
+/**
+ * 上传抖音账单请求
+ */
+export interface FinanceDyBillUploadReq {
+  /**
+   * 渠道（dy）
+   */
+  channel: string;
+  /**
+   * 账单日期，格式：yyyy-MM
+   */
+  date: string;
+  /**
+   * 关联账单配置ID
+   */
+  financeBillConfigId: number;
+  /**
+   * 店铺ID
+   */
+  shopId: number;
+  /**
+   * 账单文件（Excel/CSV）
+   */
+  file: File;
+  [property: string]: any;
+}
+
 // 创建管报数据的request实例
 // 测试环境使用
 const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
@@ -372,7 +399,24 @@ export class ManagementReportApi {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   }
-  // 拼多多、抖音、小红书 待补
+  /**
+   * 上传抖音账单
+   * POST /oms/finance/dy-bill/upload（multipart/form-data）
+   */
+  static async uploadDouyinBill(
+    data: FinanceDyBillUploadReq,
+  ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
+    const formData = new FormData();
+    formData.append('channel', data.channel);
+    formData.append('date', data.date);
+    formData.append('financeBillConfigId', String(data.financeBillConfigId));
+    formData.append('shopId', String(data.shopId));
+    formData.append('file', data.file);
+    return channelBillRequest.post('/dy-bill/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  }
+  // 拼多多、小红书 待补
 }
 
 export default ManagementReportApi;
