@@ -23,8 +23,8 @@ const Report: React.FC = () => {
   const tabItems = [
     { key: 'management-report', label: '管报数据查询' },
     { key: 'cost', label: '成本核算' },
-    { key: 'channel-extend-cost', label: '渠道推广费用' },
     { key: 'channel-bills', label: '各渠道月账单' },
+    { key: 'channel-extend-cost', label: '渠道推广费用' },
   ];
 
   const renderTabContent = () => {
