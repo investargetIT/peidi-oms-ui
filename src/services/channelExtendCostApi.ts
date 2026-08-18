@@ -59,9 +59,7 @@ export interface FinanceChannelExtendCostDetailVo {
 }
 
 export interface FinanceChannelExtendCostMonthGroupVo {
-  detailCount?: number;
   details?: FinanceChannelExtendCostDetailVo[];
-  totalExpenseAmount?: number;
   yearMonth?: string;
   [property: string]: any;
 }
@@ -71,7 +69,6 @@ export interface FinanceChannelExtendCostShopGroupVo {
   monthGroups?: FinanceChannelExtendCostMonthGroupVo[];
   shopId?: number;
   totalCount?: number;
-  totalExpenseAmount?: number;
   wdtName?: string;
   [property: string]: any;
 }

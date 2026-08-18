@@ -8,9 +8,11 @@ import {
   Select,
   Space,
   Table,
+  Upload,
   message,
 } from 'antd';
-import { SearchOutlined, FileTextOutlined } from '@ant-design/icons';
+import type { UploadProps } from 'antd';
+import { SearchOutlined, FileTextOutlined, UploadOutlined } from '@ant-design/icons';
 import { saveAs } from 'file-saver';
 import dayjs, { type Dayjs } from 'dayjs';
 import ManagementReportApi, {
@@ -18,10 +20,13 @@ import ManagementReportApi, {
   type FinanceZfbBillInfoVo,
   type IPageFinanceZfbBillInfoVo,
   type FinanceZfbBillGenerateReq,
+  type FinanceChannelExtendCostImportVo,
 } from '@/services/managementReportApi';
 import { channelBillColumns } from '../columns';
+import { useUploadTasks } from '../common/uploadTaskStore';
 
 const ZfbBillPanel: React.FC = () => {
+  const { addTask, updateTask } = useUploadTasks();
   const [billDate, setBillDate] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
   const [shopName, setShopName] = useState<string>('');
   const [companyName, setCompanyName] = useState<string>('');
@@ -37,6 +42,14 @@ const ZfbBillPanel: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [selectedRows, setSelectedRows] = useState<FinanceZfbBillInfoVo[]>([]);
   const [batchExportLoading, setBatchExportLoading] = useState(false);
+
+  // 缺货赔付账单上传相关
+  const [stockoutModalOpen, setStockoutModalOpen] = useState(false);
+  const [stockoutDate, setStockoutDate] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
+  const [stockoutList, setStockoutList] = useState<FinanceZfbBillInfoVo[]>([]);
+  const [stockoutLoading, setStockoutLoading] = useState(false);
+  const [selectedStockoutId, setSelectedStockoutId] = useState<number | undefined>(undefined);
+  const [stockoutFile, setStockoutFile] = useState<File | null>(null);
 
   const fetchBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
     setBillLoading(true);
@@ -213,6 +226,144 @@ const ZfbBillPanel: React.FC = () => {
   useEffect(() => {
     fetchBill({ pageNum: 1 });
   }, []);
+
+  /**
+   * 拉取"指定月份"的账单记录（不分页），用作缺货赔付账单上传的店铺下拉选项。
+   * 通过把 pageSize 调大 + billDate 过滤，拿到所选月份的全量数据。
+   */
+  const fetchStockoutList = async (dateStr: string) => {
+    setStockoutLoading(true);
+    try {
+      const res: { code: number; data?: IPageFinanceZfbBillInfoVo; msg?: string; success?: boolean } =
+        await ManagementReportApi.getZfbBillPage({
+          pageNum: 1,
+          pageSize: 9999,
+          platform: '支付宝',
+          billDate: dateStr,
+        });
+      if (res.code === 200) {
+        setStockoutList(res.data?.records || []);
+      } else {
+        message.error(res.msg || '获取店铺列表失败');
+      }
+    } catch (error) {
+      console.error('获取店铺列表失败:', error);
+      message.error('获取店铺列表失败');
+    } finally {
+      setStockoutLoading(false);
+    }
+  };
+
+  const openStockoutModal = async () => {
+    setStockoutModalOpen(true);
+    setStockoutDate(dayjs().subtract(1, 'month'));
+    setSelectedStockoutId(undefined);
+    setStockoutFile(null);
+    setStockoutList([]);
+    // 拉取由下面的 useEffect 触发（依赖 stockoutDate + stockoutModalOpen）
+  };
+
+  /**
+   * 弹窗打开 或 账单日期变化时，重新拉取该月对应的店铺列表。
+   * 同时清空之前选中的店铺 id（换月后原选项已不适用）。
+   */
+  useEffect(() => {
+    if (stockoutModalOpen && stockoutDate) {
+      setSelectedStockoutId(undefined);
+      fetchStockoutList(stockoutDate.format('YYYY-MM'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockoutDate, stockoutModalOpen]);
+
+  const stockoutUploadProps: UploadProps = {
+    beforeUpload: (file) => {
+      setStockoutFile(file);
+      return false; // 阻止自动上传
+    },
+    fileList: stockoutFile ? [{ uid: '1', name: stockoutFile.name, status: 'done' }] : [],
+    onRemove: () => {
+      setStockoutFile(null);
+    },
+    accept: '.zip,.csv,.xlsx,.xls',
+  };
+
+  const handleStockoutUpload = async () => {
+    if (!stockoutDate) {
+      message.error('请选择账单日期');
+      return;
+    }
+    if (selectedStockoutId === undefined || selectedStockoutId === null) {
+      message.error('请选择店铺');
+      return;
+    }
+    if (!stockoutFile) {
+      message.error('请选择要上传的账单文件');
+      return;
+    }
+
+    const selectedRow = stockoutList.find((r) => r.id === selectedStockoutId);
+    const shopName = selectedRow?.shopName || `店铺#${selectedStockoutId}`;
+    const billDateStr = stockoutDate.format('YYYY-MM');
+    const fileName = stockoutFile.name;
+
+    // 1. 立刻关闭弹窗 & 重置表单
+    setStockoutModalOpen(false);
+    setStockoutFile(null);
+    setSelectedStockoutId(undefined);
+
+    // 2. 创建任务（异步进行中，不阻塞 UI）
+    const taskId = addTask({
+      channel: '支付宝-缺货赔付',
+      shopName,
+      billDate: billDateStr,
+      fileName,
+    });
+    message.success(`缺货赔付账单上传任务已提交，详见右下角任务卡片`);
+
+    // 3. 异步执行上传
+    ManagementReportApi.uploadStockoutBill({
+      billDate: billDateStr,
+      // 按需求：把选中店铺对应的行 id 直接当作 financeBillConfigId
+      financeBillConfigId: selectedStockoutId,
+      file: stockoutFile,
+    })
+      .then((res) => {
+        const result: FinanceChannelExtendCostImportVo =
+          (res.data as FinanceChannelExtendCostImportVo) ||
+          ({} as FinanceChannelExtendCostImportVo);
+        if (res.code === 200 || res.success) {
+          updateTask(taskId, {
+            status: 'success',
+            finishedAt: Date.now(),
+            result,
+          });
+          const fail = result.failCount ?? 0;
+          const success = result.successCount ?? 0;
+          const total = result.totalCount ?? 0;
+          message.success(
+            `【${shopName} / ${billDateStr}】上传完成：共 ${total} 条，成功 ${success} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`,
+          );
+        } else {
+          updateTask(taskId, {
+            status: 'failed',
+            finishedAt: Date.now(),
+            errorMessage: res.msg || '上传失败',
+          });
+          message.error(res.msg || '上传失败');
+        }
+      })
+      .catch((error) => {
+        console.error('上传缺货赔付账单失败:', error);
+        const errMsg =
+          (error && (error.msg || error.message)) || '上传失败，请稍后重试';
+        updateTask(taskId, {
+          status: 'failed',
+          finishedAt: Date.now(),
+          errorMessage: errMsg,
+        });
+        message.error(errMsg);
+      });
+  };
   return (
     <>
       <style>{`
@@ -314,6 +465,16 @@ const ZfbBillPanel: React.FC = () => {
                 type="primary"
                 className="grayblue-btn"
                 style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+                icon={<UploadOutlined />}
+                onClick={openStockoutModal}
+              >
+                上传缺货赔付账单
+              </Button>
+              {/* 批量导出功能暂时关闭
+              <Button
+                type="primary"
+                className="grayblue-btn"
+                style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
                 icon={<FileTextOutlined />}
                 onClick={handleBatchExport}
                 loading={batchExportLoading}
@@ -321,10 +482,12 @@ const ZfbBillPanel: React.FC = () => {
               >
                 批量导出{selectedRowKeys.length > 0 ? ` (${selectedRowKeys.length})` : ''}
               </Button>
+              */}
             </Space>
           </div>
         </div>
       </div>
+      {/* 多选功能暂时关闭
       <div
         style={{
           marginBottom: 8,
@@ -348,6 +511,7 @@ const ZfbBillPanel: React.FC = () => {
           <span style={{ color: '#999' }}>未勾选任何账单</span>
         )}
       </div>
+      */}
 
       <Table
         columns={channelBillColumns}
@@ -356,18 +520,19 @@ const ZfbBillPanel: React.FC = () => {
         loading={billLoading}
         size="small"
         scroll={{ x: 1800 }}
-        rowSelection={{
-          selectedRowKeys,
-          preserveSelectedRowKeys: true,
-          selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE],
-          onChange: (keys, rows) => {
-            setSelectedRowKeys(keys);
-            setSelectedRows(rows as FinanceZfbBillInfoVo[]);
-          },
-          getCheckboxProps: (record: FinanceZfbBillInfoVo) => ({
-            disabled: !record.fileUrl,
-          }),
-        }}
+        // 多选功能暂时关闭
+        // rowSelection={{
+        //   selectedRowKeys,
+        //   preserveSelectedRowKeys: true,
+        //   selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE],
+        //   onChange: (keys, rows) => {
+        //     setSelectedRowKeys(keys);
+        //     setSelectedRows(rows as FinanceZfbBillInfoVo[]);
+        //   },
+        //   getCheckboxProps: (record: FinanceZfbBillInfoVo) => ({
+        //     disabled: !record.fileUrl,
+        //   }),
+        // }}
         pagination={{
           ...billPagination,
           showSizeChanger: true,
@@ -380,6 +545,84 @@ const ZfbBillPanel: React.FC = () => {
           },
         }}
       />
+
+      {/* 上传缺货赔付账单弹窗 */}
+      <Modal
+        title="上传缺货赔付账单"
+        open={stockoutModalOpen}
+        onCancel={() => setStockoutModalOpen(false)}
+        onOk={handleStockoutUpload}
+        okText="开始上传"
+        cancelText="取消"
+        width={640}
+        destroyOnClose
+        okButtonProps={{
+          className: 'grayblue-btn',
+          style: { background: '#2f54eb', borderColor: '#2f54eb' },
+        }}
+      >
+        <Alert
+          type="info"
+          showIcon
+          message="上传说明"
+          description={
+            <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+              1. 支持 .zip / .csv / .xlsx / .xls 格式（zip 会递归解压）<br />
+              2. 账单日期格式：yyyy-MM（如 2026-07），不可清空，切换月份会自动刷新店铺列表<br />
+              3. 关联账单配置ID 取自下方列表所选店铺对应的账单记录 id
+            </div>
+          }
+          style={{ marginBottom: 16 }}
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              账单日期 <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <DatePicker.MonthPicker
+              style={{ width: '100%' }}
+              value={stockoutDate}
+              onChange={(date) => setStockoutDate(date)}
+              format="YYYY-MM"
+              placeholder="请选择月份"
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              店铺 <span style={{ color: '#ff4d4f' }}>*</span>
+              <span style={{ marginLeft: 8, color: '#999', fontSize: 11 }}>
+                （已按上方所选月份过滤后的全量列表）
+              </span>
+            </span>
+            <Select
+              style={{ width: '100%' }}
+              value={selectedStockoutId}
+              onChange={(v) => setSelectedStockoutId(v)}
+              placeholder={stockoutLoading ? '加载中...' : '请选择店铺'}
+              loading={stockoutLoading}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={stockoutList
+                .filter((s) => s.id !== undefined && s.id !== null)
+                .map((s) => ({
+                  label: `${s.shopName || '-'}${s.billDate ? `（${s.billDate}）` : ''}`,
+                  value: s.id as number,
+                }))}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              账单文件 <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <Upload {...stockoutUploadProps}>
+              <Button icon={<UploadOutlined />} disabled={stockoutLoading}>
+                选择文件
+              </Button>
+            </Upload>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

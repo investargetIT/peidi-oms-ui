@@ -1,26 +1,18 @@
 import React from 'react';
+import ChannelExtendCostBase from '../shared/ChannelExtendCostBase';
 
 /**
  * 支付宝 - 渠道推广费用
  *
- * TODO: 内容待补
- * 后续可参考 jd/index.tsx 的实现：复用 ../shared/ChannelExtendCostBase，
- * 通过 channel="支付宝" 调 /oms/finance/channel-extend-cost/group/page；
- * 如果有"费用统计"自定义需求，再加 onCustomStatClick 拦截。
+ * 当前与 Base 实现完全一致，后续如果发现支付宝有特殊的业务编码分类
+ * 或汇总逻辑（比如"费用统计"要调自己的接口），可以在这里 fork Base
+ * 实现一份独立的 panel，并加 onCustomStatClick 拦截。
+ *
+ * 列表数据走 /oms/finance/channel-extend-cost/group/page，
+ * 后端会按 channel="支付宝" 过滤返回。
  */
 const ZfbExtendCostPanel: React.FC = () => {
-  return (
-    <div
-      style={{
-        padding: '60px 0',
-        textAlign: 'center',
-        color: '#999',
-        fontSize: 14,
-      }}
-    >
-      支付宝 - 渠道推广费用：敬请期待
-    </div>
-  );
+  return <ChannelExtendCostBase channel="支付宝" />;
 };
 
 export default ZfbExtendCostPanel;

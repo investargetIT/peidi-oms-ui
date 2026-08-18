@@ -155,11 +155,23 @@ export interface FinanceZfbBillInfoVo {
   createdAt?: string;
   endingBalance?: number;
   fileUrl?: string;
+  /**
+   * 账单文件 URL 列表（与 fileNames 一一对应）
+   */
+  fileUrls?: string[] | null;
+  /**
+   * 账单文件名称列表（与 fileUrls 一一对应）
+   */
+  fileNames?: string[] | null;
+  fileObjectKey?: string | null;
   financeZfbBillConfigId?: number;
   generateStatus?: number;
   id?: number;
   merchantName?: string;
   shopName?: string;
+  shopId?: number | null;
+  financeBillConfigId?: number;
+  platform?: string;
   updatedAt?: string;
   [property: string]: any;
 }
@@ -337,6 +349,27 @@ export interface FinanceJdBillUploadReq {
   [property: string]: any;
 }
 
+/**
+ * 上传天猫缺货赔付账单请求
+ * /oms/finance/tm-stockout-bill/upload
+ * billDate / financeBillConfigId 走 query string，file 走 multipart body
+ */
+export interface FinanceStockoutBillUploadReq {
+  /**
+   * 账单日期，格式：yyyy-MM
+   */
+  billDate: string;
+  /**
+   * 关联账单配置ID（需已生成当月天猫账单）
+   */
+  financeBillConfigId: number;
+  /**
+   * 账单文件（zip/csv/excel，zip 会递归解压）
+   */
+  file: File;
+  [property: string]: any;
+}
+
 // 创建管报数据的request实例
 // 测试环境使用
 const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
@@ -479,6 +512,27 @@ export class ManagementReportApi {
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
       timeout: 1000 * 60 * 60,
       // 关闭 axios 进度条 UI（任务卡自己有 spinner）
+      showLoading: false,
+    });
+  }
+  /**
+   * 上传天猫缺货赔付账单
+   * POST /oms/finance/tm-stockout-bill/upload
+   * billDate / financeBillConfigId 走 query string，file 走 multipart body
+   * 后端解析账单比较耗时，单独把超时拉到 1 小时
+   */
+  static async uploadStockoutBill(
+    data: FinanceStockoutBillUploadReq,
+  ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    return channelBillRequest.post('/tm-stockout-bill/upload', formData, {
+      params: {
+        billDate: data.billDate,
+        financeBillConfigId: data.financeBillConfigId,
+      },
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 1000 * 60 * 60,
       showLoading: false,
     });
   }

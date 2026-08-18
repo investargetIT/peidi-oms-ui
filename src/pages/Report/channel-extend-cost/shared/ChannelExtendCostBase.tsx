@@ -384,7 +384,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
       whiteSpace: 'nowrap' as const,
       render: (value: number) => (
         <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-          {value !== undefined ? value.toFixed(2) : '-'}
+          {value?.toFixed(2) ?? '-'}
         </span>
       ),
     },
@@ -418,14 +418,6 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
 
   const monthGroupColumns = [
     { title: '年月', dataIndex: 'yearMonth', key: 'yearMonth', width: 120 },
-    { title: '明细数量', dataIndex: 'detailCount', key: 'detailCount', width: 100 },
-    {
-      title: '总支出金额（元）',
-      dataIndex: 'totalExpenseAmount',
-      key: 'totalExpenseAmount',
-      width: 150,
-      render: (value: number) => (value !== undefined ? value.toFixed(2) : '-'),
-    },
     {
       title: '操作',
       key: 'action',
@@ -477,13 +469,6 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
     },
     { title: '渠道', dataIndex: 'channel', key: 'channel', width: 120 },
     { title: '明细总数量', dataIndex: 'totalCount', key: 'totalCount', width: 120 },
-    {
-      title: '总支出金额（元）',
-      dataIndex: 'totalExpenseAmount',
-      key: 'totalExpenseAmount',
-      width: 150,
-      render: (value: number) => (value !== undefined ? value.toFixed(2) : '-'),
-    },
   ];
 
   // 渲染年月分组表格（展开店铺后显示）
