@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Table, message } from 'antd';
+import { Collapse, Modal, Table, message } from 'antd';
 import dayjs from 'dayjs';
 import ChannelExtendCostApi, {
   type FinanceJdCostStatVo,
@@ -8,18 +8,6 @@ import ChannelExtendCostApi, {
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
 import ChannelExtendCostBase from '../shared/ChannelExtendCostBase';
-
-// Alert 内 <code> 的内联样式：浅灰底、圆角、单色字色
-const codeStyle: React.CSSProperties = {
-  margin: '0 2px',
-  padding: '0 4px',
-  background: 'rgba(0,0,0,0.06)',
-  border: '1px solid rgba(0,0,0,0.08)',
-  borderRadius: 3,
-  fontSize: 12,
-  fontFamily: 'Menlo, Consolas, monospace',
-  color: '#444',
-};
 
 /**
  * 京东 - 渠道推广费用
@@ -38,6 +26,10 @@ const JdExtendCostPanel: React.FC = () => {
   const [modalLoading, setModalLoading] = useState(false);
   const [jd2Data, setJd2Data] = useState<FinanceJd2ExpenseStatVo[]>([]);
   const [jd1Data, setJd1Data] = useState<FinanceJd1CalculateStatVo[]>([]);
+  // 新增：上月末日明细（6/30 之类的结转凭证）、上月期初/期末余额
+  const [lastMonthJd1CalculateStat, setLastMonthJd1CalculateStat] = useState<FinanceJd1CalculateStatVo[]>([]);
+  const [lastMonthBeginningBalance, setLastMonthBeginningBalance] = useState<number | null>(null);
+  const [lastMonthEndingBalance, setLastMonthEndingBalance] = useState<number | null>(null);
 
   // 按 yyyy-MM 算出当月 startDate / endDate
   const getMonthRange = (yearMonth: string) => {
@@ -61,6 +53,9 @@ const JdExtendCostPanel: React.FC = () => {
         const data: FinanceJdCostStatVo = res.data || ({} as FinanceJdCostStatVo);
         setJd2Data(data.jd2ExpenseStat || []);
         setJd1Data(data.jd1CalculateStat || []);
+        setLastMonthJd1CalculateStat(data.lastMonthJd1CalculateStat || []);
+        setLastMonthBeginningBalance(data.lastMonthBeginningBalance ?? null);
+        setLastMonthEndingBalance(data.lastMonthEndingBalance ?? null);
       } else if (res.code === 500) {
         message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
       } else {
@@ -93,6 +88,9 @@ const JdExtendCostPanel: React.FC = () => {
     setCurrentYearMonth(params.yearMonth);
     setJd1Data([]);
     setJd2Data([]);
+    setLastMonthJd1CalculateStat([]);
+    setLastMonthBeginningBalance(null);
+    setLastMonthEndingBalance(null);
     setModalVisible(true);
     fetchJdStat(params.shopId, params.yearMonth);
     return true; // 已处理，Base 不再弹默认统计弹窗
@@ -102,6 +100,9 @@ const JdExtendCostPanel: React.FC = () => {
     setModalVisible(false);
     setJd1Data([]);
     setJd2Data([]);
+    setLastMonthJd1CalculateStat([]);
+    setLastMonthBeginningBalance(null);
+    setLastMonthEndingBalance(null);
   };
 
   // 金额统一渲染：右对齐、12px 字号、保留 2 位小数
@@ -158,16 +159,25 @@ const JdExtendCostPanel: React.FC = () => {
   );
 
   // 京东账单收支计算列表 - 动态列
-  // 后端返回：[{ billDate, businessDesc, calculate }, ...]（227 条 = 多个日期 × 多个业务描述）
-  // 在前端 pivot 成：[{ billDate, [业务描述1]: 值, [业务描述2]: 值, ..., total: 总计 }, ...]
+  // 后端返回：jd1CalculateStat（当月每日明细）+ lastMonthJd1CalculateStat（上月末日单日明细）
+  // 合并后按 billDate 倒序（最新在前；6/30 自然落到最后一行），再 pivot：
+  //   [{ billDate, [业务描述1]: 值, [业务描述2]: 值, ..., total: 总计 }, ...]
   // 每一行 = 一个账单日期；列 = 数据里出现过的 businessDesc
   const { pivotedJd1Data, jd1BusinessDescList, jd1ScrollX } = useMemo(() => {
+    // 合并当月 + 上月末日（保持原顺序：先当月后上月，便于业务列按"先出现"顺序排）
+    const combined: FinanceJd1CalculateStatVo[] = [
+      ...jd1Data,
+      ...lastMonthJd1CalculateStat,
+    ];
+    // 按 billDate 倒序：日期字符串用 localeCompare 即可（YYYY-MM-DD 字典序 == 时间序）
+    combined.sort((a, b) => (b.billDate || '').localeCompare(a.billDate || ''));
+
     const rowMap = new Map<string, Record<string, any>>();
     // 用数组保序 + Set 去重，保证列的出现顺序与数据中首次出现顺序一致
     const descOrder: string[] = [];
     const descSeen = new Set<string>();
 
-    jd1Data.forEach((item) => {
+    combined.forEach((item) => {
       const date = item.billDate || '';
       if (!rowMap.has(date)) {
         rowMap.set(date, { billDate: date });
@@ -186,7 +196,10 @@ const JdExtendCostPanel: React.FC = () => {
     });
 
     // 计算每行总计 = 该行所有业务描述列的金额之和
-    const pivoted = Array.from(rowMap.values()).map((row) => {
+    // 显式标注数组元素类型，避免 spread 丢失 Record<string, any> 索引签名
+    const pivoted: (Record<string, any> & { total: number })[] = Array.from(
+      rowMap.values(),
+    ).map((row) => {
       const sum = descOrder.reduce(
         (acc, desc) => acc + (typeof row[desc] === 'number' ? row[desc] : 0),
         0,
@@ -202,7 +215,7 @@ const JdExtendCostPanel: React.FC = () => {
       jd1BusinessDescList: descOrder,
       jd1ScrollX: scrollX,
     };
-  }, [jd1Data]);
+  }, [jd1Data, lastMonthJd1CalculateStat]);
 
   // 京东账单收支计算列表列：账单日期 + 动态业务列 + 总计
   const jd1Columns = useMemo(
@@ -242,29 +255,58 @@ const JdExtendCostPanel: React.FC = () => {
     [jd1BusinessDescList],
   );
 
+  // 当月最后一天（如 2026-07-31）：用于排除总计行
+  // 6/30 不会和 7/31 冲突，所以 lastMonthJd1CalculateStat 那行仍会进总计行
+  const lastDayOfCurrentMonth = useMemo(
+    () =>
+      currentYearMonth
+        ? dayjs(`${currentYearMonth}-01`).endOf('month').format('YYYY-MM-DD')
+        : '',
+    [currentYearMonth],
+  );
+
   // "总计行"：每列 = 所有数据（pivotedJd1Data）的列总和，不受分页影响
+  // 排除当月最后一天（如 7/31），但保留上月末日（6/30）
   const jd1SummaryRow = useMemo(() => {
+    const filtered = lastDayOfCurrentMonth
+      ? pivotedJd1Data.filter((r) => r.billDate !== lastDayOfCurrentMonth)
+      : pivotedJd1Data;
     const sums: Record<string, number> = {};
     jd1BusinessDescList.forEach((desc) => {
-      sums[desc] = pivotedJd1Data.reduce(
+      sums[desc] = filtered.reduce(
         (acc, row) => acc + (typeof row[desc] === 'number' ? row[desc] : 0),
         0,
       );
     });
-    // 总计列的总和 = 所有行"总计"列的累加（数学上 = 所有业务列总和的累加）
-    sums.total = pivotedJd1Data.reduce(
+    // 总计列的总和 = 过滤后所有行"总计"列的累加
+    sums.total = filtered.reduce(
       (acc, row) => acc + (typeof row.total === 'number' ? row.total : 0),
       0,
     );
     return sums;
-  }, [pivotedJd1Data, jd1BusinessDescList]);
+  }, [pivotedJd1Data, jd1BusinessDescList, lastDayOfCurrentMonth]);
 
-  // 京东余额对账：单行 1 列
+  // 京东余额对账
   // 本月入账 = 京东账单收支计算列表(总计行的总计)
   //         - 京东钱包支出分类统计的几个扣减项之和
   // 扣减项：提现、京东联盟、违约金、其他、价保c（这 5 项写死，未来可改成配置驱动）
   // TODO: 5 个扣减项是写死的，等后端补"哪些分类需要扣"配置后改用配置
   const DEDUCT_CATEGORIES = ['提现', '京东联盟', '违约金', '其他', '价保c'];
+
+  // 收款 = A − 直赔代扣 − 违约金 − 价保
+  // A = 京东账单收支计算列表(总计行)里 7 个业务描述的合计
+  // 扣减项里 "直赔代扣/违约金/价保" 来自京东钱包支出分类统计（与本月入账的扣减项不重叠）
+  // 注："价保扣款" 当前后端 jd1CalculateStat 还没返回，写在这等后续补上后自动生效
+  const COLLECTION_A_CATEGORIES = [
+    '代收配送费',
+    '货款',
+    '价保扣款',
+    '平台券价保补贴',
+    '平台券价保补贴佣金',
+    '售后卖家赔付费',
+    '综合违约金',
+  ];
+  const COLLECTION_DEDUCT_CATEGORIES = ['直赔代扣', '违约金', '价保'];
 
   const jdBalanceSummary = useMemo(() => {
     // 取 jd2 透视后那 1 行（pivotedJd2Data[0]），从中拿 5 个扣减项的金额
@@ -275,15 +317,62 @@ const JdExtendCostPanel: React.FC = () => {
     );
     // 本月入账 = jd1 总计行的总计 - 扣减项之和
     const currentMonthIn = (jd1SummaryRow.total || 0) - deductSum;
-    return [{ currentMonthIn }];
-  }, [pivotedJd2Data, jd1SummaryRow.total]);
+
+    // 收款 = A − 直赔代扣 − 违约金 − 价保
+    // A 来自 jd1 总计行各列；扣减项来自 jd2 钱包支出分类
+    const collectionA = COLLECTION_A_CATEGORIES.reduce(
+      (sum, desc) => sum + (typeof jd1SummaryRow[desc] === 'number' ? jd1SummaryRow[desc] : 0),
+      0,
+    );
+    const collectionDeduct = COLLECTION_DEDUCT_CATEGORIES.reduce(
+      (sum, cat) => sum + (typeof jd2Row[cat] === 'number' ? jd2Row[cat] : 0),
+      0,
+    );
+    const collection = collectionA - collectionDeduct;
+
+    return [{
+      lastMonthBeginningBalance,
+      lastMonthEndingBalance,
+      currentMonthIn,
+      collection,
+    }];
+  }, [
+    pivotedJd2Data,
+    jd1SummaryRow,
+    lastMonthBeginningBalance,
+    lastMonthEndingBalance,
+  ]);
 
   const jdBalanceColumns = useMemo(
     () => [
       {
+        title: '上月余额',
+        dataIndex: 'lastMonthBeginningBalance',
+        key: 'lastMonthBeginningBalance',
+        width: 130,
+        align: 'left' as const,
+        render: renderAmount,
+      },
+      {
+        title: '期末余额',
+        dataIndex: 'lastMonthEndingBalance',
+        key: 'lastMonthEndingBalance',
+        width: 130,
+        align: 'left' as const,
+        render: renderAmount,
+      },
+      {
         title: '本月入账',
         dataIndex: 'currentMonthIn',
         key: 'currentMonthIn',
+        width: 130,
+        align: 'left' as const,
+        render: renderAmount,
+      },
+      {
+        title: '收款',
+        dataIndex: 'collection',
+        key: 'collection',
         width: 130,
         align: 'left' as const,
         render: renderAmount,
@@ -338,37 +427,54 @@ const JdExtendCostPanel: React.FC = () => {
             overflow: visible !important;
             display: block !important;
           }
+          /* 不参与总计行计算的数据行（如本月最后一天）：背景灰色标识 */
+          .jd1-table-small tr.jd1-excluded-row > td {
+            background: #f5f5f5 !important;
+          }
+          .jd1-table-small tr.jd1-excluded-row:hover > td {
+            background: #ebebeb !important;
+          }
         `}</style>
 
         {/* 计算逻辑说明：3 段表格的数据来源 + 本月入账的公式 */}
-        <Alert
-          type="info"
-          showIcon
-          message="计算逻辑说明"
-          description={
-            <div style={{ fontSize: 12, lineHeight: 1.8 }}>
-              <div style={{ marginBottom: 4 }}>
-                <b>京东账单收支计算列表</b>：由后端
-                <code style={codeStyle}>jd1CalculateStat</code>
-                数组按「账单日期」分组透视而来；行 = 账单日期，列 = 该日期下出现过的各业务类型(businessDesc)，
-                同行同列多次按金额累加；行末「总计」= 该行所有业务列金额之和，最末「总计行」= 全部数据列纵向求和。
-              </div>
-              <div style={{ marginBottom: 4 }}>
-                <b>京东钱包支出分类统计</b>：由后端
-                <code style={codeStyle}>jd2ExpenseStat</code>
-                数组按「备注分类(remarkCategory)」透视而来；单行展示每个分类的总支出金额。
-              </div>
-              <div>
-                <b>京东余额对账</b>：本月入账 =
-                <code style={codeStyle}>京东账单收支计算列表(总计行的总计)</code>
-                −
-                <code style={codeStyle}>京东钱包支出分类统计(提现 + 京东联盟 + 违约金 + 其他 + 价保c)</code>
-                ，扣减项为写死配置，后续可由后端配置项驱动。
-              </div>
+        <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
+          <Collapse.Panel header="计算逻辑说明" key="1">
+            <div
+              style={{
+                background: '#f5f5f5',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                fontSize: 12,
+                margin: -16,
+              }}
+            >
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>京东余额对账：</strong>
+                  「上月余额」、「期末余额」是系统从京东接口拉到的上个月初/末账户余额；
+                  「本月入账」= 京东账单收支计算列表的合计 − 钱包支出里的提现/京东联盟/违约金/其他/价保 五项；
+                  「收款」= A − 直赔代扣 − 违约金 − 价保，其中 A = 账单收支总计行里的代收配送费 + 货款 + 价保扣款 + 平台券价保补贴 + 平台券价保补贴佣金 + 售后卖家赔付费 + 综合违约金。
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>京东钱包支出分类统计：</strong>
+                  按钱包扣款的备注分类（提现、京东联盟、违约金等）展示每类本月共支出多少。
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>京东账单收支计算列表：</strong>
+                  按账单日期倒序展示本月的每一笔收支明细，每行是某一天的总览，每列是当天的某一类业务（如货款、佣金、交易服务费等）金额。
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>表格最后一行：</strong>
+                  是上个月最后一天（例 6 月 30 日）的结转凭证，把它也纳入对账便于和上月余额衔接。
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>「总计行」：</strong>
+                  所有日期的纵向合计，但会排除本月最后一天（例 7 月 31 日）；上月末日（6/30）正常参与合计。
+                </li>
+              </ul>
             </div>
-          }
-          style={{ marginBottom: 16 }}
-        />
+          </Collapse.Panel>
+        </Collapse>
 
         {/* 京东余额对账 */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
@@ -382,7 +488,7 @@ const JdExtendCostPanel: React.FC = () => {
           size="small"
           className="jd1-table-small"
           pagination={false}
-          scroll={{ x: 130 }}
+          scroll={{ x: 130 * 4 }}
           style={{ marginBottom: 24 }}
         />
 
@@ -410,9 +516,9 @@ const JdExtendCostPanel: React.FC = () => {
         {/* 京东账单收支计算列表 */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
           京东账单收支计算列表
-          {jd1Data.length > 0 && (
+          {(jd1Data.length > 0 || lastMonthJd1CalculateStat.length > 0) && (
             <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
-              （{pivotedJd1Data.length} 个日期 / {jd1Data.length} 条）
+              （{pivotedJd1Data.length} 个日期 / {jd1Data.length + lastMonthJd1CalculateStat.length} 条）
             </span>
           )}
         </div>
@@ -425,6 +531,10 @@ const JdExtendCostPanel: React.FC = () => {
           className="jd1-table-small"
           scroll={{ x: jd1ScrollX }}
           pagination={false}
+          // 第一行 = 本月最后一天（如 2026-07-31），已从总计行排除，背景标灰
+          rowClassName={(record) =>
+            record.billDate === lastDayOfCurrentMonth ? 'jd1-excluded-row' : ''
+          }
           summary={
             pivotedJd1Data.length > 0
               ? () => (
