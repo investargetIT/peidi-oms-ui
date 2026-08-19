@@ -58,18 +58,29 @@ export interface FinanceChannelExtendCostDetailVo {
   [property: string]: any;
 }
 
-export interface FinanceChannelExtendCostMonthGroupVo {
-  details?: FinanceChannelExtendCostDetailVo[];
-  yearMonth?: string;
-  [property: string]: any;
-}
-
-export interface FinanceChannelExtendCostShopGroupVo {
-  channel?: string;
-  monthGroups?: FinanceChannelExtendCostMonthGroupVo[];
+export interface FinanceChannelExtendCostItemVo {
+  /** 店铺ID */
   shopId?: number;
-  totalCount?: number;
+  /** 店铺名称（旺店通名称） */
   wdtName?: string;
+  /** 渠道（拼多多/天猫/抖音/京东...） */
+  channel?: string;
+  /** 年月 yyyy-MM */
+  yearMonth?: string;
+  /** 账单配置ID */
+  financeBillConfigId?: number;
+  /** 平台（与 channel 含义相近） */
+  platform?: string;
+  /** 店铺短名 */
+  shopName?: string;
+  /** 公司名称 */
+  companyName?: string | null;
+  /** 生成状态 */
+  generateStatus?: number;
+  /** 期初余额 = 上月期末余额 */
+  beginningBalance?: number;
+  /** 期末余额 */
+  endingBalance?: number;
   [property: string]: any;
 }
 
@@ -86,7 +97,7 @@ export interface PageResponse {
   optimizeCountSql?: boolean;
   orders?: OrderItem[];
   pages?: number;
-  records?: FinanceChannelExtendCostShopGroupVo[];
+  records?: FinanceChannelExtendCostItemVo[];
   searchCount?: boolean;
   size?: number;
   total?: number;

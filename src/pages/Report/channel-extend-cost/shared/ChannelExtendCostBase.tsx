@@ -14,8 +14,7 @@ import { SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import ChannelExtendCostApi, {
   type PageRequest,
-  type FinanceChannelExtendCostShopGroupVo,
-  type FinanceChannelExtendCostDetailVo,
+  type FinanceChannelExtendCostItemVo,
   type FinanceCostCategoryStatVo,
   type ShopVo,
 } from '@/services/channelExtendCostApi';
@@ -75,23 +74,10 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
 }) => {
   // ============ 状态 ============
   const [channelLoading, setChannelLoading] = useState(false);
-  const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostShopGroupVo[]>([]);
+  const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostItemVo[]>([]);
   const [channelPagination, setChannelPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopsLoading, setShopsLoading] = useState(false);
-
-  // 明细弹窗状态
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [detailModalTitle, setDetailModalTitle] = useState('');
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailDataSource, setDetailDataSource] = useState<FinanceChannelExtendCostDetailVo[]>([]);
-  const [detailPagination, setDetailPagination] = useState({ current: 1, pageSize: 20, total: 0 });
-  const [detailQueryParams, setDetailQueryParams] = useState<{
-    shopId?: number;
-    channel?: string;
-    yearMonth?: string;
-    accountType?: string;
-  }>({});
 
   // 费用分类统计弹窗状态
   const [statModalVisible, setStatModalVisible] = useState(false);
@@ -108,9 +94,6 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
   const [searchAccountType, setSearchAccountType] = useState<string>('');
   const [searchShopId, setSearchShopId] = useState<number | undefined>(undefined);
   const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
-
-  // 渠道推广费用 - 展开的行
-  const [channelExpandedRowKeys, setChannelExpandedRowKeys] = useState<React.Key[]>([]);
 
   // ============ 数据获取 ============
   // 获取店铺列表（按当前渠道过滤）
@@ -175,70 +158,14 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
     }
   };
 
-  // 获取明细数据
-  const fetchDetailData = async (
-    params: {
-      shopId?: number;
-      channel?: string;
-      yearMonth?: string;
-      accountType?: string;
-      pageNum?: number;
-      pageSize?: number;
-    } = {},
-  ) => {
-    setDetailLoading(true);
-    try {
-      const searchParams: any = {
-        pageNum: detailPagination.current,
-        pageSize: detailPagination.pageSize,
-        ...detailQueryParams,
-        ...params,
-      };
-      const res = await ChannelExtendCostApi.getDetails(searchParams);
-      if (res.code === 200) {
-        setDetailDataSource(res.data.records || []);
-        setDetailPagination({
-          current: res.data.current || 1,
-          pageSize: res.data.size || 20,
-          total: res.data.total || 0,
-        });
-      } else if (res.code === 500) {
-        message.error(typeof res.data === 'string' ? res.data : '获取明细失败');
-      } else {
-        message.error('获取明细失败');
-      }
-    } catch (error) {
-      console.error('获取明细失败:', error);
-      message.error('获取明细失败');
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
-  // 打开明细弹窗
-  const openDetailModal = (
-    wdtName: string | undefined,
-    yearMonth: string | undefined,
-    shopId: number | undefined,
-    ch: string | undefined,
-  ) => {
-    const title = `${displayShopName(wdtName) || ''} ${yearMonth || ''} 渠道推广费用明细`;
-    setDetailModalTitle(title);
-    setDetailDataSource([]);
-    const queryParams = { shopId, channel: ch, yearMonth, accountType: searchAccountType };
-    setDetailQueryParams(queryParams);
-    setDetailPagination({ current: 1, pageSize: 20, total: 0 });
-    setDetailModalVisible(true);
-    fetchDetailData({ ...queryParams, pageNum: 1 });
-  };
-
   // 打开费用分类统计弹窗
-  const openStatModal = async (
-    wdtName: string | undefined,
-    yearMonth: string | undefined,
-    shopId: number | undefined,
-    ch: string | undefined,
-  ) => {
+  // 余额统一走老的 /oms/finance/channel-extend-cost/query 接口取，
+  // 不复用主表行里的 beginningBalance / endingBalance。
+  const openStatModal = async (record: FinanceChannelExtendCostItemVo) => {
+    const wdtName = record.wdtName;
+    const yearMonth = record.yearMonth;
+    const shopId = record.shopId;
+    const ch = record.channel;
     const title = `${displayShopName(wdtName) || ''} ${yearMonth} 站内外推广费统计`;
     setStatModalTitle(title);
     setStatDataSource([]);
@@ -351,92 +278,33 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
   }, [searchYearMonth]);
 
   // ============ 表格列定义 ============
-  const detailColumns = [
-    {
-      title: '账务类型',
-      dataIndex: 'accountType',
-      key: 'accountType',
-      minWidth: 80,
-      whiteSpace: 'nowrap' as const,
-      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
-    },
-    {
-      title: '业务描述',
-      dataIndex: 'businessDesc',
-      key: 'businessDesc',
-      minWidth: 200,
-      whiteSpace: 'nowrap' as const,
-      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
-    },
-    {
-      title: '渠道',
-      dataIndex: 'channel',
-      key: 'channel',
-      minWidth: 60,
-      whiteSpace: 'nowrap' as const,
-      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
-    },
-    {
-      title: '支出金额',
-      dataIndex: 'expenseAmount',
-      key: 'expenseAmount',
-      minWidth: 80,
-      whiteSpace: 'nowrap' as const,
-      render: (value: number) => (
-        <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-          {value?.toFixed(2) ?? '-'}
-        </span>
-      ),
-    },
-    {
-      title: '发生时间',
-      dataIndex: 'occurredAt',
-      key: 'occurredAt',
-      minWidth: 140,
-      whiteSpace: 'nowrap' as const,
-      render: (text: string) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
-    },
-    {
-      title: '店铺ID',
-      dataIndex: 'shopId',
-      key: 'shopId',
-      minWidth: 60,
-      whiteSpace: 'nowrap' as const,
-      render: (text: number) => <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{text}</span>,
-    },
+  // 主表 - 扁平结构：每个 (店铺, 年月) 一行
+  // 后端 /oms/finance/channel-extend-cost/group/page 新版返回扁平结构，
+  // 不再需要店铺内嵌 monthGroups 展开，年月直接作为一列。
+  // 主表不展示余额，余额由费用统计弹窗走老的 /query 接口单独取。
+  const itemColumns = [
+    { title: '店铺ID', dataIndex: 'shopId', key: 'shopId', width: 100, fixed: 'left' as const },
     {
       title: '店铺名称',
       dataIndex: 'wdtName',
       key: 'wdtName',
-      minWidth: 150,
-      whiteSpace: 'nowrap' as const,
-      render: (text: string) => (
-        <span style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{displayShopName(text)}</span>
-      ),
+      width: 200,
+      fixed: 'left' as const,
+      render: (text: string) => displayShopName(text),
     },
-  ];
-
-  const monthGroupColumns = [
-    { title: '年月', dataIndex: 'yearMonth', key: 'yearMonth', width: 120 },
+    { title: '渠道', dataIndex: 'channel', key: 'channel', width: 100 },
+    { title: '年月', dataIndex: 'yearMonth', key: 'yearMonth', width: 100 },
     {
       title: '操作',
       key: 'action',
-      width: 180,
+      width: 120,
       fixed: 'right' as const,
-      render: (_: any, record: any) => (
+      render: (_: any, record: FinanceChannelExtendCostItemVo) => (
         <Space size={0}>
           <Button
             type="link"
             size="small"
             style={{ fontSize: 12, padding: 0 }}
-            onClick={() => openDetailModal(record.wdtName, record.yearMonth, record.shopId, record.channel)}
-          >
-            查看明细
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            style={{ fontSize: 12, padding: '0 0 0 8px' }}
             onClick={() => {
               if (onCustomStatClick) {
                 const handled = onCustomStatClick({
@@ -447,7 +315,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
                 });
                 if (handled) return;
               }
-              openStatModal(record.wdtName, record.yearMonth, record.shopId, record.channel);
+              openStatModal(record);
             }}
           >
             费用统计
@@ -457,41 +325,6 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
     },
   ];
 
-  const shopGroupColumns = [
-    { title: '店铺ID', dataIndex: 'shopId', key: 'shopId', width: 100, fixed: 'left' as const },
-    {
-      title: '店铺名称',
-      dataIndex: 'wdtName',
-      key: 'wdtName',
-      width: 150,
-      fixed: 'left' as const,
-      render: (text: string) => displayShopName(text),
-    },
-    { title: '渠道', dataIndex: 'channel', key: 'channel', width: 120 },
-    { title: '明细总数量', dataIndex: 'totalCount', key: 'totalCount', width: 120 },
-  ];
-
-  // 渲染年月分组表格（展开店铺后显示）
-  const expandedMonthRowRender = (record: FinanceChannelExtendCostShopGroupVo) => {
-    const monthGroups = record.monthGroups || [];
-    const monthGroupsWithShopInfo = monthGroups.map((item) => ({
-      ...item,
-      shopId: record.shopId,
-      wdtName: record.wdtName,
-      channel: record.channel,
-    }));
-    return (
-      <Table
-        columns={monthGroupColumns}
-        dataSource={monthGroupsWithShopInfo}
-        rowKey="yearMonth"
-        size="small"
-        pagination={false}
-        scroll={{ y: 250 }}
-      />
-    );
-  };
-
   // ============ 搜索 ============
   const handleSearch = () => {
     if (!searchYearMonth) {
@@ -499,7 +332,6 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
       return;
     }
     setChannelPagination((prev) => ({ ...prev, current: 1 }));
-    setChannelExpandedRowKeys([]);
     fetchChannelData({ pageNum: 1 });
   };
 
@@ -509,7 +341,6 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
     setSearchYearMonth(dayjs().subtract(1, 'month'));
     fetchShops();
     setChannelPagination((prev) => ({ ...prev, current: 1 }));
-    setChannelExpandedRowKeys([]);
   };
 
   // ============ 渲染 ============
@@ -579,19 +410,14 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
         </div>
       </div>
 
-      {/* 表格 */}
+      {/* 表格 - 扁平结构，每个 (店铺, 年月) 一行 */}
       <Table
-        columns={shopGroupColumns}
+        columns={itemColumns}
         dataSource={channelDataSource}
-        rowKey="shopId"
+        rowKey={(record) => `${record.shopId}-${record.yearMonth}`}
         loading={channelLoading}
         size="small"
         scroll={{ x: 1000 }}
-        expandable={{
-          expandedRowRender: expandedMonthRowRender,
-          expandedRowKeys: channelExpandedRowKeys,
-          onExpandedRowsChange: (keys) => setChannelExpandedRowKeys(keys),
-        }}
         pagination={{
           ...channelPagination,
           showSizeChanger: true,
@@ -608,58 +434,6 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
           },
         }}
       />
-
-      {/* 明细弹窗 */}
-      <Modal
-        title={detailModalTitle}
-        open={detailModalVisible}
-        onCancel={() => setDetailModalVisible(false)}
-        footer={null}
-        width={900}
-        destroyOnClose
-        maskClosable={false}
-        styles={{ body: { padding: '16px' } }}
-      >
-        <style>{`
-          .detail-table-small tr td {
-            padding: 4px 8px !important;
-            line-height: 1.3 !important;
-            height: 28px !important;
-            white-space: nowrap !important;
-          }
-          .detail-table-small tr th {
-            padding: 6px 8px !important;
-            line-height: 1.3 !important;
-            white-space: nowrap !important;
-          }
-        `}</style>
-        <Table
-          columns={detailColumns}
-          dataSource={detailDataSource}
-          rowKey="id"
-          loading={detailLoading}
-          size="small"
-          className="detail-table-small"
-          style={{ fontSize: 12 }}
-          scroll={{ x: 800 }}
-          pagination={{
-            ...detailPagination,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            pageSizeOptions: [20, 50, 100, 200],
-            showTotal: (total) => `共 ${total} 条记录`,
-            size: 'small',
-            onChange: (page, pageSize) => {
-              setDetailPagination((prev) => ({
-                ...prev,
-                current: page,
-                pageSize: pageSize || 20,
-              }));
-              fetchDetailData({ pageNum: page, pageSize });
-            },
-          }}
-        />
-      </Modal>
 
       {/* 费用分类统计弹窗 */}
       <Modal
