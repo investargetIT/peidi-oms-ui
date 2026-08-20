@@ -287,6 +287,29 @@ export interface FinanceTmBillUploadReq {
 }
 
 /**
+ * 上传拼多多账单请求
+ */
+export interface FinancePddBillUploadReq {
+  /**
+   * 渠道（pdd）
+   */
+  channel: string;
+  /**
+   * 账单日期，格式：yyyy-MM
+   */
+  date: string;
+  /**
+   * 关联账单配置ID
+   */
+  financeBillConfigId: number;
+  /**
+   * 账单文件（Excel/CSV）
+   */
+  file: File;
+  [property: string]: any;
+}
+
+/**
  * 上传抖音账单请求
  */
 export interface FinanceDyBillUploadReq {
@@ -384,30 +407,27 @@ export interface FinanceXhsBillUploadReq {
 }
 
 // 创建管报数据的request实例
-// 测试环境使用
-// const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
-//   timeout: 1000 * 60,
-// });
+// 测试环境使用;
+const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
+  timeout: 1000 * 60,
+});
 // 生产环境使用
-const managementReportRequest = createRequest(
-  `${process.env.BASE_URL}/management-report`,
-  {
-    timeout: 1000 * 60,
-  },
-);
+// const managementReportRequest = createRequest(
+//   `${process.env.BASE_URL}/management-report`,
+//   {
+//     timeout: 1000 * 60,
+//   },
+// );
 
 // 创建各渠道月账单的request实例
 // 测试环境使用
-// const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
+const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
+  timeout: 1000 * 60,
+});
+// 生产环境使用
+// const channelBillRequest = createRequest(`${process.env.BASE_URL}/finance`, {
 //   timeout: 1000 * 60,
 // });
-// 生产环境使用
-const channelBillRequest = createRequest(
-  `${process.env.BASE_URL}/finance`,
-  {
-    timeout: 1000 * 60,
-  },
-);
 
 /**
  * 报表 API（管报数据 + 各渠道月账单）
@@ -441,10 +461,7 @@ export class ManagementReportApi {
    * 各渠道月账单 - 批量下载（后端代理打包为 ZIP 返回，避免 OSS CORS 限制）
    * 后端实现思路：接收 ids 列表，服务端到 OSS 拉取文件，打包成 zip 流式返回（Content-Type: application/zip）
    */
-  static async batchDownloadZfbBill(params: {
-    ids: number[];
-    platform?: string;
-  }): Promise<Blob> {
+  static async batchDownloadZfbBill(params: { ids: number[]; platform?: string }): Promise<Blob> {
     const resp = await channelBillRequest.post('/zfb-bill/batch-download', params, {
       responseType: 'blob',
     });
@@ -570,7 +587,25 @@ export class ManagementReportApi {
     });
   }
 
-  // 拼多多 待补
+  /**
+   * 上传拼多多账单
+   * POST /oms/finance/pdd-bill/upload（multipart/form-data）
+   * 后端解析账单比较耗时，单独把超时拉到 1 小时
+   */
+  static async uploadPddBill(
+    data: FinancePddBillUploadReq,
+  ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
+    const formData = new FormData();
+    formData.append('channel', data.channel);
+    formData.append('date', data.date);
+    formData.append('financeBillConfigId', String(data.financeBillConfigId));
+    formData.append('file', data.file);
+    return channelBillRequest.post('/pdd-bill/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 1000 * 60 * 60,
+      showLoading: false,
+    });
+  }
 }
 
 export default ManagementReportApi;
