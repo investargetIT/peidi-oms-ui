@@ -280,10 +280,6 @@ export interface FinanceTmBillUploadReq {
    */
   financeBillConfigId: number;
   /**
-   * 店铺ID
-   */
-  shopId: number;
-  /**
    * 账单文件（Excel/CSV）
    */
   file: File;
@@ -306,10 +302,6 @@ export interface FinanceDyBillUploadReq {
    * 关联账单配置ID
    */
   financeBillConfigId: number;
-  /**
-   * 店铺ID
-   */
-  shopId: number;
   /**
    * 账单文件（Excel/CSV）
    */
@@ -334,10 +326,6 @@ export interface FinanceJdBillUploadReq {
    * 关联账单配置ID
    */
   financeBillConfigId: number;
-  /**
-   * 店铺ID
-   */
-  shopId: number;
   /**
    * 账单明细文件（Excel/CSV）
    */
@@ -370,31 +358,56 @@ export interface FinanceStockoutBillUploadReq {
   [property: string]: any;
 }
 
+/**
+ * 上传小红书账单请求
+ * /oms/finance/xhs-bill/upload
+ * billDate / financeBillConfigId 走 query string，file1 / file2 走 multipart body
+ */
+export interface FinanceXhsBillUploadReq {
+  /**
+   * 账单日期，格式：yyyy-MM
+   */
+  billDate: string;
+  /**
+   * 关联账单配置ID
+   */
+  financeBillConfigId: number;
+  /**
+   * 贷款明细文件（csv/excel，A1为"创建时间"）
+   */
+  file1: File;
+  /**
+   * 订单结算明细文件（csv/excel，A1为"订单号"）
+   */
+  file2: File;
+  [property: string]: any;
+}
+
 // 创建管报数据的request实例
 // 测试环境使用
-const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
-  timeout: 1000 * 60,
-});
+// const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
+//   timeout: 1000 * 60,
+// });
 // 生产环境使用
-// const managementReportRequest = createRequest(
-//   `${process.env.BASE_URL}/management-report`,
-//   {
-//     timeout: 1000 * 60,
-//   },
-// );
+const managementReportRequest = createRequest(
+  `${process.env.BASE_URL}/management-report`,
+  {
+    timeout: 1000 * 60,
+  },
+);
 
 // 创建各渠道月账单的request实例
 // 测试环境使用
-const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
-  timeout: 1000 * 60,
-});
+// const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
+//   timeout: 1000 * 60,
+// });
 // 生产环境使用
-// const channelBillRequest = createRequest(
-//   `${process.env.BASE_URL}/finance`,
-//   {
-//     timeout: 1000 * 60,
-//   },
-// );
+const channelBillRequest = createRequest(
+  `${process.env.BASE_URL}/finance`,
+  {
+    timeout: 1000 * 60,
+  },
+);
 
 /**
  * 报表 API（管报数据 + 各渠道月账单）
@@ -459,7 +472,6 @@ export class ManagementReportApi {
     formData.append('channel', data.channel);
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
-    formData.append('shopId', String(data.shopId));
     formData.append('file', data.file);
     return channelBillRequest.post('/tm-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -481,7 +493,6 @@ export class ManagementReportApi {
     formData.append('channel', data.channel);
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
-    formData.append('shopId', String(data.shopId));
     formData.append('file', data.file);
     return channelBillRequest.post('/dy-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -504,7 +515,6 @@ export class ManagementReportApi {
     formData.append('channel', data.channel);
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
-    formData.append('shopId', String(data.shopId));
     formData.append('file1', data.file1);
     formData.append('file2', data.file2);
     return channelBillRequest.post('/jd-bill/upload', formData, {
@@ -536,7 +546,31 @@ export class ManagementReportApi {
       showLoading: false,
     });
   }
-  // 拼多多、小红书 待补
+  /**
+   * 上传小红书账单
+   * POST /oms/finance/xhs-bill/upload（multipart/form-data）
+   * billDate / financeBillConfigId 走 query string，file1 / file2 走 multipart body
+   * 小红书一次需要上传 2 个文件：贷款明细（file1）+ 订单结算明细（file2）
+   * 后端解析账单比较耗时，单独把超时拉到 1 小时
+   */
+  static async uploadXhsBill(
+    data: FinanceXhsBillUploadReq,
+  ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
+    const formData = new FormData();
+    formData.append('file1', data.file1);
+    formData.append('file2', data.file2);
+    return channelBillRequest.post('/xhs-bill/upload', formData, {
+      params: {
+        billDate: data.billDate,
+        financeBillConfigId: data.financeBillConfigId,
+      },
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 1000 * 60 * 60,
+      showLoading: false,
+    });
+  }
+
+  // 拼多多 待补
 }
 
 export default ManagementReportApi;

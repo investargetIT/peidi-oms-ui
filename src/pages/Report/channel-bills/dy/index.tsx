@@ -24,9 +24,6 @@ import ManagementReportApi, {
   type FinanceZfbBillConfig,
   type FinanceChannelExtendCostImportVo,
 } from '@/services/managementReportApi';
-import ChannelExtendCostApi, {
-  type ShopVo,
-} from '@/services/channelExtendCostApi';
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
 
@@ -45,9 +42,6 @@ const DyBillPanel: React.FC = () => {
   const [configList, setConfigList] = useState<FinanceZfbBillConfig[]>([]);
   const [configLoading, setConfigLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | undefined>(undefined);
-  const [selectedShopId, setSelectedShopId] = useState<number | undefined>(undefined);
-  const [shopList, setShopList] = useState<ShopVo[]>([]);
-  const [shopLoading, setShopLoading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   // 上传走异步任务模式：弹窗关掉后由 UploadTaskDrawer 跟踪，无需在面板内阻塞 UI
 
@@ -115,41 +109,13 @@ const DyBillPanel: React.FC = () => {
     }
   };
 
-  const fetchShopList = async () => {
-    setShopLoading(true);
-    try {
-      // 与 channel-extend-cost 保持一致：通过 searchStr JSON 过滤 platform
-      const params = {
-        sortStr: '',
-        searchStr: JSON.stringify({
-          searchName: 'platform',
-          searchValue: '抖音',
-          searchType: 'like',
-        }),
-      };
-      const res = await ChannelExtendCostApi.getShops(params);
-      if (res.code === 200) {
-        setShopList(res.data || []);
-      } else {
-        message.error(res.msg || '获取店铺列表失败');
-      }
-    } catch (error) {
-      console.error('获取店铺列表失败:', error);
-      message.error('获取店铺列表失败');
-    } finally {
-      setShopLoading(false);
-    }
-  };
-
   const openUploadModal = async () => {
     setUploadModalOpen(true);
     setUploadDate(dayjs().subtract(1, 'month'));
     setSelectedConfigId(undefined);
-    setSelectedShopId(undefined);
     setUploadFile(null);
     setConfigList([]);
-    setShopList([]);
-    await Promise.all([fetchConfigList(), fetchShopList()]);
+    await fetchConfigList();
   };
 
   const uploadProps: UploadProps = {
@@ -173,31 +139,27 @@ const DyBillPanel: React.FC = () => {
       message.error('请选择账单配置');
       return;
     }
-    if (selectedShopId === undefined || selectedShopId === null) {
-      message.error('请选择店铺');
-      return;
-    }
     if (!uploadFile) {
       message.error('请选择要上传的账单文件');
       return;
     }
 
-    // 取下店铺名用于任务卡片展示
-    const selectedShop = shopList.find((s) => s.id === selectedShopId);
-    const shopName = selectedShop?.shopName || `店铺#${selectedShopId}`;
     const billDateStr = uploadDate.format('YYYY-MM');
     const fileName = uploadFile.name;
+    const configLabel =
+      configList.find((c) => c.id === selectedConfigId)?.merchantName ||
+      configList.find((c) => c.id === selectedConfigId)?.shopName ||
+      `配置#${selectedConfigId}`;
 
     // 1. 立刻关闭上传弹窗 & 重置表单
     setUploadModalOpen(false);
     setUploadFile(null);
     setSelectedConfigId(undefined);
-    setSelectedShopId(undefined);
 
     // 2. 创建任务（后端请求异步进行中，不阻塞 UI）
     const taskId = addTask({
       channel: '抖音',
-      shopName,
+      shopName: configLabel,
       billDate: billDateStr,
       fileName,
     });
@@ -208,7 +170,6 @@ const DyBillPanel: React.FC = () => {
       channel: 'dy',
       date: billDateStr,
       financeBillConfigId: selectedConfigId,
-      shopId: selectedShopId,
       file: uploadFile,
     })
       .then((res) => {
@@ -226,7 +187,7 @@ const DyBillPanel: React.FC = () => {
           const success = result.successCount ?? 0;
           const total = result.totalCount ?? 0;
           message.success(
-            `【${shopName} / ${billDateStr}】上传完成：共 ${total} 条，成功 ${success} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`,
+            `【${configLabel} / ${billDateStr}】上传完成：共 ${total} 条，成功 ${success} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`,
           );
           // 刷新列表
           fetchBill({ pageNum: 1 });
@@ -406,31 +367,10 @@ const DyBillPanel: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
-              店铺 <span style={{ color: '#ff4d4f' }}>*</span>
-            </span>
-            <Select
-              style={{ width: '100%' }}
-              value={selectedShopId}
-              onChange={(v) => setSelectedShopId(v)}
-              placeholder={shopLoading ? '加载中...' : '请选择店铺（来自 /oms/orders/shopTarget，平台=抖音）'}
-              loading={shopLoading}
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              options={shopList
-                .filter((s) => s.platform === '抖音' && s.id !== undefined && s.id !== null)
-                .map((s) => ({
-                  label: s.shopName || '-',
-                  value: s.id as number,
-                }))}
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 12, color: '#666' }}>
               账单文件 <span style={{ color: '#ff4d4f' }}>*</span>
             </span>
             <Upload {...uploadProps}>
-              <Button icon={<UploadOutlined />} disabled={shopLoading}>
+              <Button icon={<UploadOutlined />} disabled={configLoading}>
                 选择文件
               </Button>
             </Upload>
