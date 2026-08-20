@@ -125,26 +125,55 @@ const BatchExportButton: React.FC<BatchExportButtonProps> = ({ channel, yearMont
       const fileBase = safeName(`${shopName}_${yearMonth}_站内外推广费统计`);
       const shopId = shop.id as number;
       try {
-        const [statRes, endingRes, beginningRes] = await Promise.all([
-          ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth }),
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId,
-            yearMonth,
-          }),
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId,
-            yearMonth: prevYm,
-          }),
-        ]);
-        const statData = statRes.code === 200 ? statRes.data || [] : [];
-        const endingBalance =
-          endingRes.code === 200 && endingRes.data ? endingRes.data.incomeAmount ?? null : null;
-        const beginningBalance =
-          beginningRes.code === 200 && beginningRes.data
-            ? beginningRes.data.incomeAmount ?? null
-            : null;
+        // 1. 先拉取分类统计数据
+        const statRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth });
+        if (statRes.code !== 200) {
+          throw new Error('getCostCategoryStat 返回非 200');
+        }
+        const rawStatData = statRes.data || [];
+
+        // 2. 尝试从 stat 数据末尾提取余额项（PDD_BALANCE / PDD_LAST_BALANCE）
+        const balanceItem = rawStatData.find((it) => it.businessCode === 'PDD_BALANCE');
+        const lastBalanceItem = rawStatData.find((it) => it.businessCode === 'PDD_LAST_BALANCE');
+        const hasInlineBalance = !!balanceItem || !!lastBalanceItem;
+
+        // 过滤掉余额项，剩下的才是业务编码明细
+        const statData = rawStatData.filter(
+          (it) => it.businessCode !== 'PDD_BALANCE' && it.businessCode !== 'PDD_LAST_BALANCE',
+        );
+
+        let beginningBalance: number | null = null;
+        let endingBalance: number | null = null;
+
+        if (hasInlineBalance) {
+          // 策略 1：stat 数据里直接带余额（拼多多新接口）
+          if (lastBalanceItem && lastBalanceItem.totalIncome !== undefined && lastBalanceItem.totalIncome !== null) {
+            beginningBalance = lastBalanceItem.totalIncome;
+          }
+          if (balanceItem && balanceItem.totalIncome !== undefined && balanceItem.totalIncome !== null) {
+            endingBalance = balanceItem.totalIncome;
+          }
+        } else {
+          // 策略 2：老逻辑，调两次 queryEndingBalance
+          const [endingRes, beginningRes] = await Promise.all([
+            ChannelExtendCostApi.queryEndingBalance({
+              accountType: '期末余额',
+              shopId,
+              yearMonth,
+            }),
+            ChannelExtendCostApi.queryEndingBalance({
+              accountType: '期末余额',
+              shopId,
+              yearMonth: prevYm,
+            }),
+          ]);
+          endingBalance =
+            endingRes.code === 200 && endingRes.data ? endingRes.data.incomeAmount ?? null : null;
+          beginningBalance =
+            beginningRes.code === 200 && beginningRes.data
+              ? beginningRes.data.incomeAmount ?? null
+              : null;
+        }
 
         const result = buildStatResult({
           statData,

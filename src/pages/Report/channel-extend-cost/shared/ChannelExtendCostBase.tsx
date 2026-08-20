@@ -159,8 +159,10 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
   };
 
   // 打开费用分类统计弹窗
-  // 余额统一走老的 /oms/finance/channel-extend-cost/query 接口取，
-  // 不复用主表行里的 beginningBalance / endingBalance。
+  // 余额获取策略：
+  //   1. 若 getCostCategoryStat 返回的数据末尾包含 PDD_BALANCE / PDD_LAST_BALANCE，
+  //      直接从 stat 数据里提取期末/上月余额，不再额外调用 queryEndingBalance；
+  //   2. 否则走老逻辑：调两次 queryEndingBalance（上月 / 当月）分别取期初和期末。
   const openStatModal = async (record: FinanceChannelExtendCostItemVo) => {
     const wdtName = record.wdtName;
     const yearMonth = record.yearMonth;
@@ -182,38 +184,65 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
         yearMonth: yearMonth!,
       });
 
-      // 计算上个月的年月
-      const [year, month] = yearMonth!.split('-').map(Number);
-      let prevYear = year;
-      let prevMonth = month - 1;
-      if (prevMonth === 0) {
-        prevYear = year - 1;
-        prevMonth = 12;
+      if (statRes.code !== 200) {
+        message.error('获取统计数据失败');
+        return;
       }
-      const prevYearMonth = `${prevYear}-${prevMonth.toString().padStart(2, '0')}`;
 
-      const beginningBalanceRes = await ChannelExtendCostApi.queryEndingBalance({
-        accountType: '期末余额',
-        shopId: shopId!,
-        yearMonth: prevYearMonth,
-      });
-      const endingBalanceRes = await ChannelExtendCostApi.queryEndingBalance({
-        accountType: '期末余额',
-        shopId: shopId!,
-        yearMonth: yearMonth!,
-      });
+      const rawData = statRes.data || [];
 
-      if (statRes.code === 200) {
-        const data = statRes.data || [];
+      // 尝试从 stat 数据中提取余额项（拼多多等渠道后端已内置在返回末尾）
+      const balanceItem = rawData.find((it) => it.businessCode === 'PDD_BALANCE');
+      const lastBalanceItem = rawData.find((it) => it.businessCode === 'PDD_LAST_BALANCE');
+      const hasInlineBalance = !!balanceItem || !!lastBalanceItem;
+
+      // 过滤掉余额项，剩下的才是业务编码明细
+      const detailData = rawData.filter(
+        (it) => it.businessCode !== 'PDD_BALANCE' && it.businessCode !== 'PDD_LAST_BALANCE',
+      );
+
+      let beginningVal: number | null = null;
+      let endingVal: number | null = null;
+
+      if (hasInlineBalance) {
+        // —— 策略 1：从 stat 数据里直接拿余额 ——
+        if (lastBalanceItem && lastBalanceItem.totalIncome !== undefined && lastBalanceItem.totalIncome !== null) {
+          beginningVal = lastBalanceItem.totalIncome;
+        }
+        if (balanceItem && balanceItem.totalIncome !== undefined && balanceItem.totalIncome !== null) {
+          endingVal = balanceItem.totalIncome;
+        }
+      } else {
+        // —— 策略 2：老逻辑，调 queryEndingBalance 两次 ——
+        const [year, month] = yearMonth!.split('-').map(Number);
+        let prevYear = year;
+        let prevMonth = month - 1;
+        if (prevMonth === 0) {
+          prevYear = year - 1;
+          prevMonth = 12;
+        }
+        const prevYearMonth = `${prevYear}-${prevMonth.toString().padStart(2, '0')}`;
+
+        const [beginningBalanceRes, endingBalanceRes] = await Promise.all([
+          ChannelExtendCostApi.queryEndingBalance({
+            accountType: '期末余额',
+            shopId: shopId!,
+            yearMonth: prevYearMonth,
+          }),
+          ChannelExtendCostApi.queryEndingBalance({
+            accountType: '期末余额',
+            shopId: shopId!,
+            yearMonth: yearMonth!,
+          }),
+        ]);
 
         if (
           beginningBalanceRes.code === 200 &&
           beginningBalanceRes.data &&
           beginningBalanceRes.data.incomeAmount !== undefined
         ) {
-          setBeginningBalance(beginningBalanceRes.data.incomeAmount);
+          beginningVal = beginningBalanceRes.data.incomeAmount;
         } else {
-          setBeginningBalance(null);
           console.warn('获取期初余额失败或数据为空');
         }
 
@@ -222,16 +251,15 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
           endingBalanceRes.data &&
           endingBalanceRes.data.incomeAmount !== undefined
         ) {
-          setEndingBalance(endingBalanceRes.data.incomeAmount);
+          endingVal = endingBalanceRes.data.incomeAmount;
         } else {
-          setEndingBalance(null);
           console.warn('获取本月期末余额失败或数据为空');
         }
-
-        setStatDataSource(data);
-      } else {
-        message.error('获取统计数据失败');
       }
+
+      setBeginningBalance(beginningVal);
+      setEndingBalance(endingVal);
+      setStatDataSource(detailData);
     } catch (error) {
       console.error('获取统计数据失败:', error);
       message.error('获取统计数据失败');
