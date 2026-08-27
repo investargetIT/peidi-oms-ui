@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Button, DatePicker, Select, Space, Table, message } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { SearchOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
+import ExcelJS from 'exceljs';
 import ManagementReportApi, {
   type ManagementReportQueryReq,
   type FinanceGoodsSalesSummaryAllCostVo,
@@ -64,6 +65,75 @@ const ManagementReportTab: React.FC = () => {
       message.error('查询管报数据失败');
     } finally {
       setMrLoading(false);
+    }
+  };
+
+  // 管报数据查询 - 下载当月全量数据（原封不动）
+  const handleMrDownload = async () => {
+    let dataList: any[] = [];
+    let columns: any[] = [];
+
+    if (mrType === 1) {
+      dataList = mrOnlineList;
+      columns = mrOnlineColumns;
+    } else if (mrType === 2) {
+      dataList = mrOfflineList;
+      columns = mrOfflineColumns;
+    } else if (mrType === 3) {
+      dataList = mrWalmartList;
+      columns = mrWalmartColumns;
+    }
+
+    if (!dataList.length) {
+      message.warning('当前没有可下载的数据，请先查询');
+      return;
+    }
+
+    const typeLabel = mrType === 1 ? '线上' : mrType === 2 ? '线下' : '沃尔玛';
+    const monthLabel = (mrStartMonth || dayjs().subtract(1, 'month')).format('YYYY-MM');
+
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Peidi OMS';
+      workbook.created = new Date();
+      const sheet = workbook.addWorksheet('管报数据');
+
+      // 表头
+      const headers = columns.map((col) => col.title);
+      sheet.addRow(headers);
+      // 数据（原封不动，仅取列对应的 dataIndex 字段）
+      dataList.forEach((record) => {
+        const rowValues = columns.map((col) => {
+          // 若列有 render，用 render 的展示值；否则直接用原始字段值
+          if (typeof col.render === 'function') {
+            return col.render(record[col.dataIndex], record, 0);
+          }
+          return record[col.dataIndex] ?? '';
+        });
+        sheet.addRow(rowValues);
+      });
+
+      // 简易列宽
+      sheet.columns = headers.map((h, idx) => ({
+        width: Math.max(12, (h as string).length * 2 + 4),
+        key: String(idx),
+      }));
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `管报数据-${typeLabel}-${monthLabel}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+      message.success('下载成功');
+    } catch (error) {
+      console.error('下载管报数据失败:', error);
+      message.error('下载管报数据失败');
     }
   };
 
@@ -479,6 +549,14 @@ const ManagementReportTab: React.FC = () => {
                     loading={mrLoading}
                   >
                     查询
+                  </Button>
+                  <Button
+                    type="primary"
+                    style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+                    icon={<DownloadOutlined />}
+                    onClick={handleMrDownload}
+                  >
+                    下载
                   </Button>
                   <Button onClick={handleMrReset}>重置</Button>
                 </Space>

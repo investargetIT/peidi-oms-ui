@@ -255,16 +255,16 @@ export interface FinanceJdCostStatReq {
 }
 
 // 创建渠道推广费用的request实例
-// 测试环境使用
+// 生产环境使用
 const channelExtendCostRequest = createRequest(
-  `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
+  `${process.env.BASE_URL}/finance/channel-extend-cost`,
   {
     timeout: 1000 * 60,
   },
 );
-// 生产环境使用
+// 测试环境使用
 // const channelExtendCostRequest = createRequest(
-//   `${process.env.BASE_URL}/finance/channel-extend-cost`,
+//   `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
 //   {
 //     timeout: 1000 * 60,
 //   },

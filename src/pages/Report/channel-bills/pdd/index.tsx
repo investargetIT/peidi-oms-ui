@@ -4,6 +4,7 @@ import {
   Button,
   DatePicker,
   Input,
+  InputNumber,
   Modal,
   Select,
   Space,
@@ -11,7 +12,7 @@ import {
   Upload,
   message,
 } from 'antd';
-import { SearchOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import ManagementReportApi, {
@@ -21,6 +22,7 @@ import ManagementReportApi, {
   type FinanceZfbBillConfig,
   type FinanceChannelExtendCostImportVo,
   type FinancePddBillUploadReq,
+  type FinancePddPromotionAddReq,
 } from '@/services/managementReportApi';
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
@@ -42,6 +44,25 @@ const PddBillPanel: React.FC = () => {
   const [selectedConfigId, setSelectedConfigId] = useState<number | undefined>(undefined);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   // 上传走异步任务模式：弹窗关掉后由 UploadTaskDrawer 跟踪，无需在面板内阻塞 UI
+
+  // 新增拼多多推广费相关
+  const [promotionModalOpen, setPromotionModalOpen] = useState(false);
+  const [selectedPromotionConfigId, setSelectedPromotionConfigId] = useState<number | undefined>(undefined);
+  const [promotionAmount, setPromotionAmount] = useState<number | null>(null);
+  const [promotionDate, setPromotionDate] = useState<Dayjs | null>(null);
+  const [promotionSubmitting, setPromotionSubmitting] = useState(false);
+
+  // 下拉框数据来源于外层 Table（billData），取 financeBillConfigId 去重
+  const promotionConfigOptions = Array.from(
+    new Map(
+      billData
+        .filter((r) => r.financeBillConfigId != null)
+        .map((r) => [r.financeBillConfigId, r] as const),
+    ).values(),
+  ).map((r) => ({
+    label: `${r.shopName || r.merchantName || '-'}（${r.billDate || '-'}）`,
+    value: r.financeBillConfigId!,
+  }));
 
   const fetchBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
     setBillLoading(true);
@@ -210,6 +231,45 @@ const PddBillPanel: React.FC = () => {
       });
   };
 
+  const handleAddPromotion = async () => {
+    if (!selectedPromotionConfigId) {
+      message.error('请选择账单配置');
+      return;
+    }
+    if (!promotionAmount || Number(promotionAmount) <= 0) {
+      message.error('请输入正确的推广金额');
+      return;
+    }
+    if (!promotionDate) {
+      message.error('请选择日期');
+      return;
+    }
+    setPromotionSubmitting(true);
+    try {
+      const res = await ManagementReportApi.addPddPromotion({
+        date: promotionDate.format('YYYY-MM-DD'),
+        financeBillConfigId: selectedPromotionConfigId,
+        promotionAmount: Number(promotionAmount),
+      });
+      if (res.code === 200 || res.success) {
+        message.success('拼多多推广费上传成功');
+        setPromotionModalOpen(false);
+        setSelectedPromotionConfigId(undefined);
+        setPromotionAmount(null);
+        setPromotionDate(null);
+        // 刷新列表
+        fetchBill({ pageNum: 1 });
+      } else {
+        message.error(res.msg || '上传失败');
+      }
+    } catch (error) {
+      console.error('新增拼多多推广费失败:', error);
+      message.error('新增拼多多推广费失败');
+    } finally {
+      setPromotionSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     fetchBill({ pageNum: 1 });
   }, []);
@@ -275,6 +335,20 @@ const PddBillPanel: React.FC = () => {
                 onClick={openUploadModal}
               >
                 上传账单
+              </Button>
+              <Button
+                type="primary"
+                className="grayblue-btn"
+                style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setSelectedPromotionConfigId(undefined);
+                  setPromotionAmount(null);
+                  setPromotionDate(null);
+                  setPromotionModalOpen(true);
+                }}
+              >
+                上传拼多多推广费
               </Button>
             </Space>
           </div>
@@ -371,6 +445,70 @@ const PddBillPanel: React.FC = () => {
                 选择文件
               </Button>
             </Upload>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 新增拼多多推广费弹窗 */}
+      <Modal
+        title="新增拼多多推广费"
+        open={promotionModalOpen}
+        onCancel={() => setPromotionModalOpen(false)}
+        onOk={handleAddPromotion}
+        confirmLoading={promotionSubmitting}
+        okText="确定"
+        cancelText="取消"
+        width={520}
+        destroyOnClose
+        okButtonProps={{
+          className: 'grayblue-btn',
+          style: { background: '#2f54eb', borderColor: '#2f54eb' },
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              账单配置 <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <Select
+              style={{ width: '100%' }}
+              value={selectedPromotionConfigId}
+              onChange={(v) => setSelectedPromotionConfigId(v)}
+              placeholder="请选择账单配置（来自下方账单列表）"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={promotionConfigOptions}
+              notFoundContent="暂无账单配置，请先查询账单列表"
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              推广金额（元） <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <InputNumber
+              style={{ width: '100%' }}
+              value={promotionAmount}
+              onChange={(v) => setPromotionAmount(v)}
+              placeholder="请输入推广金额"
+              min={0}
+              precision={2}
+              addonAfter="元"
+              controls={false}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              日期 <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <DatePicker
+              style={{ width: '100%' }}
+              value={promotionDate}
+              onChange={(date) => setPromotionDate(date)}
+              format="YYYY-MM-DD"
+              placeholder="请选择日期"
+              allowClear
+            />
           </div>
         </div>
       </Modal>

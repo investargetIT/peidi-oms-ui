@@ -333,6 +333,26 @@ export interface FinanceDyBillUploadReq {
 }
 
 /**
+ * 新增拼多多推广费请求
+ * /oms/finance/channel-extend-cost/pdd-promotion
+ */
+export interface FinancePddPromotionAddReq {
+  /**
+   * 日期，格式：yyyy-MM-dd
+   */
+  date: string;
+  /**
+   * 账单配置ID（finance_bill_config.id）
+   */
+  financeBillConfigId: number;
+  /**
+   * 推广金额（元）
+   */
+  promotionAmount: number;
+  [property: string]: any;
+}
+
+/**
  * 上传京东账单请求
  * 京东特殊：一次需要上传 2 个文件 —— 账单明细（file1）+ 财务汇总表（file2）
  */
@@ -407,25 +427,22 @@ export interface FinanceXhsBillUploadReq {
 }
 
 // 创建管报数据的request实例
-// 测试环境使用;
-const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
+// 生产环境使用
+const managementReportRequest = createRequest(`${process.env.BASE_URL}/management-report`, {
   timeout: 1000 * 60,
 });
-// 生产环境使用
-// const managementReportRequest = createRequest(
-//   `${process.env.BASE_URL}/management-report`,
-//   {
-//     timeout: 1000 * 60,
-//   },
-// );
+// 测试环境使用
+// const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
+//   timeout: 1000 * 60,
+// });
 
 // 创建各渠道月账单的request实例
-// 测试环境使用
-const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
+// 生产环境使用
+const channelBillRequest = createRequest(`${process.env.BASE_URL}/finance`, {
   timeout: 1000 * 60,
 });
-// 生产环境使用
-// const channelBillRequest = createRequest(`${process.env.BASE_URL}/finance`, {
+// 测试环境使用
+// const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
 //   timeout: 1000 * 60,
 // });
 
@@ -605,6 +622,15 @@ export class ManagementReportApi {
       timeout: 1000 * 60 * 60,
       showLoading: false,
     });
+  }
+  /**
+   * 新增拼多多推广费
+   * POST /oms/finance/channel-extend-cost/pdd-promotion
+   */
+  static async addPddPromotion(
+    data: FinancePddPromotionAddReq,
+  ): Promise<ResponseData<boolean>> {
+    return channelBillRequest.post('/channel-extend-cost/pdd-promotion', data);
   }
 }
 
