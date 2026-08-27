@@ -310,18 +310,12 @@ const handleAntdTableData = async (
           cell.numFmt = '0.0000';
         }
       }
-      // 料品：数值保留4位小数（末位0也保留）
+      // 料品：直接导出为文本，避免前导0/尾数被Excel当数字处理
       else if (dataIndex === 'u9No') {
         const cell = row.getCell(colIndex + 1);
         const v = item[dataIndex];
-        if (v === null || v === undefined || v === '') {
-          cell.value = '';
-        } else {
-          const strVal = String(v).trim();
-          const numVal = Number(strVal);
-          cell.value = isNaN(numVal) ? strVal : numVal;
-          cell.numFmt = '0.0000';
-        }
+        cell.value = v === null || v === undefined ? '' : String(v).trim();
+        cell.numFmt = '@';
       }
       // 出货原则固定写死004
       else if (dataIndex === 'shippingPrinciple') {
