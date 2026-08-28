@@ -1,6 +1,7 @@
 import FinanceApi from '@/services/financeApi';
 import { PlusOutlined, ShopOutlined, UserOutlined } from '@ant-design/icons';
 import {
+  Alert,
   Button,
   Card,
   Drawer,
@@ -32,8 +33,13 @@ const AuxiliaryOperation: React.FC = () => {
     if (!values) {
       return;
     }
+    // 去除 shopId / shopName 前后及中间的空格
+    const cleanedValues = {
+      shopId: values.shopId.replace(/\s+/g, ''),
+      shopName: values.shopName.replace(/\s+/g, ''),
+    };
     try {
-      const res = await FinanceApi.postObaCustomerNew(values);
+      const res = await FinanceApi.postObaCustomerNew(cleanedValues);
       if (res.code !== 200) {
         message.error('U9客户代码维护失败: ' + res.msg);
         return;
@@ -145,6 +151,13 @@ const AuxiliaryOperation: React.FC = () => {
           </Space>
         }
       >
+        <Alert
+          type="warning"
+          showIcon
+          banner
+          message="提示：财务手工调整的发票.xlsx 文件里订货客户需要对应旺店通店铺名称"
+          style={{ marginBottom: 16, fontSize: 16, fontWeight: 'bold' }}
+        />
         <ShopInfo ref={shopInfoRef} />
       </Drawer>
     </>

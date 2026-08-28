@@ -297,18 +297,12 @@ const handleAntdTableData = async (
           row.getCell(colIndex + 1).value = idTemp--;
         }
       }
-      // 如果是shopId-客户则清除前空格，且数值保留4位小数（末位0也保留）
+      // 客户编码：直接导出为文本，避免前导0/尾数被Excel当数字处理
       else if (dataIndex === 'shopId') {
         const cell = row.getCell(colIndex + 1);
         const v = item[dataIndex];
-        if (v === null || v === undefined || v === '') {
-          cell.value = '';
-        } else {
-          const strVal = String(v).trim();
-          const numVal = Number(strVal);
-          cell.value = isNaN(numVal) ? strVal : numVal;
-          cell.numFmt = '0.0000';
-        }
+        cell.value = v === null || v === undefined ? '' : String(v).trim();
+        cell.numFmt = '@';
       }
       // 料品：直接导出为文本，避免前导0/尾数被Excel当数字处理
       else if (dataIndex === 'u9No') {
