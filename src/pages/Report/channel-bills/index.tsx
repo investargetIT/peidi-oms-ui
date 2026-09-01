@@ -6,11 +6,13 @@ import PddBillPanel from './pdd';
 import DyBillPanel from './dy';
 import XhsBillPanel from './xhs';
 import JdBillPanel from './jd';
+import KsBillPanel from './kuaishou';
+import WechatBillPanel from './wechat';
 
 const SUB_TAB_KEY = 'channel_bills_sub_tab';
 
 const ChannelBillsTab: React.FC = () => {
-  // 当前激活的子 tab：zfb / pdd / dy / tmall / xhs / jd
+  // 当前激活的子 tab：zfb / pdd / dy / tmall / xhs / jd / ks / wechat
   const [billSubTab, setBillSubTab] = useState<string>(() => {
     return localStorage.getItem(SUB_TAB_KEY) || 'zfb';
   });
@@ -26,6 +28,8 @@ const ChannelBillsTab: React.FC = () => {
     { key: 'tmall', label: '天猫' },
     { key: 'xhs', label: '小红书' },
     { key: 'jd', label: '京东' },
+    { key: 'ks', label: '快手' },
+    { key: 'wechat', label: '微信' },
   ];
 
   const renderSubTabContent = () => {
@@ -42,6 +46,10 @@ const ChannelBillsTab: React.FC = () => {
         return <XhsBillPanel />;
       case 'jd':
         return <JdBillPanel />;
+      case 'ks':
+        return <KsBillPanel />;
+      case 'wechat':
+        return <WechatBillPanel />;
       default:
         return null;
     }
