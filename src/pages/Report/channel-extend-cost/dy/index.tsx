@@ -1,14 +1,15 @@
 import React from 'react';
-import ChannelExtendCostBase from '../shared/ChannelExtendCostBase';
+import DyExtendCostBase from './DyExtendCostBase';
 
 /**
  * 抖音 - 渠道推广费用
  *
- * 当前与 Base 实现完全一致，后续如果发现抖音有特殊的业务编码分类
- * 或汇总逻辑，可以在这里 fork Base 实现一份独立的 panel。
+ * 抖音已 fork 出独立的面板实现（DyExtendCostBase），与共享 Base 解耦。
+ * 当前与 Base 逻辑一致，后续抖音专属逻辑（业务编码分类、汇总口径、
+ * 统计接口等）直接在 ./DyExtendCostBase 里改，不影响其他渠道。
  */
 const DyExtendCostPanel: React.FC = () => {
-  return <ChannelExtendCostBase channel="抖音" />;
+  return <DyExtendCostBase channel="抖音" />;
 };
 
 export default DyExtendCostPanel;

@@ -17,6 +17,7 @@ export const summaryGroups: { name: string; codes: string[] }[] = [
       '0040001',
       '0040002',
       '0040003',
+      '0040014',
       '0090001',
       '0130005',
       '0140002',
