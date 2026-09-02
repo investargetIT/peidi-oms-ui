@@ -69,7 +69,7 @@ const DEDUCT_CATEGORIES = [
   '运营服务费',
 ];
 
-// 收款 = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付
+// 收款 = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
 const COLLECTION_A_CATEGORIES = [
   '代收配送费',
   '货款',
@@ -79,9 +79,9 @@ const COLLECTION_A_CATEGORIES = [
   '售后卖家赔付费',
   '综合违约金',
 ];
-const COLLECTION_DEDUCT_CATEGORIES = ['直赔代扣', '违约金', '价保', '售后', '先行赔付'];
+const COLLECTION_DEDUCT_CATEGORIES = ['直赔代扣', '违约金', '价保', '售后', '先行赔付', '挽单补偿险'];
 
-// 本期费用 = 7 项 jd1 总计列之和 − 钱包支出里的京东联盟、运营服务费
+// 本期费用 = 9 项 jd1 总计列之和 − 钱包支出里的京东联盟、运营服务费
 const EXPENSE_JD1_CATEGORIES = [
   '代收白条网络推广技术服务费',
   '交易服务费',
@@ -90,6 +90,8 @@ const EXPENSE_JD1_CATEGORIES = [
   '价保返佣',
   '佣金',
   '直营服务费',
+  '商品保险服务费',
+  '智能礼金新客推广费',
 ];
 const EXPENSE_JD2_CATEGORIES = ['京东联盟', '运营服务费'];
 
