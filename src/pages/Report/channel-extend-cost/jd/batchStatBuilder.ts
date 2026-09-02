@@ -66,6 +66,7 @@ const DEDUCT_CATEGORIES = [
   '先行赔付',
   '挽单补偿险',
   '逆向价保险',
+  '运营服务费',
 ];
 
 // 收款 = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付
@@ -80,7 +81,7 @@ const COLLECTION_A_CATEGORIES = [
 ];
 const COLLECTION_DEDUCT_CATEGORIES = ['直赔代扣', '违约金', '价保', '售后', '先行赔付'];
 
-// 本期费用 = 7 项 jd1 总计列之和 − 钱包支出里的京东联盟
+// 本期费用 = 7 项 jd1 总计列之和 − 钱包支出里的京东联盟、运营服务费
 const EXPENSE_JD1_CATEGORIES = [
   '代收白条网络推广技术服务费',
   '交易服务费',
@@ -90,7 +91,7 @@ const EXPENSE_JD1_CATEGORIES = [
   '佣金',
   '直营服务费',
 ];
-const EXPENSE_JD2_CATEGORY = '京东联盟';
+const EXPENSE_JD2_CATEGORIES = ['京东联盟', '运营服务费'];
 
 const num = (v: unknown): number => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
 
@@ -192,7 +193,10 @@ export function buildJdStat(args: BuildJdStatArgs): JdBatchStatResult {
     (sum, desc) => sum + num(jd1SummaryRow[desc]),
     0,
   );
-  const expenseJd2Value = num(jd2Row[EXPENSE_JD2_CATEGORY]);
+  const expenseJd2Value = EXPENSE_JD2_CATEGORIES.reduce(
+    (sum, cat) => sum + num(jd2Row[cat]),
+    0,
+  );
   const currentPeriodExpense = expenseJd1Sum - expenseJd2Value;
 
   const lastMonthBalanceValue = num(lastMonthEndingBalance);

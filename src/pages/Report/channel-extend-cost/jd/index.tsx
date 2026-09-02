@@ -304,6 +304,7 @@ const JdExtendCostPanel: React.FC = () => {
     '先行赔付',
     '挽单补偿险',
     '逆向价保险',
+    '运营服务费',
   ];
 
   // 收款 = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付
@@ -334,7 +335,7 @@ const JdExtendCostPanel: React.FC = () => {
     '佣金',
     '直营服务费',
   ];
-  const EXPENSE_JD2_CATEGORY = '京东联盟';
+  const EXPENSE_JD2_CATEGORIES = ['京东联盟', '运营服务费'];
 
   const jdBalanceSummary = useMemo(() => {
     // 取 jd2 透视后那 1 行（pivotedJd2Data[0]），从中拿 5 个扣减项的金额
@@ -363,8 +364,10 @@ const JdExtendCostPanel: React.FC = () => {
       (sum, desc) => sum + (typeof jd1SummaryRow[desc] === 'number' ? jd1SummaryRow[desc] : 0),
       0,
     );
-    const expenseJd2Value =
-      typeof jd2Row[EXPENSE_JD2_CATEGORY] === 'number' ? jd2Row[EXPENSE_JD2_CATEGORY] : 0;
+    const expenseJd2Value = EXPENSE_JD2_CATEGORIES.reduce(
+      (sum, cat) => sum + (typeof jd2Row[cat] === 'number' ? jd2Row[cat] : 0),
+      0,
+    );
     const currentPeriodExpense = expenseJd1Sum - expenseJd2Value;
 
     // 上月余额 = API 的 lastMonthEndingBalance（即"上月末"余额）
@@ -537,20 +540,36 @@ const JdExtendCostPanel: React.FC = () => {
               }}
             >
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                <li style={{ marginBottom: 2 }}>
+                <li style={{ marginBottom: 4 }}>
                   <strong>京东余额对账：</strong>
-                  「上月余额」= 京东接口返回的 lastMonthEndingBalance（上月末账户余额）；
-                  「期末余额」= 上月余额 + 本月入账； 「本月入账」= 京东账单收支计算列表的合计 −
-                  钱包支出里的提现/京东联盟/违约金/其他/价保/直赔代扣/售后/先行赔付/挽单补偿险/逆向价保险
-                  十项； 「本期费用」= 总计的代收白条网络推广技术服务费 + 总计的交易服务费 +
-                  总计的随单送的京豆 + 总计的运费保险服务费 +（总计的价保返佣 + 总计的佣金）+
-                  总计的直营服务费 − 京东联盟，前 7
-                  项取自账单收支计算列表"总计行"对应列的纵向合计，京东联盟取自钱包支出分类统计；
-                  「收款」= A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付，其中 A =
-                  账单收支总计行里的代收配送费 + 货款 + 价保扣款 + 平台券价保补贴 +
-                  平台券价保补贴佣金 + 售后卖家赔付费 + 综合违约金； 「校验」= 期末余额 − （上月余额
-                  + 本期费用 + 收款 − 提现），提现取自钱包支出分类统计，|值| &lt; 0.001 显示绿色
-                  0.00，否则红色显示实际差异（参考拼多多校验样式）。
+                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                    <div><strong>上月余额</strong> = 京东接口返回的上月末账户余额（lastMonthEndingBalance）</div>
+                    <div><strong>期末余额</strong> = 上月余额 + 本月入账</div>
+                    <div>
+                      <strong>本月入账</strong> = 京东账单收支计算列表的合计 −
+                      {DEDUCT_CATEGORIES.map((c) => c).join('、')}共
+                      {DEDUCT_CATEGORIES.length} 项
+                    </div>
+                    <div>
+                      <strong>本期费用</strong> = {EXPENSE_JD1_CATEGORIES.map((c) => `总计的${c}`).join(' + ')}
+                      − {EXPENSE_JD2_CATEGORIES.join(' − ')}
+                      <div style={{ marginLeft: 16 }}>
+                        （前 {EXPENSE_JD1_CATEGORIES.length} 项取自账单收支计算列表「总计行」对应列的纵向合计；
+                        {EXPENSE_JD2_CATEGORIES.join('、')}取自钱包支出分类统计）
+                      </div>
+                    </div>
+                    <div>
+                      <strong>收款</strong> = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付
+                    </div>
+                    <div style={{ marginLeft: 16 }}>
+                      A = {COLLECTION_A_CATEGORIES.map((c) => `账单收支总计行的${c}`).join(' + ')}；
+                      扣减项取自钱包支出分类统计
+                    </div>
+                    <div>
+                      <strong>校验</strong> = 期末余额 − （上月余额 + 本期费用 + 收款 − 提现），
+                      提现取自钱包支出分类统计；|值| &lt; 0.001 显示绿色 0.00，否则红色显示实际差异
+                    </div>
+                  </div>
                 </li>
                 <li style={{ marginBottom: 2 }}>
                   <strong>京东钱包支出分类统计：</strong>
