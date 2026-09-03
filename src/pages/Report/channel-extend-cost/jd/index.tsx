@@ -119,6 +119,13 @@ const JdExtendCostPanel: React.FC = () => {
     </span>
   );
 
+  // 京东余额对账汇总金额渲染：参考拼多多「费用统计」最上面那张表，12px 加粗
+  const renderAmountBold = (value: number) => (
+    <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+      {value !== undefined && value !== null ? value.toFixed(2) : '-'}
+    </span>
+  );
+
   // 京东钱包支出分类统计 - 透视成「一行 N 列」
   // 后端返回：[{ remarkCategory, totalExpense }, ...]
   // 在前端 pivot 成：[{ [cat1]: 值, [cat2]: 值, ... }]（只有一行）
@@ -390,15 +397,19 @@ const JdExtendCostPanel: React.FC = () => {
 
     return [
       {
+        billMonth: currentYearMonth,
+        platform: '京东',
+        accountName: currentShopName,
+        endBalance: endingBalanceValue,
         lastMonthBalance: lastMonthBalanceValue,
-        endingBalance: endingBalanceValue,
-        currentMonthIn,
-        currentPeriodExpense,
         collection,
+        currentPeriodExpense,
+        withdraw: withdrawValue,
         checkSum,
+        currentMonthIn,
       },
     ];
-  }, [pivotedJd2Data, jd1SummaryRow, lastMonthEndingBalance]);
+  }, [pivotedJd2Data, jd1SummaryRow, lastMonthEndingBalance, currentYearMonth, currentShopName]);
 
   // 校验列渲染：参考拼多多，|值| < 0.001 绿色 0.00，否则红色实际值
   const renderCheckSum = (value: number) => {
@@ -418,55 +429,86 @@ const JdExtendCostPanel: React.FC = () => {
     );
   };
 
+  // 京东余额对账汇总列：列顺序与拼多多「费用统计」最上面那张表一致
+  // 账单月份 / 平台 / 账户名称 / 期末余额（元）/ 上月余额 / 收款 / 本期费用 / 提现 / 校验 / 本月入账
   const jdBalanceColumns = useMemo(
     () => [
+      {
+        title: '账单月份',
+        dataIndex: 'billMonth',
+        key: 'billMonth',
+        width: 80,
+        render: (text: string) => (
+          <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+        ),
+      },
+      {
+        title: '平台',
+        dataIndex: 'platform',
+        key: 'platform',
+        width: 60,
+        render: (text: string) => (
+          <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+        ),
+      },
+      {
+        title: '账户名称',
+        dataIndex: 'accountName',
+        key: 'accountName',
+        width: 150,
+        render: (text: string) => (
+          <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+        ),
+      },
+      {
+        title: '期末余额（元）',
+        dataIndex: 'endBalance',
+        key: 'endBalance',
+        width: 110,
+        render: renderAmountBold,
+      },
       {
         title: '上月余额',
         dataIndex: 'lastMonthBalance',
         key: 'lastMonthBalance',
-        width: 130,
-        align: 'left' as const,
-        render: renderAmount,
-      },
-      {
-        title: '期末余额',
-        dataIndex: 'endingBalance',
-        key: 'endingBalance',
-        width: 130,
-        align: 'left' as const,
-        render: renderAmount,
-      },
-      {
-        title: '本月入账',
-        dataIndex: 'currentMonthIn',
-        key: 'currentMonthIn',
-        width: 130,
-        align: 'left' as const,
-        render: renderAmount,
-      },
-      {
-        title: '本期费用',
-        dataIndex: 'currentPeriodExpense',
-        key: 'currentPeriodExpense',
-        width: 130,
-        align: 'left' as const,
-        render: renderAmount,
+        width: 110,
+        render: renderAmountBold,
       },
       {
         title: '收款',
         dataIndex: 'collection',
         key: 'collection',
-        width: 130,
-        align: 'left' as const,
-        render: renderAmount,
+        width: 110,
+        render: renderAmountBold,
+      },
+      {
+        title: '本期费用',
+        dataIndex: 'currentPeriodExpense',
+        key: 'currentPeriodExpense',
+        width: 110,
+        render: renderAmountBold,
+      },
+      {
+        title: '提现',
+        dataIndex: 'withdraw',
+        key: 'withdraw',
+        width: 110,
+        render: renderAmountBold,
       },
       {
         title: '校验',
         dataIndex: 'checkSum',
         key: 'checkSum',
-        width: 130,
+        width: 110,
         align: 'left' as const,
         render: renderCheckSum,
+      },
+      {
+        title: '本月入账',
+        dataIndex: 'currentMonthIn',
+        key: 'currentMonthIn',
+        width: 110,
+        render: renderAmountBold,
       },
     ],
     [],
@@ -530,6 +572,20 @@ const JdExtendCostPanel: React.FC = () => {
           }
         `}</style>
 
+        {/* 京东余额对账（汇总表，置于最上方，列顺序与样式参考拼多多「费用统计」最上面那张表） */}
+        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>京东余额对账</div>
+        <Table
+          columns={jdBalanceColumns}
+          dataSource={jdBalanceSummary}
+          rowKey={() => 'jd-balance'}
+          loading={modalLoading}
+          size="small"
+          className="jd1-table-small"
+          pagination={false}
+          scroll={{ x: 1100 }}
+          style={{ marginBottom: 16 }}
+        />
+
         {/* 计算逻辑说明：3 段表格的数据来源 + 本月入账的公式 */}
         <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
           <Collapse.Panel header="计算逻辑说明" key="1">
@@ -570,7 +626,7 @@ const JdExtendCostPanel: React.FC = () => {
                     </div>
                     <div>
                       <strong>校验</strong> = 期末余额 − （上月余额 + 本期费用 + 收款 − 提现），
-                      提现取自钱包支出分类统计；|值| &lt; 0.001 显示绿色 0.00，否则红色显示实际差异
+                      提现取自钱包支出分类统计（上方「提现」列同源）；|值| &lt; 0.001 显示绿色 0.00，否则红色显示实际差异
                     </div>
                   </div>
                 </li>
@@ -595,20 +651,6 @@ const JdExtendCostPanel: React.FC = () => {
             </div>
           </Collapse.Panel>
         </Collapse>
-
-        {/* 京东余额对账 */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>京东余额对账</div>
-        <Table
-          columns={jdBalanceColumns}
-          dataSource={jdBalanceSummary}
-          rowKey={() => 'jd-balance'}
-          loading={modalLoading}
-          size="small"
-          className="jd1-table-small"
-          pagination={false}
-          scroll={{ x: 130 * 6 }}
-          style={{ marginBottom: 24 }}
-        />
 
         {/* 京东钱包支出分类统计 */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
