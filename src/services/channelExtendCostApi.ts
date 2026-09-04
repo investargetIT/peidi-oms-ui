@@ -254,6 +254,76 @@ export interface FinanceJdCostStatReq {
   [property: string]: any;
 }
 
+// ----- 抖音费用统计 -----
+
+/**
+ * 抖音费用统计结果（按动账场景分类，汇总各费用项）
+ * GET /oms/finance/channel-extend-cost/dy-cost-stat
+ */
+export interface FinanceDyCostStatVo {
+  /**
+   * 业务描述（动账场景）；为空时展示「备注」字段
+   */
+  businessDesc?: string;
+  /**
+   * 动账方向：入账 / 出账
+   */
+  direction?: string;
+  /**
+   * 业务描述为空时的备注
+   */
+  remark?: string;
+  /**
+   * 佣金
+   */
+  commission?: number;
+  /**
+   * 站外推广费
+   */
+  externalPromotionFee?: number;
+  /**
+   * 招商服务费
+   */
+  merchantServiceFee?: number;
+  /**
+   * 订单净收入
+   */
+  netOrderIncome?: number;
+  /**
+   * 平台服务费
+   */
+  platformServiceFee?: number;
+  /**
+   * 服务商佣金
+   */
+  serviceProviderCommission?: number;
+  /**
+   * 支出金额（出账动账金额）
+   */
+  totalExpense?: number;
+  /**
+   * 收入金额（入账动账金额）
+   */
+  totalIncome?: number;
+  [property: string]: any;
+}
+
+/**
+ * 抖音费用统计请求
+ * GET /oms/finance/channel-extend-cost/dy-cost-stat
+ */
+export interface FinanceDyCostStatReq {
+  /**
+   * 店铺ID
+   */
+  shopId: number;
+  /**
+   * 年月，格式：yyyy-MM
+   */
+  yearMonth: string;
+  [property: string]: any;
+}
+
 // 创建渠道推广费用的request实例
 // 生产环境使用
 const channelExtendCostRequest = createRequest(
@@ -366,6 +436,19 @@ export class ChannelExtendCostApi {
     success?: boolean;
   }> {
     return channelExtendCostRequest.get('/jd-cost-stat', { params });
+  }
+
+  /**
+   * 抖音费用统计（按动账场景分类，汇总各费用项）
+   * GET /oms/finance/channel-extend-cost/dy-cost-stat
+   */
+  static async getDyCostStat(params: FinanceDyCostStatReq): Promise<{
+    code: number;
+    data: FinanceDyCostStatVo[];
+    msg: string;
+    success?: boolean;
+  }> {
+    return channelExtendCostRequest.get('/dy-cost-stat', { params });
   }
 }
 

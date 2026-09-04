@@ -15,17 +15,10 @@ import dayjs, { type Dayjs } from 'dayjs';
 import ChannelExtendCostApi, {
   type PageRequest,
   type FinanceChannelExtendCostItemVo,
-  type FinanceCostCategoryStatVo,
+  type FinanceDyCostStatVo,
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
-import {
-  getFeeCategory,
-  feeCategoryOrder,
-  getFeeMajorCategory,
-  feeMajorCategoryOrder,
-} from '../common/businessCodes';
-import { buildStatResult } from '../common/statBuilder';
 
 export interface DyExtendCostBaseProps {
   /**
@@ -61,9 +54,11 @@ export interface DyExtendCostBaseProps {
 /**
  * 抖音 - 渠道推广费用 独立面板（由 shared/ChannelExtendCostBase 拷贝而来）
  *
- * 抖音已 fork 独立实现，与通用 Base 解耦。
- * 当前与共享 Base 逻辑完全一致；后续抖音专属逻辑（业务编码分类、
- * 汇总口径、统计接口、额外操作按钮等）直接在本文件修改，
+ * 抖音已 fork 独立实现，与通用 Base 解耦。「费用统计」改为走抖音专属接口
+ *   GET /oms/finance/channel-extend-cost/dy-cost-stat
+ * 请求参数 { shopId, yearMonth }，返回按动账场景（businessDesc）分类、
+ * 汇总各费用项的明细，不再依赖公共的 getCostCategoryStat / 业务编码分类。
+ * 后续抖音专属逻辑（统计接口、汇总口径、弹窗展示等）直接在本目录修改，
  * 不影响拼多多 / 天猫 / 支付宝等共用 Base 的渠道。
  */
 const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
@@ -79,16 +74,18 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopsLoading, setShopsLoading] = useState(false);
 
-  // 费用分类统计弹窗状态
+  // 抖音费用统计弹窗状态
   const [statModalVisible, setStatModalVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
-  const [statDataSource, setStatDataSource] = useState<FinanceCostCategoryStatVo[]>([]);
-  const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
-  const [endingBalance, setEndingBalance] = useState<number | null>(null);
+  // 抖音费用明细（按动账场景分类）：新接口 /dy-cost-stat 返回
+  const [dyStatData, setDyStatData] = useState<FinanceDyCostStatVo[]>([]);
   const [currentShopName, setCurrentShopName] = useState<string>('');
   const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
-  const [currentChannel, setCurrentChannel] = useState<string>('');
+  // 余额（与共享 Base 的「站内外推广费统计」汇总表一致）：
+  //   endingBalance = 本月期末余额；beginningBalance = 上月余额（本月期初）
+  const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
+  const [endingBalance, setEndingBalance] = useState<number | null>(null);
 
   // 搜索条件 - 渠道由父级 Tab 决定（channel prop），不再作为搜索项
   const [searchAccountType, setSearchAccountType] = useState<string>('');
@@ -158,162 +155,179 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
     }
   };
 
-  // 打开费用分类统计弹窗
-  // 余额获取策略：
-  //   1. 若 getCostCategoryStat 返回的数据末尾包含 PDD_BALANCE / PDD_LAST_BALANCE，
-  //      直接从 stat 数据里提取期末/上月余额，不再额外调用 queryEndingBalance；
-  //   2. 否则走老逻辑：调两次 queryEndingBalance（上月 / 当月）分别取期初和期末。
+  // 打开抖音费用统计弹窗
+  // 打开抖音费用统计弹窗：
+  //   1) 抖音费用明细（按动账场景分类）：新接口 GET /dy-cost-stat，返回 { shopId, yearMonth }
+  //   2) 抖音余额对账：与共享 Base / 天猫一致——
+  //        本期收款 / 本期费用 / 提现 = 老接口 GET /cost-category-stat 按业务编码汇总
+  //        期末 / 上月余额        = 老接口 queryEndingBalance
   const openStatModal = async (record: FinanceChannelExtendCostItemVo) => {
     const wdtName = record.wdtName;
     const yearMonth = record.yearMonth;
     const shopId = record.shopId;
-    const ch = record.channel;
-    const title = `${displayShopName(wdtName) || ''} ${yearMonth} 站内外推广费统计`;
+    const title = `${displayShopName(wdtName) || ''} ${yearMonth} 抖音费用统计`;
     setStatModalTitle(title);
-    setStatDataSource([]);
+    setDyStatData([]);
     setBeginningBalance(null);
     setEndingBalance(null);
     setCurrentShopName(displayShopName(wdtName) || '');
     setCurrentYearMonth(yearMonth || '');
-    setCurrentChannel(ch || '');
     setStatModalVisible(true);
     setStatLoading(true);
     try {
-      const statRes = await ChannelExtendCostApi.getCostCategoryStat({
-        shopId: shopId!,
-        yearMonth: yearMonth!,
-      });
-
-      if (statRes.code !== 200) {
-        message.error('获取统计数据失败');
+      if (shopId === undefined || shopId === null) {
+        message.error('该店铺没有 ID，无法查询');
+        return;
+      }
+      if (!yearMonth) {
+        message.error('缺少月份信息');
         return;
       }
 
-      const rawData = statRes.data || [];
+      // —— 明细表：新接口 /dy-cost-stat ——
+      const statRes = await ChannelExtendCostApi.getDyCostStat({ shopId, yearMonth });
+      if (statRes.code !== 200) {
+        message.error(typeof statRes.data === 'string' ? statRes.data : '获取统计数据失败');
+        return;
+      }
+      setDyStatData(statRes.data || []);
 
-      // 尝试从 stat 数据中提取余额项（拼多多等渠道后端已内置在返回末尾）
+      // —— 余额对账表：老接口 /cost-category-stat 只取余额（参考天猫/共享 Base）——
+      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth });
+      if (costRes.code !== 200) {
+        message.error(typeof costRes.data === 'string' ? costRes.data : '获取统计数据失败');
+        return;
+      }
+      const rawData = costRes.data || [];
+
+      // 余额项：PDD_BALANCE = 本月期末余额，PDD_LAST_BALANCE = 上月余额（本月期初）
       const balanceItem = rawData.find((it) => it.businessCode === 'PDD_BALANCE');
       const lastBalanceItem = rawData.find((it) => it.businessCode === 'PDD_LAST_BALANCE');
       const hasInlineBalance = !!balanceItem || !!lastBalanceItem;
 
-      // 过滤掉余额项，剩下的才是业务编码明细
-      const detailData = rawData.filter(
-        (it) => it.businessCode !== 'PDD_BALANCE' && it.businessCode !== 'PDD_LAST_BALANCE',
-      );
-
-      let beginningVal: number | null = null;
-      let endingVal: number | null = null;
-
       if (hasInlineBalance) {
-        // —— 策略 1：从 stat 数据里直接拿余额 ——
-        if (lastBalanceItem && lastBalanceItem.totalIncome !== undefined && lastBalanceItem.totalIncome !== null) {
-          beginningVal = lastBalanceItem.totalIncome;
+        // 与共享 Base / 天猫一致：直接从 cost-category-stat 返回里取余额
+        if (
+          lastBalanceItem &&
+          lastBalanceItem.totalIncome !== undefined &&
+          lastBalanceItem.totalIncome !== null
+        ) {
+          setBeginningBalance(lastBalanceItem.totalIncome);
+        } else {
+          console.warn('cost-category-stat 未返回上月余额（PDD_LAST_BALANCE）');
         }
-        if (balanceItem && balanceItem.totalIncome !== undefined && balanceItem.totalIncome !== null) {
-          endingVal = balanceItem.totalIncome;
+        if (
+          balanceItem &&
+          balanceItem.totalIncome !== undefined &&
+          balanceItem.totalIncome !== null
+        ) {
+          setEndingBalance(balanceItem.totalIncome);
+        } else {
+          console.warn('cost-category-stat 未返回本月期末余额（PDD_BALANCE）');
         }
       } else {
-        // —— 策略 2：老逻辑，调 queryEndingBalance 两次 ——
-        const [year, month] = yearMonth!.split('-').map(Number);
-        let prevYear = year;
-        let prevMonth = month - 1;
-        if (prevMonth === 0) {
-          prevYear = year - 1;
-          prevMonth = 12;
-        }
-        const prevYearMonth = `${prevYear}-${prevMonth.toString().padStart(2, '0')}`;
-
-        const [beginningBalanceRes, endingBalanceRes] = await Promise.all([
+        // 回退：queryEndingBalance 取「上月末 = 期初」和「本月末」（与共享 Base 策略一致）
+        const [py, pm] = yearMonth.split('-').map(Number);
+        const prevYear = pm === 1 ? py - 1 : py;
+        const prevMonth = pm === 1 ? 12 : pm - 1;
+        const prevYearMonth = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+        const [beginRes, endRes] = await Promise.all([
           ChannelExtendCostApi.queryEndingBalance({
             accountType: '期末余额',
-            shopId: shopId!,
+            shopId,
             yearMonth: prevYearMonth,
           }),
           ChannelExtendCostApi.queryEndingBalance({
             accountType: '期末余额',
-            shopId: shopId!,
-            yearMonth: yearMonth!,
+            shopId,
+            yearMonth,
           }),
         ]);
-
-        if (
-          beginningBalanceRes.code === 200 &&
-          beginningBalanceRes.data &&
-          beginningBalanceRes.data.incomeAmount !== undefined
-        ) {
-          beginningVal = beginningBalanceRes.data.incomeAmount;
+        if (beginRes.code === 200 && beginRes.data && beginRes.data.incomeAmount !== undefined) {
+          setBeginningBalance(beginRes.data.incomeAmount);
         } else {
-          console.warn('获取期初余额失败或数据为空');
+          console.warn('获取上月余额失败或数据为空');
         }
-
-        if (
-          endingBalanceRes.code === 200 &&
-          endingBalanceRes.data &&
-          endingBalanceRes.data.incomeAmount !== undefined
-        ) {
-          endingVal = endingBalanceRes.data.incomeAmount;
+        if (endRes.code === 200 && endRes.data && endRes.data.incomeAmount !== undefined) {
+          setEndingBalance(endRes.data.incomeAmount);
         } else {
           console.warn('获取本月期末余额失败或数据为空');
         }
       }
-
-      setBeginningBalance(beginningVal);
-      setEndingBalance(endingVal);
-      setStatDataSource(detailData);
     } catch (error) {
-      console.error('获取统计数据失败:', error);
-      message.error('获取统计数据失败');
+      console.error('获取抖音费用统计数据失败:', error);
+      message.error('获取抖音费用统计数据失败');
     } finally {
       setStatLoading(false);
     }
   };
 
-  // 把后端 3 个接口的原始数据组装成「汇总 + 排序后明细」，
-  // 弹窗和「批量导出 Excel」共用此结果，保证两边展示完全一致。
-  //
-  // 抖音专属逻辑：
-  //   本期收款 = 收入金额合计（全部明细收入金额之和）
-  //   本期费用 = -支出金额合计（全部明细支出金额之和，抖音展示取负值）
-  //   （区别于共享 Base 的「按业务编码 calculate 分组汇总」）。
-  //   仅覆盖抖音本地 summary 的 currentCollection / currentExpense /
-  //   calculatedBalance / checkDiff，保证整表按同一口径自洽，不影响其他渠道。
-  const statResult = useMemo(() => {
-    const baseResult = buildStatResult({
-      statData: statDataSource,
-      beginningBalance,
-      endingBalance,
-      yearMonth: currentYearMonth,
-      channel: currentChannel,
-      shopName: currentShopName,
-    });
-    // 收入金额合计 = 全部明细收入金额之和；支出金额合计 = 全部明细支出金额之和
-    const incomeTotal = statDataSource.reduce((s, it) => s + (it.totalIncome || 0), 0);
-    const expenseTotal = statDataSource.reduce((s, it) => s + (it.totalExpense || 0), 0);
-    const dyCollection = incomeTotal;
-    // 抖音本期费用展示为负值
-    const dyExpense = -expenseTotal;
+  // 抖音费用统计各费用项纵向合计（每列 = 所有动账场景该列金额之和），
+  // 作为表格的合计行展示，便于核对"汇总各费用项"。
+  const dyStatSummaryRow = useMemo(() => {
+    const init: Partial<FinanceDyCostStatVo> = { businessDesc: '合计' };
+    return dyStatData.reduce((acc, it) => {
+      acc.netOrderIncome = (acc.netOrderIncome || 0) + (it.netOrderIncome || 0);
+      acc.platformServiceFee = (acc.platformServiceFee || 0) + (it.platformServiceFee || 0);
+      acc.commission = (acc.commission || 0) + (it.commission || 0);
+      acc.serviceProviderCommission =
+        (acc.serviceProviderCommission || 0) + (it.serviceProviderCommission || 0);
+      acc.merchantServiceFee = (acc.merchantServiceFee || 0) + (it.merchantServiceFee || 0);
+      acc.externalPromotionFee = (acc.externalPromotionFee || 0) + (it.externalPromotionFee || 0);
+      acc.totalIncome = (acc.totalIncome || 0) + (it.totalIncome || 0);
+      acc.totalExpense = (acc.totalExpense || 0) + (it.totalExpense || 0);
+      return acc;
+    }, init as Partial<FinanceDyCostStatVo>);
+  }, [dyStatData]);
 
-    // 按抖音口径重算「计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息」
-    // 与「校验 = 计算余额 - 期末余额」，与共享逻辑保持一致公式、仅换收款/费用。
-    const dySummary = { ...baseResult.summary };
-    dySummary.currentCollection = dyCollection;
-    dySummary.currentExpense = dyExpense;
-    dySummary.calculatedBalance =
-      dySummary.lastMonthBalance + dyCollection + dyExpense + dySummary.withdraw + dySummary.interest;
-    dySummary.checkDiff = dySummary.calculatedBalance - dySummary.endBalance;
+  // 费用项列配置：列定义与「合计」行共用同一份，保证两边字段与顺序一致
+  const dyFeeFields: { title: string; dataIndex: keyof FinanceDyCostStatVo }[] = [
+    { title: '订单净收入', dataIndex: 'netOrderIncome' },
+    { title: '平台服务费', dataIndex: 'platformServiceFee' },
+    { title: '佣金', dataIndex: 'commission' },
+    { title: '服务商佣金', dataIndex: 'serviceProviderCommission' },
+    { title: '招商服务费', dataIndex: 'merchantServiceFee' },
+    { title: '站外推广费', dataIndex: 'externalPromotionFee' },
+    { title: '收入金额（入账）', dataIndex: 'totalIncome' },
+    { title: '支出金额（出账）', dataIndex: 'totalExpense' },
+  ];
+
+  // 抖音余额对账（最上面的汇总表）：
+//   本期收款 = 收入金额合计 = 抖音费用明细（dy-cost-stat）所有 totalIncome 之和
+//   本期费用 = -总计（支出金额（出账））= -抖音费用明细（dy-cost-stat）所有 totalExpense 之和
+//   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
+//   提现 / 结息 = 默认 0
+//   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
+//   校验     = 计算余额 - 期末余额
+  const dySummary = useMemo(() => {
+    const incomeTotal = dyStatData.reduce((s, it) => s + (it.totalIncome || 0), 0);
+    const expenseTotal = dyStatData.reduce((s, it) => s + (it.totalExpense || 0), 0);
+
+    const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
+    const lastMonthBalance = safeNum(beginningBalance);
+    const endBalance = safeNum(endingBalance);
+    const currentCollection = incomeTotal;
+    const currentExpense = -expenseTotal; // 本期费用取负值
+    const withdraw = 0; // 抖音暂不区分提现
+    const interest = 0; // 结息固定 0
+    const calculatedBalance =
+      lastMonthBalance + currentCollection + currentExpense + withdraw + interest;
+    const checkDiff = calculatedBalance - endBalance;
 
     return {
-      ...baseResult,
-      summary: dySummary,
+      billMonth: currentYearMonth,
+      accountName: currentShopName,
+      platform: '抖音',
+      endBalance,
+      lastMonthBalance,
+      currentCollection,
+      currentExpense,
+      withdraw,
+      interest,
+      calculatedBalance,
+      checkDiff,
     };
-  }, [
-    statDataSource,
-    beginningBalance,
-    endingBalance,
-    currentYearMonth,
-    currentChannel,
-    currentShopName,
-  ]);
+  }, [dyStatData, currentYearMonth, currentShopName, beginningBalance, endingBalance]);
 
   // 初始化加载（每个 tab 切换时都会重新挂载，因此 mount 时拉一次即可）
   useEffect(() => {
@@ -488,7 +502,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         }}
       />
 
-      {/* 费用分类统计弹窗 */}
+      {/* 抖音费用统计弹窗：动账方向汇总 + 按动账场景分类汇总各费用项 */}
       <Modal
         title={statModalTitle}
         open={statModalVisible}
@@ -502,18 +516,24 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         <style>{`
           .stat-table-small tr td {
             padding: 4px 8px !important;
+            font-size: 12px !important;
             line-height: 1.3 !important;
             height: 28px !important;
             white-space: nowrap !important;
           }
           .stat-table-small tr th {
             padding: 6px 8px !important;
+            font-size: 12px !important;
             line-height: 1.3 !important;
             white-space: nowrap !important;
           }
+          .stat-table-small tr.dy-stat-summary-row > td {
+            background: #fafafa !important;
+          }
         `}</style>
 
-        {/* 汇总表格 */}
+        {/* 抖音余额对账（最上面的汇总表，列与共享 Base 的站内外推广费统计一致） */}
+        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>抖音余额对账</div>
         <Table
           columns={[
             {
@@ -529,7 +549,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               title: '平台',
               dataIndex: 'platform',
               key: 'platform',
-              width: 60,
+              width: 50,
               render: (text: string) => (
                 <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
               ),
@@ -547,7 +567,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               title: '期末余额（元）',
               dataIndex: 'endBalance',
               key: 'endBalance',
-              width: 100,
+              width: 110,
+              align: 'right' as const,
               render: (value: number) => (
                 <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
               ),
@@ -556,7 +577,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               title: '上月余额',
               dataIndex: 'lastMonthBalance',
               key: 'lastMonthBalance',
-              width: 80,
+              width: 90,
+              align: 'right' as const,
               render: (value: number) => (
                 <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
               ),
@@ -565,7 +587,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               title: '本期收款',
               dataIndex: 'currentCollection',
               key: 'currentCollection',
-              width: 80,
+              width: 110,
+              align: 'right' as const,
               render: (value: number) => (
                 <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
               ),
@@ -574,7 +597,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               title: '本期费用',
               dataIndex: 'currentExpense',
               key: 'currentExpense',
-              width: 80,
+              width: 110,
+              align: 'right' as const,
               render: (value: number) => (
                 <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
               ),
@@ -583,7 +607,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               title: '提现',
               dataIndex: 'withdraw',
               key: 'withdraw',
-              width: 60,
+              width: 80,
+              align: 'right' as const,
               render: (value: number) => (
                 <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
               ),
@@ -592,7 +617,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               title: '结息',
               dataIndex: 'interest',
               key: 'interest',
-              width: 60,
+              width: 70,
+              align: 'right' as const,
               render: (value: number) => (
                 <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
               ),
@@ -602,6 +628,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               dataIndex: 'calculatedBalance',
               key: 'calculatedBalance',
               width: 100,
+              align: 'right' as const,
               render: (value: number) => (
                 <span style={{ fontSize: 12, fontWeight: 'bold' }}>{value?.toFixed(2)}</span>
               ),
@@ -611,6 +638,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               dataIndex: 'checkDiff',
               key: 'checkDiff',
               width: 80,
+              fixed: 'right' as const,
+              align: 'left' as const,
               render: (value: number) => {
                 const num = value || 0;
                 const isBalanced = Math.abs(num) < 0.001;
@@ -629,13 +658,14 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               },
             },
           ]}
-          dataSource={statModalVisible ? [statResult.summary] : []}
+          dataSource={statModalVisible ? [dySummary] : []}
           rowKey="billMonth"
+          loading={statLoading}
           size="small"
           className="stat-table-small"
           style={{ fontSize: 12, marginBottom: 16 }}
           pagination={false}
-          scroll={{ x: 1100 }}
+          scroll={{ x: 1030 }}
         />
 
         {/* 计算逻辑说明 */}
@@ -651,160 +681,115 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               }}
             >
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                <li style={{ marginBottom: 2 }}><strong>账单月份：</strong>当前统计的月份</li>
-                <li style={{ marginBottom: 2 }}><strong>平台：</strong>当前统计的渠道（抖音）</li>
-                <li style={{ marginBottom: 2 }}><strong>账户名称：</strong>店铺名称</li>
-                <li style={{ marginBottom: 2 }}><strong>期末余额：</strong>系统查询到的本月实际期末余额</li>
-                <li style={{ marginBottom: 2 }}><strong>上月余额：</strong>上个月末的账户余额，作为本月期初</li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>本期收款（抖音专属）：</strong>收入金额合计（全部明细收入金额之和）。
+                <li style={{ marginBottom: 4 }}>
+                  <strong>抖音余额对账：</strong>
+                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                    <div>
+                      <strong>本期收款</strong> = 收入金额合计 = 抖音费用明细（dy-cost-stat）所有「入账」的
+                      收入金额之和
+                    </div>
+                    <div>
+                      <strong>本期费用</strong> = 支出金额合计 =
+                      -总计（支出金额（出账）），即 -抖音费用明细（dy-cost-stat）所有「出账」的支出金额之和
+                    </div>
+                    <div>
+                      <strong>上月余额 / 期末余额</strong> = 老接口 cost-category-stat 内联余额项
+                      （PDD_LAST_BALANCE / PDD_BALANCE）返回，无内联项则回退 queryEndingBalance
+                    </div>
+                    <div><strong>提现</strong>：抖音接口暂不区分，默认 0；<strong>结息</strong>：默认 0</div>
+                    <div>
+                      <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
+                    </div>
+                    <div>
+                      <strong>校验</strong> = 计算余额 - 期末余额，|值| &lt; 0.001 显示绿色 0.00，否则红色实际差异
+                    </div>
+                  </div>
+                </li>
+                <li style={{ marginBottom: 4 }}>
+                  <strong>订单净收入</strong> = 订单实付应结 + 实际平台补贴_运费 + 实际平台补贴 +
+                  以旧换新抵扣 + 实际达人补贴 + 实际抖音支付补贴 + 实际抖音月付营销补贴 + 银行补贴 + 订单退款
+                </li>
+                <li style={{ marginBottom: 4 }}>
+                  <strong>收入金额（入账动账金额）</strong> = 订单净收入 + 平台服务费 + 佣金 +
+                  服务商佣金 + 招商服务费 + 站外推广费
+                </li>
+                <li style={{ marginBottom: 4 }}>
+                  <strong>支出金额（出账动账金额）</strong>：该动账场景本月出账金额
+                </li>
+                <li style={{ marginBottom: 4 }}>
+                  <strong>业务描述：</strong>按业务描述（businessDesc）分类；业务描述为空的列，展示其「备注」。
                 </li>
                 <li style={{ marginBottom: 2 }}>
-                  <strong>本期费用（抖音专属）：</strong>-支出金额合计（全部明细支出金额之和取负值）。
-                </li>
-                <li style={{ marginBottom: 2 }}><strong>提现：</strong>本月提现业务汇总（业务编码同通用口径）。</li>
-                <li style={{ marginBottom: 2 }}><strong>结息：</strong>默认 0，如有结息业务后续调整</li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</strong>
-                  （本期收款、本期费用为抖音专属口径）
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>校验 = 计算余额 - 期末余额</strong>
-                  ，差异绝对值小于0.001则视为平衡，统一展示为
-                  <strong>0.00</strong>（绿色），否则展示实际差异（红色）
+                  <strong>合计行：</strong>每列所有动账场景的纵向相加，便于核对整月总额。
                 </li>
               </ul>
             </div>
           </Collapse.Panel>
         </Collapse>
 
-        {/* 业务编码明细表格 */}
-        {(() => {
-          const { detail, detailGroupMeta } = statResult;
-          const { majorCount, majorFirstIndex, categoryCount, categoryFirstIndex } =
-            detailGroupMeta;
-          return (
-            <Table
-              columns={[
-                {
-                  title: '分类',
-                  dataIndex: 'feeMajorCategory',
-                  key: 'feeMajorCategory',
-                  width: 90,
-                  render: (_: unknown, record: any, index: number) => {
-                    const major = getFeeMajorCategory(getFeeCategory(record.businessCode));
-                    const isFirst = majorFirstIndex[major] === index;
-                    return {
-                      children: (
-                        <span style={{ fontSize: 12, fontWeight: 'bold' }}>{major}</span>
-                      ),
-                      props: { rowSpan: isFirst ? majorCount[major] : 0 },
-                    };
-                  },
-                },
-                {
-                  title: '管报名称',
-                  dataIndex: 'feeCategory',
-                  key: 'feeCategory',
-                  width: 100,
-                  render: (_: unknown, record: any, index: number) => {
-                    const cat = getFeeCategory(record.businessCode);
-                    const isFirst = categoryFirstIndex[cat] === index;
-                    return {
-                      children: <span style={{ fontSize: 12, fontWeight: 'bold' }}>{cat}</span>,
-                      props: { rowSpan: isFirst ? categoryCount[cat] : 0 },
-                    };
-                  },
-                },
-                {
-                  title: '收入金额合计',
-                  dataIndex: 'incomeSum',
-                  key: 'incomeSum',
-                  width: 110,
-                  render: (_: unknown, record: any, index: number) => {
-                    const cat = getFeeCategory(record.businessCode);
-                    const isFirst = categoryFirstIndex[cat] === index;
-                    return {
-                      children: (
+        {/* 明细表：业务描述（分类别）+ 各费用项 + 收入金额 / 支出金额 */}
+        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+          抖音费用明细（按动账场景分类）
+          {dyStatData.length > 0 && (
+            <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
+              （共 {dyStatData.length} 项，最下面一行【合计】为每列总和）
+            </span>
+          )}
+        </div>
+        <Table
+          columns={[
+            {
+              title: '业务描述（分类别）',
+              dataIndex: 'businessDesc',
+              key: 'businessDesc',
+              width: 180,
+              fixed: 'left' as const,
+              render: (text: string, record: FinanceDyCostStatVo) => (
+                <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                  {text || record.remark || '-'}
+                </span>
+              ),
+            },
+            ...dyFeeFields.map((field) => ({
+              title: field.title,
+              dataIndex: field.dataIndex,
+              key: field.dataIndex as string,
+              width: 120,
+              align: 'right' as const,
+              render: (value: number) => (
+                <span style={{ fontSize: 12 }}>{value?.toFixed(2) ?? '-'}</span>
+              ),
+            })),
+          ]}
+          dataSource={statModalVisible ? dyStatData : []}
+          rowKey={(record, index) => `${record.businessDesc || record.remark}-${index}`}
+          loading={statLoading}
+          size="small"
+          className="stat-table-small"
+          style={{ fontSize: 12, marginBottom: 16 }}
+          pagination={false}
+          scroll={{ x: 1140 }}
+          summary={
+            dyStatData.length > 0
+              ? () => (
+                  <Table.Summary.Row className="dy-stat-summary-row">
+                    <Table.Summary.Cell index={0} align="left">
+                      <span style={{ fontSize: 12, fontWeight: 'bold' }}>合计</span>
+                    </Table.Summary.Cell>
+                    {dyFeeFields.map((field, idx) => (
+                      <Table.Summary.Cell key={field.dataIndex as string} index={idx + 1} align="right">
                         <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                          {record.incomeSum?.toFixed(2) || '-'}
+                          {dyStatSummaryRow[field.dataIndex]?.toFixed(2) ?? '-'}
                         </span>
-                      ),
-                      props: { rowSpan: isFirst ? categoryCount[cat] : 0 },
-                    };
-                  },
-                },
-                {
-                  title: '支出金额合计',
-                  dataIndex: 'expenseSum',
-                  key: 'expenseSum',
-                  width: 110,
-                  render: (_: unknown, record: any, index: number) => {
-                    const cat = getFeeCategory(record.businessCode);
-                    const isFirst = categoryFirstIndex[cat] === index;
-                    return {
-                      children: (
-                        <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                          {record.expenseSum?.toFixed(2) || '-'}
-                        </span>
-                      ),
-                      props: { rowSpan: isFirst ? categoryCount[cat] : 0 },
-                    };
-                  },
-                },
-                {
-                  title: '业务编码',
-                  dataIndex: 'businessCode',
-                  key: 'businessCode',
-                  width: 100,
-                  render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
-                },
-                {
-                  title: '业务描述',
-                  dataIndex: 'businessDesc',
-                  key: 'businessDesc',
-                  render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
-                },
-                {
-                  title: '收入金额',
-                  dataIndex: 'totalIncome',
-                  key: 'totalIncome',
-                  width: 100,
-                  render: (value: number) => (
-                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
-                  ),
-                },
-                {
-                  title: '支出金额',
-                  dataIndex: 'totalExpense',
-                  key: 'totalExpense',
-                  width: 100,
-                  render: (value: number) => (
-                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
-                  ),
-                },
-                {
-                  title: '计算结果',
-                  dataIndex: 'calculate',
-                  key: 'calculate',
-                  width: 120,
-                  render: (value: number) => (
-                    <span style={{ fontSize: 12 }}>{value?.toFixed(2) || '-'}</span>
-                  ),
-                },
-              ]}
-              dataSource={detail}
-              rowKey={(record, index) => `${record.businessCode}-${index}`}
-              loading={statLoading}
-              size="small"
-              className="stat-table-small"
-              style={{ fontSize: 12 }}
-              pagination={false}
-              scroll={{ x: 920 }}
-            />
-          );
-        })()}
-      </Modal>
+                      </Table.Summary.Cell>
+                    ))}
+                  </Table.Summary.Row>
+                )
+              : undefined
+          }
+        />
+
+        </Modal>
     </>
   );
 };
