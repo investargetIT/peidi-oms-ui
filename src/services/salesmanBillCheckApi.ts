@@ -1,5 +1,17 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
+// ==================== 本地/生产环境切换 ====================
+// 创建销售员账单核对的axios实例
+// 生产环境使用
+const salesmanBillCheckRequest = createRequest(`${process.env.BASE_URL}/Salesman_bill_check`, {
+  timeout: 1000 * 60,
+});
+// 测试环境使用
+// const salesmanBillCheckRequest = createRequest(`http://12.18.1.36:8085/oms/Salesman_bill_check`, {
+//   timeout: 15000,
+// });
+// ==================== 切换代码结束 ====================
+
 export interface PageResponse<T> {
   data: {
     records: T[];
@@ -35,15 +47,6 @@ export interface SalesmanBillCheckVo {
   username?: string;
   [key: string]: any;
 }
-
-// 创建销售员账单核对的axios实例
-const salesmanBillCheckRequest = createRequest(`${process.env.BASE_URL}/Salesman_bill_check`, {
-  timeout: 1000 * 60,
-});
-// 测试环境使用
-// const salesmanBillCheckRequest = createRequest(`http://12.18.1.36:8085/oms/Salesman_bill_check`, {
-//   timeout: 15000,
-// });
 
 // 销售员账单核对API类
 export class SalesmanBillCheckApi {

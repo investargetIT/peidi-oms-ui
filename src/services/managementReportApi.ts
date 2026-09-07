@@ -1,5 +1,26 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
+// ==================== 本地/生产环境切换 ====================
+// 生产环境使用
+const managementReportRequest = createRequest(`${process.env.BASE_URL}/management-report`, {
+  timeout: 1000 * 60,
+});
+// 测试环境使用
+// const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
+//   timeout: 1000 * 60,
+// });
+
+// 创建各渠道月账单的request实例
+// 生产环境使用
+const channelBillRequest = createRequest(`${process.env.BASE_URL}/finance`, {
+  timeout: 1000 * 60,
+});
+// 测试环境使用
+// const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
+//   timeout: 1000 * 60,
+// });
+// ==================== 切换代码结束 ====================
+
 /* ==================== 管报数据查询 ==================== */
 
 /**
@@ -425,26 +446,6 @@ export interface FinanceXhsBillUploadReq {
   file2: File;
   [property: string]: any;
 }
-
-// 创建管报数据的request实例
-// 生产环境使用
-const managementReportRequest = createRequest(`${process.env.BASE_URL}/management-report`, {
-  timeout: 1000 * 60,
-});
-// 测试环境使用
-// const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
-//   timeout: 1000 * 60,
-// });
-
-// 创建各渠道月账单的request实例
-// 生产环境使用
-const channelBillRequest = createRequest(`${process.env.BASE_URL}/finance`, {
-  timeout: 1000 * 60,
-});
-// 测试环境使用
-// const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
-//   timeout: 1000 * 60,
-// });
 
 /**
  * 报表 API（管报数据 + 各渠道月账单）

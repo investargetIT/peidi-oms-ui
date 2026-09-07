@@ -1,5 +1,17 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
+// ==================== 本地/生产环境切换 ====================
+// 创建发票服务的axios实例
+// 生产环境使用
+const invoiceRequest = createRequest(`${process.env.BASE_URL}/invoice`, {
+  timeout: 1000 * 60 * 5, // 发票服务可以设置更长的超时时间
+});
+// 测试环境使用
+// const invoiceRequest = createRequest(`http://12.18.1.12:8085/oms/invoice`, {
+//   timeout: 15000, // 发票服务可以设置更长的超时时间
+// });
+// ==================== 切换代码结束 ====================
+
 export interface PageResponse<T> {
   data: {
     records: T[];
@@ -35,15 +47,6 @@ export interface InvoiceTaxNo {
   taxRate: string;
   u9No: string;
 }
-
-// 创建发票服务的axios实例
-const invoiceRequest = createRequest(`${process.env.BASE_URL}/invoice`, {
-  timeout: 1000 * 60 * 5, // 发票服务可以设置更长的超时时间
-});
-// 测试环境使用
-// const invoiceRequest = createRequest(`http://12.18.1.12:8085/oms/invoice`, {
-//   timeout: 15000, // 发票服务可以设置更长的超时时间
-// });
 
 // 简洁的财务开票API类
 export class InvoiceApi {

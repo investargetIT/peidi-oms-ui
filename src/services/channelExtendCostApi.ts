@@ -1,5 +1,23 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
+// ==================== 本地/生产环境切换 ====================
+// 创建渠道推广费用的request实例
+// 生产环境使用
+const channelExtendCostRequest = createRequest(
+  `${process.env.BASE_URL}/finance/channel-extend-cost`,
+  {
+    timeout: 1000 * 60,
+  },
+);
+// 测试环境使用
+// const channelExtendCostRequest = createRequest(
+//   `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
+//   {
+//     timeout: 1000 * 60,
+//   },
+// );
+// ==================== 切换代码结束 ====================
+
 export interface PageRequest {
   accountType?: string;
   channel?: string;
@@ -323,22 +341,6 @@ export interface FinanceDyCostStatReq {
   yearMonth: string;
   [property: string]: any;
 }
-
-// 创建渠道推广费用的request实例
-// 生产环境使用
-const channelExtendCostRequest = createRequest(
-  `${process.env.BASE_URL}/finance/channel-extend-cost`,
-  {
-    timeout: 1000 * 60,
-  },
-);
-// 测试环境使用
-// const channelExtendCostRequest = createRequest(
-//   `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
-//   {
-//     timeout: 1000 * 60,
-//   },
-// );
 
 // 渠道推广费用API类
 export class ChannelExtendCostApi {

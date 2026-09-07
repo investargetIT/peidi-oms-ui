@@ -1,9 +1,11 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
+// ==================== 本地/生产环境切换 ====================
 // 创建用户服务的axios实例
 const userRequest = createRequest(`${process.env.USER_AUTH_BASE_URL}`, {
   timeout: 15000,
 });
+// ==================== 切换代码结束 ====================
 
 export class UserApi {
   // 根据code拿到个人信息

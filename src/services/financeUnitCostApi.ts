@@ -1,5 +1,16 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
+// ==================== 本地/生产环境切换 ====================
+// 生产环境使用
+const financeUnitCostRequest = createRequest(`${process.env.BASE_URL}/finance-unit-cost`, {
+  timeout: 1000 * 60,
+});
+// 调试地址
+// const financeUnitCostRequest = createRequest(`http://12.18.1.36:8085/oms/finance-unit-cost`, {
+//   timeout: 1000 * 60,
+// });
+// ==================== 切换代码结束 ====================
+
 export interface PageResponse<T> {
   data: {
     records: T[];
@@ -56,15 +67,6 @@ export interface FinanceUnitCostVo {
   updatedAt?: string;
   [property: string]: any;
 }
-
-// 创建成本核算的axios实例 - 调试地址
-// const financeUnitCostRequest = createRequest(`http://12.18.1.36:8085/oms/finance-unit-cost`, {
-//   timeout: 1000 * 60,
-// });
-// 生产环境使用
-const financeUnitCostRequest = createRequest(`${process.env.BASE_URL}/finance-unit-cost`, {
-  timeout: 1000 * 60,
-});
 
 // 成本核算API类
 export class FinanceUnitCostApi {
