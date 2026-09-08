@@ -275,54 +275,39 @@ export interface FinanceJdCostStatReq {
 // ----- 抖音费用统计 -----
 
 /**
- * 抖音费用统计结果（按动账场景分类，汇总各费用项）
+ * 抖音费用统计 - 明细项（业务分类下的具体费用项）
+ * GET /oms/finance/channel-extend-cost/dy-cost-stat
+ */
+export interface FinanceDyCostStatDetailVo {
+  /**
+   * 费用项名称（如 动账金额 / 佣金 / 平台服务费 / 订单净收入 ...）
+   */
+  name?: string;
+  /**
+   * 数值（元）
+   */
+  value?: number;
+  [property: string]: any;
+}
+
+/**
+ * 抖音费用统计结果（按动账场景/业务分类，每个分类含名目 + 明细项）
+ * 业务描述（分类别）= name；后续各列为 details 里各费用项（details[i].name）
  * GET /oms/finance/channel-extend-cost/dy-cost-stat
  */
 export interface FinanceDyCostStatVo {
   /**
-   * 业务描述（动账场景）；为空时展示「备注」字段
+   * 业务描述（分类别）
    */
-  businessDesc?: string;
+  name?: string;
   /**
-   * 动账方向：入账 / 出账
+   * 该分类动账金额（元）
    */
-  direction?: string;
+  value?: number;
   /**
-   * 业务描述为空时的备注
+   * 明细项列表（每项 { name, value }）
    */
-  remark?: string;
-  /**
-   * 佣金
-   */
-  commission?: number;
-  /**
-   * 站外推广费
-   */
-  externalPromotionFee?: number;
-  /**
-   * 招商服务费
-   */
-  merchantServiceFee?: number;
-  /**
-   * 订单净收入
-   */
-  netOrderIncome?: number;
-  /**
-   * 平台服务费
-   */
-  platformServiceFee?: number;
-  /**
-   * 服务商佣金
-   */
-  serviceProviderCommission?: number;
-  /**
-   * 支出金额（出账动账金额）
-   */
-  totalExpense?: number;
-  /**
-   * 收入金额（入账动账金额）
-   */
-  totalIncome?: number;
+  details?: FinanceDyCostStatDetailVo[];
   [property: string]: any;
 }
 

@@ -56,8 +56,10 @@ export interface DyExtendCostBaseProps {
  *
  * 抖音已 fork 独立实现，与通用 Base 解耦。「费用统计」改为走抖音专属接口
  *   GET /oms/finance/channel-extend-cost/dy-cost-stat
- * 请求参数 { shopId, yearMonth }，返回按动账场景（businessDesc）分类、
- * 汇总各费用项的明细，不再依赖公共的 getCostCategoryStat / 业务编码分类。
+ * 请求参数 { shopId, yearMonth }，返回结构为：
+ *   data = [{ name: 业务描述（分类别）, value: 动账金额, details: [{name, value}, ...] }, ...]
+ * 业务描述（分类别）= data 第一层 name；后续各列 = data[x].details.name（明细费用项）。
+ * 明细表列完全按接口 details 动态生成，不再依赖固定列 / 公共的 getCostCategoryStat / 业务编码分类。
  * 后续抖音专属逻辑（统计接口、汇总口径、弹窗展示等）直接在本目录修改，
  * 不影响拼多多 / 天猫 / 支付宝等共用 Base 的渠道。
  */
@@ -78,7 +80,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   const [statModalVisible, setStatModalVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
-  // 抖音费用明细（按动账场景分类）：新接口 /dy-cost-stat 返回
+  // 抖音费用明细（按业务分类）：新接口 /dy-cost-stat 返回
+  //   业务描述（分类别）= data 第一层 name；后续各列 = data[x].details.name
   const [dyStatData, setDyStatData] = useState<FinanceDyCostStatVo[]>([]);
   const [currentShopName, setCurrentShopName] = useState<string>('');
   const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
@@ -157,7 +160,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
 
   // 打开抖音费用统计弹窗
   // 打开抖音费用统计弹窗：
-  //   1) 抖音费用明细（按动账场景分类）：新接口 GET /dy-cost-stat，返回 { shopId, yearMonth }
+  //   1) 抖音费用明细（按业务分类）：新接口 GET /dy-cost-stat，返回 { shopId, yearMonth }
   //   2) 抖音余额对账：与共享 Base / 天猫一致——
   //        本期收款 / 本期费用 / 提现 = 老接口 GET /cost-category-stat 按业务编码汇总
   //        期末 / 上月余额        = 老接口 queryEndingBalance
@@ -262,53 +265,162 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
     }
   };
 
-  // 抖音费用统计各费用项纵向合计（每列 = 所有动账场景该列金额之和），
-  // 作为表格的合计行展示，便于核对"汇总各费用项"。
-  const dyStatSummaryRow = useMemo(() => {
-    const init: Partial<FinanceDyCostStatVo> = { businessDesc: '合计' };
-    return dyStatData.reduce((acc, it) => {
-      acc.netOrderIncome = (acc.netOrderIncome || 0) + (it.netOrderIncome || 0);
-      acc.platformServiceFee = (acc.platformServiceFee || 0) + (it.platformServiceFee || 0);
-      acc.commission = (acc.commission || 0) + (it.commission || 0);
-      acc.serviceProviderCommission =
-        (acc.serviceProviderCommission || 0) + (it.serviceProviderCommission || 0);
-      acc.merchantServiceFee = (acc.merchantServiceFee || 0) + (it.merchantServiceFee || 0);
-      acc.externalPromotionFee = (acc.externalPromotionFee || 0) + (it.externalPromotionFee || 0);
-      acc.totalIncome = (acc.totalIncome || 0) + (it.totalIncome || 0);
-      acc.totalExpense = (acc.totalExpense || 0) + (it.totalExpense || 0);
-      return acc;
-    }, init as Partial<FinanceDyCostStatVo>);
+  // 动态明细列名：取所有分类 details 里 name 的去重并集（保持出现顺序）
+  // 业务描述（分类别）= data 第一层 name；后续各列 = data[x].details.name
+  const dyDetailColumnNames = useMemo(() => {
+    const names: string[] = [];
+    const seen = new Set<string>();
+    // 「订单净收入」始终固定为第二列（业务描述之后的第一列明细列）
+    const collect = (detailName: string | undefined) => {
+      if (detailName && !seen.has(detailName)) {
+        seen.add(detailName);
+        names.push(detailName);
+      }
+    };
+    collect('订单净收入');
+    dyStatData.forEach((cat) => {
+      (cat.details || []).forEach((d) => {
+        collect(d.name);
+      });
+    });
+    return names;
   }, [dyStatData]);
 
-  // 费用项列配置：列定义与「合计」行共用同一份，保证两边字段与顺序一致
-  const dyFeeFields: { title: string; dataIndex: keyof FinanceDyCostStatVo }[] = [
-    { title: '订单净收入', dataIndex: 'netOrderIncome' },
-    { title: '平台服务费', dataIndex: 'platformServiceFee' },
-    { title: '佣金', dataIndex: 'commission' },
-    { title: '服务商佣金', dataIndex: 'serviceProviderCommission' },
-    { title: '招商服务费', dataIndex: 'merchantServiceFee' },
-    { title: '站外推广费', dataIndex: 'externalPromotionFee' },
-    { title: '收入金额（入账）', dataIndex: 'totalIncome' },
-    { title: '支出金额（出账）', dataIndex: 'totalExpense' },
-  ];
+  // 明细列配置：与「合计」行共用同一份列名，保证列顺序一致（完全按接口 details 动态生成）
+  // 「收入金额（入账）」「支出金额（出账）」固定在最右侧两列：
+  //   收入金额 = 该分类动账金额（value）>0 的部分；支出金额 = <0 的部分（保留负号）
+  const dyFeeColumns = useMemo(() => {
+    const cols: any[] = dyDetailColumnNames.map((detailName) => ({
+      title: detailName,
+      dataIndex: detailName,
+      key: detailName,
+      width: 120,
+      align: 'right' as const,
+      render: (_: any, record: FinanceDyCostStatVo) => {
+        // 小额打款：订单净收入固定为收入金额（该分类首层 value 正数）
+        if (detailName === '订单净收入' && record.name === '小额打款') {
+          const v = typeof record.value === 'number' ? record.value : 0;
+          return <span style={{ fontSize: 12 }}>{v.toFixed(2)}</span>;
+        }
+        const detail = (record.details || []).find((d) => d.name === detailName);
+        return (
+          <span style={{ fontSize: 12 }}>
+            {detail && typeof detail.value === 'number' ? detail.value.toFixed(2) : '0.00'}
+          </span>
+        );
+      },
+    }));
+    // 右端两列：收入金额 / 支出金额（固定在表格最右侧，横向滚动时保持可见）
+    cols.push(
+      {
+        title: '收入金额（入账）',
+        dataIndex: '收入金额',
+        key: '收入金额',
+        width: 100,
+        fixed: 'right' as const,
+        align: 'right' as const,
+        render: (_: any, record: FinanceDyCostStatVo) => {
+          const v = typeof record.value === 'number' ? record.value : 0;
+          return <span style={{ fontSize: 12 }}>{v > 0 ? v.toFixed(2) : '0.00'}</span>;
+        },
+      },
+      {
+        title: '支出金额（出账）',
+        dataIndex: '支出金额',
+        key: '支出金额',
+        width: 100,
+        fixed: 'right' as const,
+        align: 'right' as const,
+        render: (_: any, record: FinanceDyCostStatVo) => {
+          // 小额打款：支出金额固定 0
+          if (record.name === '小额打款') {
+            return <span style={{ fontSize: 12 }}>0.00</span>;
+          }
+          const v = typeof record.value === 'number' ? record.value : 0;
+          return <span style={{ fontSize: 12 }}>{v < 0 ? v.toFixed(2) : '0.00'}</span>;
+        },
+      },
+    );
+    return cols;
+  }, [dyDetailColumnNames]);
+
+  // 抖音费用统计各明细列纵向合计（每列 = 所有分类该列金额之和），
+  // 作为表格的合计行展示，便于核对"汇总各费用项"。
+  const dyStatSummaryRow = useMemo(() => {
+    const acc: Record<string, number> = {};
+    let incomeSum = 0;
+    let expenseSum = 0;
+    dyStatData.forEach((cat) => {
+      (cat.details || []).forEach((d) => {
+        if (d.name && typeof d.value === 'number') {
+          // 小额打款：订单净收入按收入金额（首层 value 正数）计
+          const detailValue =
+            d.name === '订单净收入' && cat.name === '小额打款'
+              ? Math.max(0, typeof cat.value === 'number' ? cat.value : 0)
+              : d.value;
+          acc[d.name] = (acc[d.name] || 0) + detailValue;
+        }
+      });
+      const v = typeof cat.value === 'number' ? cat.value : 0;
+      if (v > 0) incomeSum += v;
+      // 小额打款不计入支出金额（支出固定 0）
+      if (cat.name !== '小额打款' && v < 0) expenseSum += v;
+    });
+    // 右端两列合计
+    acc['收入金额'] = incomeSum;
+    acc['支出金额'] = expenseSum;
+    return acc;
+  }, [dyStatData]);
 
   // 抖音余额对账（最上面的汇总表）：
-//   本期收款 = 收入金额合计 = 抖音费用明细（dy-cost-stat）所有 totalIncome 之和
-//   本期费用 = -总计（支出金额（出账））= -抖音费用明细（dy-cost-stat）所有 totalExpense 之和
+//   本期收款 = 订单净收入（details 中「订单净收入」项）各分类之和（订单净收入合计）
+//   本期费用 = 合计的平台服务费 + 合计的佣金 + 合计的服务商佣金 + 合计的招商服务费
+//             + 合计的站外推广费（均保留负号）
+//             + 合计的上门取件出账金额 + 合计的退换货运费险出账金额（均变成负数）
 //   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
-//   提现 / 结息 = 默认 0
+//   提现 = 明细表「提现」列合计；结息 = 默认 0
 //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
 //   校验     = 计算余额 - 期末余额
   const dySummary = useMemo(() => {
-    const incomeTotal = dyStatData.reduce((s, it) => s + (it.totalIncome || 0), 0);
-    const expenseTotal = dyStatData.reduce((s, it) => s + (it.totalExpense || 0), 0);
+    // 本期收款 = 订单净收入合计（所有分类 details 中「订单净收入」项之和）
+// 小额打款的订单净收入按收入金额（首层 value 正数）计
+    let incomeTotal = 0;
+    dyStatData.forEach((cat) => {
+      const net = (cat.details || []).find((d) => d.name === '订单净收入');
+      if (net && typeof net.value === 'number') {
+        const netValue =
+          cat.name === '小额打款'
+            ? Math.max(0, typeof cat.value === 'number' ? cat.value : 0)
+            : net.value;
+        incomeTotal += netValue;
+      }
+    });
+
+    // 本期费用：
+    //   1) 五项费用列的纵向合计，均保留负号（平台服务费 / 佣金 / 服务商佣金 / 招商服务费 / 站外推广费）
+    //   2) 上门取件、退换货运费险两个分类的出账金额，转成负数后计入
+    const asNegative = (n: number | undefined) => {
+      if (typeof n !== 'number') return 0;
+      return n < 0 ? n : -n;
+    };
+    let expenseTotal = 0;
+    ['平台服务费', '佣金', '服务商佣金', '招商服务费', '站外推广费'].forEach((key) => {
+      expenseTotal += asNegative(dyStatSummaryRow[key]);
+    });
+    // 上门取件 / 退换货运费险 分类的出账金额（value 转成负数）
+    const categoryValue = (categoryName: string) => {
+      const cat = dyStatData.find((c) => c.name === categoryName);
+      return cat && typeof cat.value === 'number' ? cat.value : 0;
+    };
+    expenseTotal += asNegative(categoryValue('上门取件-支付快递费'));
+    expenseTotal += asNegative(categoryValue('退换货运费险'));
 
     const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
     const lastMonthBalance = safeNum(beginningBalance);
     const endBalance = safeNum(endingBalance);
     const currentCollection = incomeTotal;
-    const currentExpense = -expenseTotal; // 本期费用取负值
-    const withdraw = 0; // 抖音暂不区分提现
+    const currentExpense = expenseTotal; // 本期费用 = 五费用列合计 + 上门取件/退换货运费险出账金额
+    const withdraw = dyStatSummaryRow['提现'] ?? 0; // 提现 = 明细表「提现」列合计
     const interest = 0; // 结息固定 0
     const calculatedBalance =
       lastMonthBalance + currentCollection + currentExpense + withdraw + interest;
@@ -685,18 +797,18 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                   <strong>抖音余额对账：</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
                     <div>
-                      <strong>本期收款</strong> = 收入金额合计 = 抖音费用明细（dy-cost-stat）所有「入账」的
-                      收入金额之和
+                      <strong>本期收款</strong> = 订单净收入合计（所有分类 details 中「订单净收入」项之和）
                     </div>
                     <div>
-                      <strong>本期费用</strong> = 支出金额合计 =
-                      -总计（支出金额（出账）），即 -抖音费用明细（dy-cost-stat）所有「出账」的支出金额之和
+                      <strong>本期费用</strong> = 合计的平台服务费 + 合计的佣金 + 合计的服务商佣金 +
+                      合计的招商服务费 + 合计的站外推广费（均保留负号） + 合计的上门取件出账金额 +
+                      合计的退换货运费险出账金额（均变成负数）
                     </div>
                     <div>
                       <strong>上月余额 / 期末余额</strong> = 老接口 cost-category-stat 内联余额项
                       （PDD_LAST_BALANCE / PDD_BALANCE）返回，无内联项则回退 queryEndingBalance
                     </div>
-                    <div><strong>提现</strong>：抖音接口暂不区分，默认 0；<strong>结息</strong>：默认 0</div>
+                    <div><strong>提现</strong> = 明细表「提现」列合计；<strong>结息</strong>：默认 0</div>
                     <div>
                       <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
                     </div>
@@ -706,30 +818,39 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                   </div>
                 </li>
                 <li style={{ marginBottom: 4 }}>
-                  <strong>订单净收入</strong> = 订单实付应结 + 实际平台补贴_运费 + 实际平台补贴 +
-                  以旧换新抵扣 + 实际达人补贴 + 实际抖音支付补贴 + 实际抖音月付营销补贴 + 银行补贴 + 订单退款
+                  <strong>业务描述（分类别）：</strong> = 接口 data 第一层的 name。
                 </li>
                 <li style={{ marginBottom: 4 }}>
-                  <strong>收入金额（入账动账金额）</strong> = 订单净收入 + 平台服务费 + 佣金 +
-                  服务商佣金 + 招商服务费 + 站外推广费
+                  <strong>后续各列：</strong> = 每个分类 details 里的各费用项（details.name），
+                  值与列完全按接口返回动态生成（列取所有分类 detail name 的去重并集）；
+                  「订单净收入」固定为第二列。
                 </li>
                 <li style={{ marginBottom: 4 }}>
-                  <strong>支出金额（出账动账金额）</strong>：该动账场景本月出账金额
+                  <strong>最右侧两列：</strong>
+                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                    <div><strong>收入金额（入账）</strong> = 该分类动账金额（首层 value）&gt;0 的部分，否则 0</div>
+                    <div><strong>支出金额（出账）</strong> = 该分类动账金额（首层 value）&lt;0 的部分（保留负号），否则 0</div>
+                  </div>
                 </li>
                 <li style={{ marginBottom: 4 }}>
-                  <strong>业务描述：</strong>按业务描述（businessDesc）分类；业务描述为空的列，展示其「备注」。
+                  <strong>合计行：</strong>每列所有分类的纵向相加，便于核对整月总额。
                 </li>
                 <li style={{ marginBottom: 2 }}>
-                  <strong>合计行：</strong>每列所有动账场景的纵向相加，便于核对整月总额。
+                  <strong>「动账金额」列：</strong>为该分类动账金额（首层 value），同时出现在 details 中，
+                  正数为入账、负数为出账。
+                </li>
+                <li style={{ marginBottom: 0 }}>
+                  <strong>小额打款：</strong>业务描述（分类别）为「小额打款」时，<strong>支出金额固定为 0</strong>，
+                  <strong>订单净收入固定为收入金额</strong>（该分类首层 value 正数）。
                 </li>
               </ul>
             </div>
           </Collapse.Panel>
         </Collapse>
 
-        {/* 明细表：业务描述（分类别）+ 各费用项 + 收入金额 / 支出金额 */}
+        {/* 明细表：业务描述（分类别）= data 第一层 name；后续各列 = details 里各费用项 */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
-          抖音费用明细（按动账场景分类）
+          抖音费用明细（按业务分类）
           {dyStatData.length > 0 && (
             <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
               （共 {dyStatData.length} 项，最下面一行【合计】为每列总和）
@@ -738,51 +859,78 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         </div>
         <Table
           columns={[
+            // 分类、管报名称：暂无数据，先占位空列（后续由后端补充）
+            {
+              title: '分类',
+              dataIndex: 'category',
+              key: 'category',
+              width: 120,
+              fixed: 'left' as const,
+              render: () => <span style={{ fontSize: 12 }}></span>,
+            },
+            {
+              title: '管报名称',
+              dataIndex: 'mgmtReportName',
+              key: 'mgmtReportName',
+              width: 120,
+              fixed: 'left' as const,
+              render: () => <span style={{ fontSize: 12 }}></span>,
+            },
             {
               title: '业务描述（分类别）',
-              dataIndex: 'businessDesc',
-              key: 'businessDesc',
+              dataIndex: 'name',
+              key: 'name',
               width: 180,
               fixed: 'left' as const,
-              render: (text: string, record: FinanceDyCostStatVo) => (
-                <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                  {text || record.remark || '-'}
-                </span>
+              render: (text: string) => (
+                <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text || '-'}</span>
               ),
             },
-            ...dyFeeFields.map((field) => ({
-              title: field.title,
-              dataIndex: field.dataIndex,
-              key: field.dataIndex as string,
-              width: 120,
-              align: 'right' as const,
-              render: (value: number) => (
-                <span style={{ fontSize: 12 }}>{value?.toFixed(2) ?? '-'}</span>
-              ),
-            })),
+            ...dyFeeColumns,
           ]}
           dataSource={statModalVisible ? dyStatData : []}
-          rowKey={(record, index) => `${record.businessDesc || record.remark}-${index}`}
+          rowKey={(record, index) => `${record.name}-${index}`}
           loading={statLoading}
           size="small"
           className="stat-table-small"
           style={{ fontSize: 12, marginBottom: 16 }}
           pagination={false}
-          scroll={{ x: 1140 }}
+          scroll={{ x: 420 + dyDetailColumnNames.length * 120 + 200 }}
           summary={
             dyStatData.length > 0
               ? () => (
                   <Table.Summary.Row className="dy-stat-summary-row">
-                    <Table.Summary.Cell index={0} align="left">
+                    {/* 合计：跨「分类 + 管报名称 + 业务描述（分类别）」三列 */}
+                    <Table.Summary.Cell index={0} align="left" colSpan={3}>
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>合计</span>
                     </Table.Summary.Cell>
-                    {dyFeeFields.map((field, idx) => (
-                      <Table.Summary.Cell key={field.dataIndex as string} index={idx + 1} align="right">
+                    {dyDetailColumnNames.map((detailName, idx) => (
+                      <Table.Summary.Cell key={detailName} index={idx + 1} align="right">
                         <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                          {dyStatSummaryRow[field.dataIndex]?.toFixed(2) ?? '-'}
+                          {dyStatSummaryRow[detailName] !== undefined
+                            ? dyStatSummaryRow[detailName].toFixed(2)
+                            : '0.00'}
                         </span>
                       </Table.Summary.Cell>
                     ))}
+                    <Table.Summary.Cell
+                      key="收入金额"
+                      index={dyDetailColumnNames.length + 1}
+                      align="right"
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                        {dyStatSummaryRow['收入金额']?.toFixed(2) ?? '0.00'}
+                      </span>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell
+                      key="支出金额"
+                      index={dyDetailColumnNames.length + 2}
+                      align="right"
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                        {dyStatSummaryRow['支出金额']?.toFixed(2) ?? '0.00'}
+                      </span>
+                    </Table.Summary.Cell>
                   </Table.Summary.Row>
                 )
               : undefined

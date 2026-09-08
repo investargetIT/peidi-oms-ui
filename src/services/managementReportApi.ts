@@ -628,9 +628,7 @@ export class ManagementReportApi {
    * 新增拼多多推广费
    * POST /oms/finance/channel-extend-cost/pdd-promotion
    */
-  static async addPddPromotion(
-    data: FinancePddPromotionAddReq,
-  ): Promise<ResponseData<boolean>> {
+  static async addPddPromotion(data: FinancePddPromotionAddReq): Promise<ResponseData<boolean>> {
     return channelBillRequest.post('/channel-extend-cost/pdd-promotion', data);
   }
 }
