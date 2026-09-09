@@ -272,6 +272,45 @@ export interface FinanceJdCostStatReq {
   [property: string]: any;
 }
 
+// ----- 小红书费用统计 -----
+
+/**
+ * 小红书费用统计项（按 business_desc 分类）
+ * 返回 name-value-type 格式
+ * GET /oms/finance/channel-extend-cost/xhs-cost-stat
+ */
+export interface FinanceXhsCostStatItemVo {
+  /**
+   * 费用名称（中文）
+   */
+  name?: string;
+  /**
+   * 类型：收入/支出
+   */
+  type?: string;
+  /**
+   * 费用金额（包含正负号）
+   */
+  value?: number;
+  [property: string]: any;
+}
+
+/**
+ * 小红书费用统计请求
+ * GET /oms/finance/channel-extend-cost/xhs-cost-stat
+ */
+export interface FinanceXhsCostStatReq {
+  /**
+   * 店铺ID
+   */
+  shopId: number;
+  /**
+   * 年月，格式：yyyy-MM
+   */
+  yearMonth: string;
+  [property: string]: any;
+}
+
 // ----- 抖音费用统计 -----
 
 /**
@@ -436,6 +475,19 @@ export class ChannelExtendCostApi {
     success?: boolean;
   }> {
     return channelExtendCostRequest.get('/dy-cost-stat', { params });
+  }
+
+  /**
+   * 小红书费用统计（按 business_desc 分类，返回 name-value-type 格式）
+   * GET /oms/finance/channel-extend-cost/xhs-cost-stat
+   */
+  static async getXhsCostStat(params: FinanceXhsCostStatReq): Promise<{
+    code: number;
+    data: FinanceXhsCostStatItemVo[];
+    msg: string;
+    success?: boolean;
+  }> {
+    return channelExtendCostRequest.get('/xhs-cost-stat', { params });
   }
 }
 

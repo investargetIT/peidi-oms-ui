@@ -1,22 +1,15 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
 // ==================== 本地/生产环境切换 ====================
+// 统一 OMS 服务 request 实例：本文件所有接口（管报 / 各渠道月账单 / 各渠道上传账单等）
+// 都挂在同一个 OMS 服务上，共用这一个实例，路由在各方法里写完整（含 /management-report、/finance 前缀）。
+// 切换本地 / 生产只需改这一处即可。
 // 生产环境使用
-const managementReportRequest = createRequest(`${process.env.BASE_URL}/management-report`, {
+const omsRequest = createRequest(`${process.env.BASE_URL}`, {
   timeout: 1000 * 60,
 });
 // 测试环境使用
-// const managementReportRequest = createRequest(`http://12.18.1.36:8085/oms/management-report`, {
-//   timeout: 1000 * 60,
-// });
-
-// 创建各渠道月账单的request实例
-// 生产环境使用
-const channelBillRequest = createRequest(`${process.env.BASE_URL}/finance`, {
-  timeout: 1000 * 60,
-});
-// 测试环境使用
-// const channelBillRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
+// const omsRequest = createRequest(`http://12.18.1.36:8085/oms`, {
 //   timeout: 1000 * 60,
 // });
 // ==================== 切换代码结束 ====================
@@ -455,7 +448,7 @@ export class ManagementReportApi {
   static async query(
     params: ManagementReportQueryReq,
   ): Promise<ResponseData<ManagementReportQueryVo>> {
-    return managementReportRequest.post('/query', params);
+    return omsRequest.post('/management-report/query', params);
   }
 
   /* ---- 各渠道月账单 ---- */
@@ -466,21 +459,21 @@ export class ManagementReportApi {
   static async getZfbBillPage(
     params: FinanceZfbBillInfoPageReq,
   ): Promise<ResponseData<IPageFinanceZfbBillInfoVo>> {
-    return channelBillRequest.post('/zfb-bill/page', params);
+    return omsRequest.post('/finance/zfb-bill/page', params);
   }
   /**
    * 各渠道月账单 - 生成
    * 统一调用 /zfb-bill/generate 接口，通过 platform 参数区分渠道
    */
   static async generateZfbBill(params: FinanceZfbBillGenerateReq): Promise<ResponseData<any>> {
-    return channelBillRequest.post('/zfb-bill/generate', params);
+    return omsRequest.post('/finance/zfb-bill/generate', params);
   }
   /**
    * 各渠道月账单 - 批量下载（后端代理打包为 ZIP 返回，避免 OSS CORS 限制）
    * 后端实现思路：接收 ids 列表，服务端到 OSS 拉取文件，打包成 zip 流式返回（Content-Type: application/zip）
    */
   static async batchDownloadZfbBill(params: { ids: number[]; platform?: string }): Promise<Blob> {
-    const resp = await channelBillRequest.post('/zfb-bill/batch-download', params, {
+    const resp = await omsRequest.post('/finance/zfb-bill/batch-download', params, {
       responseType: 'blob',
     });
     return resp as unknown as Blob;
@@ -493,7 +486,7 @@ export class ManagementReportApi {
     platform?: string;
     shopName?: string;
   }): Promise<ResponseData<FinanceZfbBillConfig[]>> {
-    return channelBillRequest.get('/bill-config/list', { params });
+    return omsRequest.get('/finance/bill-config/list', { params });
   }
   /**
    * 上传天猫账单
@@ -508,7 +501,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
-    return channelBillRequest.post('/tm-bill/upload', formData, {
+    return omsRequest.post('/finance/tm-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
       timeout: 1000 * 60 * 60,
@@ -529,7 +522,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
-    return channelBillRequest.post('/dy-bill/upload', formData, {
+    return omsRequest.post('/finance/dy-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
       timeout: 1000 * 60 * 60,
@@ -552,7 +545,7 @@ export class ManagementReportApi {
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file1', data.file1);
     formData.append('file2', data.file2);
-    return channelBillRequest.post('/jd-bill/upload', formData, {
+    return omsRequest.post('/finance/jd-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
       timeout: 1000 * 60 * 60,
@@ -571,7 +564,7 @@ export class ManagementReportApi {
   ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
     const formData = new FormData();
     formData.append('file', data.file);
-    return channelBillRequest.post('/tm-stockout-bill/upload', formData, {
+    return omsRequest.post('/finance/tm-stockout-bill/upload', formData, {
       params: {
         billDate: data.billDate,
         financeBillConfigId: data.financeBillConfigId,
@@ -594,7 +587,7 @@ export class ManagementReportApi {
     const formData = new FormData();
     formData.append('file1', data.file1);
     formData.append('file2', data.file2);
-    return channelBillRequest.post('/xhs-bill/upload', formData, {
+    return omsRequest.post('/finance/xhs-bill/upload', formData, {
       params: {
         billDate: data.billDate,
         financeBillConfigId: data.financeBillConfigId,
@@ -618,7 +611,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
-    return channelBillRequest.post('/pdd-bill/upload', formData, {
+    return omsRequest.post('/finance/pdd-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 1000 * 60 * 60,
       showLoading: false,
@@ -629,7 +622,7 @@ export class ManagementReportApi {
    * POST /oms/finance/channel-extend-cost/pdd-promotion
    */
   static async addPddPromotion(data: FinancePddPromotionAddReq): Promise<ResponseData<boolean>> {
-    return channelBillRequest.post('/channel-extend-cost/pdd-promotion', data);
+    return omsRequest.post('/finance/channel-extend-cost/pdd-promotion', data);
   }
 }
 

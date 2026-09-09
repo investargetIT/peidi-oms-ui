@@ -1,25 +1,15 @@
 import React from 'react';
+import XhsExtendCostBase from './XhsExtendCostBase';
 
 /**
  * 小红书 - 渠道推广费用
  *
- * TODO: 内容待补
- * 后续可参考 jd/index.tsx 的实现：复用 ../shared/ChannelExtendCostBase，
- * 通过 channel="小红书" 调 /oms/finance/channel-extend-cost/group/page。
+ * 小红书已 fork 出独立的面板实现（XhsExtendCostBase），与共享 Base 解耦。
+ * 当前「费用统计」沿用抖音的逻辑（走 /dy-cost-stat），后续小红书专属逻辑
+ * （统计接口、汇总口径等）直接在 ./XhsExtendCostBase 里改，不影响其他渠道。
  */
 const XhsExtendCostPanel: React.FC = () => {
-  return (
-    <div
-      style={{
-        padding: '60px 0',
-        textAlign: 'center',
-        color: '#999',
-        fontSize: 14,
-      }}
-    >
-      小红书 - 渠道推广费用：敬请期待
-    </div>
-  );
+  return <XhsExtendCostBase channel="小红书" />;
 };
 
 export default XhsExtendCostPanel;

@@ -1,27 +1,17 @@
 import { createRequest, ResponseData } from './axiosRequest';
 
 // ==================== 本地/生产环境切换 ====================
-// 创建财务上传的axios实例
+// 统一 OMS 服务 request 实例：本文件财务相关接口（/finance、/finance-unit-cost）
+// 都挂在同一个 OMS 服务上，共用这一个实例，路由在各方法里写完整前缀。
+// 切换本地 / 生产只需改这一处即可。
 // 生产环境使用
-const financeRequest = createRequest(`${process.env.BASE_URL}/finance`, {
+const financeRequest = createRequest(`${process.env.BASE_URL}`, {
   timeout: 1000 * 60,
 });
 // 调试地址
-// const financeRequest = createRequest(`http://12.18.1.36:8085/oms/finance`, {
+// const financeRequest = createRequest(`http://12.18.1.36:8085/oms`, {
 //   timeout: 1000 * 60,
 // });
-
-// 成本取值组织枚举走的是 finance-unit-cost 服务，需要单独的axios实例
-// 生产环境使用
-const financeUnitCostRequest = createRequest(
-  `${process.env.BASE_URL}/finance-unit-cost`,
-  { timeout: 1000 * 60 },
-);
-// 调试地址
-// const financeUnitCostRequest = createRequest(
-//   `http://12.18.1.36:8085/oms/finance-unit-cost`,
-//   { timeout: 1000 * 60 },
-// );
 // ==================== 切换代码结束 ====================
 
 export interface ShopInfo {
@@ -44,28 +34,28 @@ export class FinanceApi {
     shopId: string;
     shopName: string;
   }): Promise<ResponseData<any>> {
-    return financeRequest.post('/oba/shop-new', data);
+    return financeRequest.post('/finance/oba/shop-new', data);
   }
 
   /**
    * 获取订单店铺
    */
   static async getShopPage(): Promise<ResponseData<any>> {
-    return financeRequest.get('/shop/page', {});
+    return financeRequest.get('/finance/shop/page', {});
   }
 
   /**
    * 增加店铺信息
    */
   static async postShopNew(data: ShopInfo): Promise<ResponseData<any>> {
-    return financeRequest.post('/shop/new', data);
+    return financeRequest.post('/finance/shop/new', data);
   }
 
   /**
    * 修改店铺信息
    */
   static async postShopUpdate(data: ShopInfo): Promise<ResponseData<any>> {
-    return financeRequest.post('/shop/update', data);
+    return financeRequest.post('/finance/shop/update', data);
   }
 
   /**
@@ -74,7 +64,7 @@ export class FinanceApi {
    * 返回 data: string[]
    */
   static async getUnitCostOrgList(): Promise<ResponseData<string[]>> {
-    return financeUnitCostRequest.get('/group/list', {});
+    return financeRequest.get('/finance-unit-cost/group/list', {});
   }
 }
 
