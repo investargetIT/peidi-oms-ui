@@ -411,10 +411,6 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         fixed: 'right' as const,
         align: 'right' as const,
         render: (_: any, record: FinanceDyCostStatVo) => {
-          // 小额打款：支出金额固定 0
-          if (record.name === '小额打款') {
-            return <span style={{ fontSize: 12 }}>0.00</span>;
-          }
           const v = typeof record.value === 'number' ? record.value : 0;
           return <span style={{ fontSize: 12 }}>{v < 0 ? v.toFixed(2) : '0.00'}</span>;
         },
@@ -453,8 +449,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
       });
       const v = typeof cat.value === 'number' ? cat.value : 0;
       if (v > 0) incomeSum += v;
-      // 小额打款不计入支出金额（支出固定 0）
-      if (cat.name !== '小额打款' && v < 0) expenseSum += v;
+      if (v < 0) expenseSum += v;
     });
     // 右端两列合计
     acc['收入金额'] = incomeSum;
@@ -969,7 +964,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                     <div>· 订单净收入合计：按第三点“订单净收入”的分情况口径汇总；</div>
                     <div>
                       · 收入金额（入账）合计 = 各分类首层 value 正数之和；
-                      支出金额（出账）合计 = 各分类首层 value 负数之和（小额打款支出固定 0）。
+                      支出金额（出账）合计 = 各分类首层 value 负数之和。
                     </div>
                   </div>
                 </li>
