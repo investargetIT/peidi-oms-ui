@@ -301,7 +301,7 @@ const ZfbBillPanel: React.FC = () => {
       return;
     }
 
-    const selectedRow = stockoutList.find((r) => r.id === selectedStockoutId);
+    const selectedRow = stockoutList.find((r) => r.financeBillConfigId === selectedStockoutId);
     const shopName = selectedRow?.shopName || `店铺#${selectedStockoutId}`;
     const billDateStr = stockoutDate.format('YYYY-MM');
     const fileName = stockoutFile.name;
@@ -323,7 +323,7 @@ const ZfbBillPanel: React.FC = () => {
     // 3. 异步执行上传
     ManagementReportApi.uploadStockoutBill({
       billDate: billDateStr,
-      // 按需求：把选中店铺对应的行 id 直接当作 financeBillConfigId
+      // 按需求：把选中店铺对应的行 financeBillConfigId 直接作为上传参数
       financeBillConfigId: selectedStockoutId,
       file: stockoutFile,
     })
@@ -569,7 +569,7 @@ const ZfbBillPanel: React.FC = () => {
             <div style={{ fontSize: 12, lineHeight: 1.7 }}>
               1. 支持 .zip / .csv / .xlsx / .xls 格式（zip 会递归解压）<br />
               2. 账单日期格式：yyyy-MM（如 2026-07），不可清空，切换月份会自动刷新店铺列表<br />
-              3. 关联账单配置ID 取自下方列表所选店铺对应的账单记录 id
+              3. 关联账单配置ID 取自下方列表所选店铺对应的记录 financeBillConfigId
             </div>
           }
           style={{ marginBottom: 16 }}
@@ -604,10 +604,10 @@ const ZfbBillPanel: React.FC = () => {
               showSearch
               optionFilterProp="label"
               options={stockoutList
-                .filter((s) => s.id !== undefined && s.id !== null)
+                .filter((s) => s.financeBillConfigId !== undefined && s.financeBillConfigId !== null)
                 .map((s) => ({
                   label: `${s.shopName || '-'}${s.billDate ? `（${s.billDate}）` : ''}`,
-                  value: s.id as number,
+                  value: s.financeBillConfigId as number,
                 }))}
             />
           </div>

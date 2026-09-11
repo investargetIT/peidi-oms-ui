@@ -311,6 +311,72 @@ export interface FinanceXhsCostStatReq {
   [property: string]: any;
 }
 
+// ----- 支付宝费用统计 -----
+
+/**
+ * 支付宝费用统计 - 账单汇总行（分类 + 对方账号 + 收入/支出）
+ * POST /oms/finance/channel-extend-cost/bill/zfb/detail-summary
+ */
+export interface FinanceZfbCostStatDetailItemVo {
+  /**
+   * 对方账号
+   */
+  accountCode?: string;
+  /**
+   * 分类（document_type），总计行为'总计'
+   */
+  category?: string;
+  /**
+   * 支出合计
+   */
+  totalExpense?: number;
+  /**
+   * 收入合计
+   */
+  totalIncome?: number;
+  [property: string]: any;
+}
+
+/**
+ * 支付宝费用统计 - 汇总结果
+ * POST /oms/finance/channel-extend-cost/bill/zfb/detail-summary
+ */
+export interface FinanceZfbCostStatVo {
+  /**
+   * 查询结束日期（由账单月份解析，yyyy-MM-dd）
+   */
+  endDate?: string;
+  /**
+   * 汇总行列表（分类 + 对方账号 + 收入/支出）
+   */
+  rows?: FinanceZfbCostStatDetailItemVo[];
+  /**
+   * 查询起始日期（由账单月份解析，yyyy-MM-dd）
+   */
+  startDate?: string;
+  /**
+   * 总计行（收入/支出全量合计）
+   */
+  total?: FinanceZfbCostStatDetailItemVo;
+  [property: string]: any;
+}
+
+/**
+ * 支付宝费用统计请求
+ * POST /oms/finance/channel-extend-cost/bill/zfb/detail-summary
+ */
+export interface FinanceZfbCostStatReq {
+  /**
+   * 账单月份，格式：yyyy-MM（后端解析为该月日期区间）
+   */
+  billDate: string;
+  /**
+   * 账单配置ID（finance_bill_config.id）
+   */
+  financeBillConfigId: number;
+  [property: string]: any;
+}
+
 // ----- 抖音费用统计 -----
 
 /**
@@ -462,6 +528,19 @@ export class ChannelExtendCostApi {
     success?: boolean;
   }> {
     return channelExtendCostRequest.get('/jd-cost-stat', { params });
+  }
+
+  /**
+   * 支付宝费用统计（账单明细汇总查询）
+   * POST /oms/finance/channel-extend-cost/bill/zfb/detail-summary
+   */
+  static async getZfbCostStat(params: FinanceZfbCostStatReq): Promise<{
+    code: number;
+    data: FinanceZfbCostStatVo;
+    msg: string;
+    success?: boolean;
+  }> {
+    return channelExtendCostRequest.post('/bill/zfb/detail-summary', params);
   }
 
   /**
