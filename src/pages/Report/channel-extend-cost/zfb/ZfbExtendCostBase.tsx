@@ -16,6 +16,7 @@ import ChannelExtendCostApi, {
   type PageRequest,
   type FinanceChannelExtendCostItemVo,
   type FinanceZfbCostStatVo,
+  type FinanceZfbCostStatDetailItemVo,
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
@@ -254,21 +255,34 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
       zfbRows.reduce((sum, r) => sum + (r.totalExpense || 0), 0),
     [zfbRows, zfbTotal],
   );
-  // 支付宝余额对账（顶部汇总表，逻辑与抖音一致）：
-  //   本期收款 = 收入合计（detail-summary total.totalIncome）
-  //   本期费用 = 支出合计（detail-summary total.totalExpense，保留符号）
+  // 支付宝余额对账（顶部汇总表）：本期收款 / 提现 / 结息 / 本期费用
+  //   按「账单明细汇总 rows 的分类」归类：
+  //     本期收款 = "收款" 分类的收入金额 + 支出金额
+  //     提现     = "提现" 分类的收入金额 + 支出金额
+  //     结息     = "结息" 分类的收入金额 + 支出金额
+  //     本期费用 = 移除 收款 / 提现 / 结息 后，其余分类的收入金额 + 支出金额 之和
   //   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
-  //   提现 / 结息 = 默认 0（支付宝明细接口未区分）
   //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
   //   校验     = 计算余额 - 期末余额
   const zfbSummary = useMemo(() => {
+    const sumOf = (r: FinanceZfbCostStatDetailItemVo) => (r.totalIncome || 0) + (r.totalExpense || 0);
+    let collection = 0; // 本期收款
+    let withdraw = 0; // 提现
+    let interest = 0; // 结息
+    let expense = 0; // 本期费用（其余分类收入+支出之和）
+    zfbRows.forEach((r) => {
+      const val = sumOf(r);
+      if (r.category === '收款') collection += val;
+      else if (r.category === '提现') withdraw += val;
+      else if (r.category === '结息') interest += val;
+      else expense += val;
+    });
+
     const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
     const lastMonthBalance = safeNum(beginningBalance);
     const endBalance = safeNum(endingBalance);
-    const currentCollection = zfbIncomeTotal; // 本期收款 = 收入合计
-    const currentExpense = zfbExpenseTotal; // 本期费用 = 支出合计（保留符号）
-    const withdraw = 0; // 支付宝接口未区分提现，默认 0
-    const interest = 0; // 结息固定 0
+    const currentCollection = collection;
+    const currentExpense = expense;
     const calculatedBalance =
       lastMonthBalance + currentCollection + currentExpense + withdraw + interest;
     const checkDiff = calculatedBalance - endBalance;
@@ -286,7 +300,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
       calculatedBalance,
       checkDiff,
     };
-  }, [currentYearMonth, currentShopName, beginningBalance, endingBalance, zfbIncomeTotal, zfbExpenseTotal]);
+  }, [zfbRows, currentYearMonth, currentShopName, beginningBalance, endingBalance]);
 
   useEffect(() => {
     fetchChannelData();
@@ -472,7 +486,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
         open={statModalVisible}
         onCancel={() => setStatModalVisible(false)}
         footer={null}
-        width={800}
+        width={1200}
         destroyOnClose
         maskClosable={false}
         styles={{ body: { padding: '12px 16px' } }}
@@ -661,14 +675,21 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>二、余额对账表（顶部汇总表）字段</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div><strong>本期收款</strong> = 明细汇总的收入合计（total.totalIncome）。</div>
                     <div>
-                      <strong>本期费用</strong> = 明细汇总的支出合计（total.totalExpense，保留符号）。
+                      <strong>本期收款</strong> = 「收款」分类的收入金额 + 支出金额（明细汇总 rows 按分类归类）。
+                    </div>
+                    <div>
+                      <strong>提现</strong> = 「提现」分类的收入金额 + 支出金额。
+                    </div>
+                    <div>
+                      <strong>结息</strong> = 「结息」分类的收入金额 + 支出金额。
+                    </div>
+                    <div>
+                      <strong>本期费用</strong> = 移除 收款 / 提现 / 结息 后，其余分类的收入金额 + 支出金额 之和。
                     </div>
                     <div><strong>上月余额</strong> = PDD_LAST_BALANCE.totalIncome；<strong>期末余额</strong> =
                       PDD_BALANCE.totalIncome（无则回退 queryEndingBalance）。
                     </div>
-                    <div><strong>提现</strong> / <strong>结息</strong>：支付宝明细接口未按此类目区分，默认均为 0。</div>
                   </div>
                 </li>
 
