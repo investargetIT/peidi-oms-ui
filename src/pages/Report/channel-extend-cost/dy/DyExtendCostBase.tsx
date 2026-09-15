@@ -20,6 +20,7 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
+import { dyBizDescOf, dyColumnMetaOf, sortDyRowsByCategory } from './dyFeeMapping';
 
 /**
  * 可省略的业务描述单元格：
@@ -98,7 +99,11 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   // ============ 状态 ============
   const [channelLoading, setChannelLoading] = useState(false);
   const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostItemVo[]>([]);
-  const [channelPagination, setChannelPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [channelPagination, setChannelPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopsLoading, setShopsLoading] = useState(false);
 
@@ -119,7 +124,9 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   // 搜索条件 - 渠道由父级 Tab 决定（channel prop），不再作为搜索项
   const [searchAccountType, setSearchAccountType] = useState<string>('');
   const [searchShopId, setSearchShopId] = useState<number | undefined>(undefined);
-  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
+  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(
+    dayjs().subtract(1, 'month'),
+  );
 
   // ============ 数据获取 ============
   // 获取店铺列表（按当前渠道过滤）
@@ -300,11 +307,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
     // 后端返回的明细项「动账金额」「收入金额」「支出金额」与之重复/冗余，这里过滤掉不再单独展示。
     const collect = (detailName: string | undefined) => {
       if (!detailName) return;
-      if (
-        detailName === '动账金额' ||
-        detailName === '收入金额' ||
-        detailName === '支出金额'
-      )
+      if (detailName === '动账金额' || detailName === '收入金额' || detailName === '支出金额')
         return;
       if (!seen.has(detailName)) {
         seen.add(detailName);
@@ -373,11 +376,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
           return <span style={{ fontSize: 12 }}>{v.toFixed(2)}</span>;
         }
         // 纯收支分类（除 小额打款 / 提现，其余明细列均为 0）：订单净收入 = 收入金额（入账）
-        if (
-          detailName === '订单净收入' &&
-          record.name &&
-          dyCategoryMeta.get(record.name)?.pure
-        ) {
+        if (detailName === '订单净收入' && record.name && dyCategoryMeta.get(record.name)?.pure) {
           const v = typeof record.value === 'number' && record.value > 0 ? record.value : 0;
           return <span style={{ fontSize: 12 }}>{v.toFixed(2)}</span>;
         }
@@ -419,6 +418,61 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
     return cols;
   }, [dyDetailColumnNames, dyCategoryMeta]);
 
+  // 动态明细列按「费用分类」分组，形成 2 层表头：费用分类 → 列名。
+  // 「管报名称」不再单独占一层表头：当前映射下它与列名相同（或与费用分类相同，如 订单净收入），
+  // 无额外信息；dyFeeMapping 仍保留 mgmtName 字段，将来若出现不同值可恢复该层。
+  // 相邻同费用分类的列合并为一个组头；映射之外的新列不显示组头（留空）。
+  const dyFeeColumnGroups = useMemo(() => {
+    const groups: { feeType: string; cols: any[] }[] = [];
+    dyFeeColumns.forEach((col: any) => {
+      const meta = dyColumnMetaOf(col.title as string);
+      const last = groups[groups.length - 1];
+      if (last && last.feeType === meta.feeType) {
+        last.cols.push(col);
+      } else {
+        groups.push({ feeType: meta.feeType, cols: [col] });
+      }
+    });
+    return groups.map((g) => ({
+      title: g.feeType,
+      key: `fee-type-${g.feeType}-${g.cols[0].key}`,
+      align: 'center' as const,
+      children: g.cols,
+    }));
+  }, [dyFeeColumns]);
+
+  // 明细行按「分类」分组排序（推广费用 → 平台费用 → 其他，组内保持接口原序），
+  // 使相同 分类/管报名称 的行相邻，仅影响展示顺序，不影响合计 / 余额对账等求和口径
+  const dyDetailRows = useMemo(() => sortDyRowsByCategory(dyStatData), [dyStatData]);
+
+  // 「分类 / 管报名称」rowSpan 元信息：排序后按相邻同值分段，
+  // 段首行 rowSpan = 段长、其余行 rowSpan = 0（隐藏）。
+  // 管报名称的分段额外要求分类相同，避免合并单元格跨分类。
+  const dyRowSpans = useMemo(() => {
+    const buildSpans = (getVal: (r: FinanceDyCostStatVo) => string) => {
+      const spans: number[] = dyDetailRows.map(() => 0);
+      let start = 0;
+      while (start < dyDetailRows.length) {
+        let end = start + 1;
+        while (
+          end < dyDetailRows.length &&
+          getVal(dyDetailRows[end]) === getVal(dyDetailRows[start])
+        )
+          end++;
+        spans[start] = end - start;
+        start = end;
+      }
+      return spans;
+    };
+    return {
+      category: buildSpans((r) => dyBizDescOf(r.name).category),
+      mgmtName: buildSpans((r) => {
+        const meta = dyBizDescOf(r.name);
+        return `${meta.category}|${meta.mgmtName}`;
+      }),
+    };
+  }, [dyDetailRows]);
+
   // 抖音费用统计各明细列纵向合计（每列 = 所有分类该列金额之和），
   // 作为表格的合计行展示，便于核对"汇总各费用项"。
   const dyStatSummaryRow = useMemo(() => {
@@ -437,11 +491,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
           let detailValue = d.value;
           if (d.name === '订单净收入' && cat.name === '小额打款') {
             detailValue = typeof cat.value === 'number' ? cat.value : 0;
-          } else if (
-            d.name === '订单净收入' &&
-            cat.name &&
-            dyCategoryMeta.get(cat.name)?.pure
-          ) {
+          } else if (d.name === '订单净收入' && cat.name && dyCategoryMeta.get(cat.name)?.pure) {
             detailValue = typeof cat.value === 'number' && cat.value > 0 ? cat.value : 0;
           }
           acc[d.name] = (acc[d.name] || 0) + detailValue;
@@ -458,20 +508,20 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   }, [dyStatData, dyCategoryMeta]);
 
   // 抖音余额对账（最上面的汇总表）：
-//   本期收款 = 订单净收入（details 中「订单净收入」项）各分类之和（订单净收入合计）
-//   本期费用 = 合计的平台服务费 + 合计的佣金 + 合计的服务商佣金 + 合计的招商服务费
-//             + 合计的站外推广费（均保留负号）
-//             + 除 小额打款 / 提现 外的各「纯收支」分类（其余明细列均为 0）的
-//               支出金额（出账，首层 value 为负的部分，保留负号）
-//   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
-//   提现 = 业务描述（分类别）为「提现」那一行的支出金额（出账）；结息 = 默认 0
-//   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
-//   校验     = 计算余额 - 期末余额
+  //   本期收款 = 订单净收入（details 中「订单净收入」项）各分类之和（订单净收入合计）
+  //   本期费用 = 合计的平台服务费 + 合计的佣金 + 合计的服务商佣金 + 合计的招商服务费
+  //             + 合计的站外推广费（均保留负号）
+  //             + 除 小额打款 / 提现 外的各「纯收支」分类（其余明细列均为 0）的
+  //               支出金额（出账，首层 value 为负的部分，保留负号）
+  //   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
+  //   提现 = 业务描述（分类别）为「提现」那一行的支出金额（出账）；结息 = 默认 0
+  //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
+  //   校验     = 计算余额 - 期末余额
   const dySummary = useMemo(() => {
     // 本期收款 = 订单净收入合计（所有分类 details 中「订单净收入」项之和）
-//   小额打款 → 取首层 value；
-//   纯收支分类 → 收入金额（入账）＝首层 value 为正的部分；
-//   其余 → details 原值
+    //   小额打款 → 取首层 value；
+    //   纯收支分类 → 收入金额（入账）＝首层 value 为正的部分；
+    //   其余 → details 原值
     let incomeTotal = 0;
     dyStatData.forEach((cat) => {
       if (cat.name === '小额打款') {
@@ -550,7 +600,15 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
       calculatedBalance,
       checkDiff,
     };
-  }, [dyStatData, currentYearMonth, currentShopName, beginningBalance, endingBalance, dyCategoryMeta, dyStatSummaryRow]);
+  }, [
+    dyStatData,
+    currentYearMonth,
+    currentShopName,
+    beginningBalance,
+    endingBalance,
+    dyCategoryMeta,
+    dyStatSummaryRow,
+  ]);
 
   // 初始化加载（每个 tab 切换时都会重新挂载，因此 mount 时拉一次即可）
   useEffect(() => {
@@ -753,6 +811,10 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
           .stat-table-small tr.dy-stat-summary-row > td {
             background: #fafafa !important;
           }
+          /* 抖音费用明细表：加深边框（默认 #f0f0f0 太浅，合并单元格多时看不清行列） */
+          .dy-detail-table .ant-table-cell {
+            border-color: #bfbfbf !important;
+          }
         `}</style>
 
         {/* 抖音余额对账（最上面的汇总表，列与共享 Base 的站内外推广费统计一致） */}
@@ -910,28 +972,137 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
                     <div>
                       ① 明细表 / 余额对账明细 = 新接口 <code>GET /dy-cost-stat</code>（返回
-                      <code>name / value / details[{'{'}name,value{'}'}]</code>）；
+                      <code>
+                        name / value / details[{'{'}name,value{'}'}]
+                      </code>
+                      ）；
                     </div>
                     <div>
-                      ② 余额（上月余额 / 期末余额）= 老接口 <code>GET /cost-category-stat</code>，只取
-                      <code>PDD_LAST_BALANCE</code>（上月/期初）和 <code>PDD_BALANCE</code>（本月期末）两条的
+                      ② 余额（上月余额 / 期末余额）= 老接口 <code>GET /cost-category-stat</code>
+                      ，只取
+                      <code>PDD_LAST_BALANCE</code>（上月/期初）和 <code>PDD_BALANCE</code>
+                      （本月期末）两条的
                       <code>totalIncome</code>；接口未返回时回退 <code>queryEndingBalance</code>。
                     </div>
                   </div>
                 </li>
 
-                {/* 二、明细表列结构 */}
+                {/* 二、明细表列结构与归类映射 */}
                 <li style={{ marginBottom: 6 }}>
-                  <strong>二、明细表列结构</strong>
+                  <strong>二、明细表列结构与归类映射</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>固定 3 列：分类、管报名称（均占位，暂空）、业务描述（分类别）＝接口首层 name。</div>
                     <div>
-                      后接【动态明细列】：取所有分类 details 的 name 去重并集，<code>订单净收入</code> 固定为第一个
-                      （即整体第 4 列），其余按出现顺序；值取该分类 details 里对应项的值，列宽超出显示省略号。
+                      固定 3 列：<strong>分类、管报名称、业务描述（分类别）</strong>
+                      ＝接口首层 name。其中 分类 / 管报名称
+                      按下方【行维度映射】由业务描述（分类别）归类， 映射硬编码在{' '}
+                      <code>dy/dyFeeMapping.ts</code>（弹窗与批量导出共用，改映射只改这一处）。
+                    </div>
+                    <div style={{ margin: '4px 0' }}>
+                      <strong>【行维度映射】业务描述（分类别）→ 分类 / 管报名称</strong>
+                      <table
+                        style={{
+                          borderCollapse: 'collapse',
+                          marginLeft: 16,
+                          fontSize: 12,
+                          background: '#fff',
+                        }}
+                      >
+                        <thead>
+                          <tr>
+                            {['业务描述（分类别）', '分类', '管报名称'].map((h) => (
+                              <th
+                                key={h}
+                                style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}
+                              >
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            ['上门取件-支付快递费', '平台费用', '运费争议赔付'],
+                            ['消费者赔付', '平台费用', '赔付'],
+                            ['退换货运费险', '平台费用', '运费险'],
+                            ['评价有礼', '推广费用', '评价有礼'],
+                            ['其他所有业务描述（兜底）', '其他', '其他'],
+                          ].map((r) => (
+                            <tr key={r[0]}>
+                              {r.map((c, i) => (
+                                <td
+                                  key={i}
+                                  style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}
+                                >
+                                  {c}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                     <div>
-                      最右侧固定 2 列：收入金额（入账）、支出金额（出账）。
-                      后端 details 中的「动账金额」「收入金额」「支出金额」三项明细已从列名中滤除（与最右侧两列含义重复）。
+                      <strong>行序与合并</strong>：明细行按分类分组排序（推广费用 → 平台费用 →
+                      其他，组内保持接口原序）；相同 分类 / 管报名称
+                      的相邻单元格合并展示（管报名称的合并不跨分类）。排序仅影响展示顺序，
+                      不影响各列合计与余额对账等求和口径。
+                    </div>
+                    <div>
+                      后接【动态明细列】：取所有分类 details 的 name 去重并集，
+                      <code>订单净收入</code> 固定为第一个 （即整体第 4
+                      列），其余按出现顺序；值取该分类 details 里对应项的值，
+                      列宽超出显示省略号（悬停 Tooltip 看全称）。
+                    </div>
+                    <div style={{ margin: '4px 0' }}>
+                      <strong>【列维度映射】动态明细列 → 费用分类（表头上方组头）</strong>
+                      <table
+                        style={{
+                          borderCollapse: 'collapse',
+                          marginLeft: 16,
+                          fontSize: 12,
+                          background: '#fff',
+                        }}
+                      >
+                        <thead>
+                          <tr>
+                            {['动态明细列', '费用分类组头'].map((h) => (
+                              <th
+                                key={h}
+                                style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}
+                              >
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            ['订单净收入', '其他'],
+                            ['平台服务费', '平台费用'],
+                            ['佣金 / 服务商佣金 / 招商服务费 / 站外推广费', '推广费用'],
+                            ['映射之外的新列（后端 details 出现新费用项）', '不显示组头（留空）'],
+                          ].map((r) => (
+                            <tr key={r[0]}>
+                              {r.map((c, i) => (
+                                <td
+                                  key={i}
+                                  style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}
+                                >
+                                  {c}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div>
+                      注：列维度映射中还维护了「管报名称」字段，当前它与列名相同（订单净收入的与其费用分类相同），
+                      无额外信息，因此表头只保留费用分类一层组头；将来若出现不同值，可在该层之下恢复管报名称层。
+                    </div>
+                    <div>
+                      最右侧固定 2 列：收入金额（入账）、支出金额（出账）。 后端 details
+                      中的「动账金额」「收入金额」「支出金额」三项明细已从列名中滤除（与最右侧两列含义重复）。
                     </div>
                   </div>
                 </li>
@@ -944,14 +1115,24 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                       <strong>收入金额（入账）</strong> = 该分类首层 value &gt; 0 的部分，否则 0
                     </div>
                     <div>
-                      <strong>支出金额（出账）</strong> = 该分类首层 value &lt; 0 的部分（保留负号），否则 0
+                      <strong>支出金额（出账）</strong> = 该分类首层 value &lt; 0
+                      的部分（保留负号），否则 0
                     </div>
                     <div>
                       <strong>订单净收入</strong>（分三种情况，须先判断分类名）：
                       <div style={{ marginLeft: 16 }}>
-                        <div>· <strong>小额打款</strong>：订单净收入 = 首层 value（注意：非 details 里的值）；</div>
-                        <div>· <strong>纯收支分类</strong>（见第五点，除 小额打款 / 提现 外）：订单净收入 = 收入金额（入账）；</div>
-                        <div>· <strong>其余分类（含 提现）</strong>：订单净收入 = details 里「订单净收入」原值。</div>
+                        <div>
+                          · <strong>小额打款</strong>：订单净收入 = 首层 value（注意：非 details
+                          里的值）；
+                        </div>
+                        <div>
+                          · <strong>纯收支分类</strong>（见第五点，除 小额打款 / 提现
+                          外）：订单净收入 = 收入金额（入账）；
+                        </div>
+                        <div>
+                          · <strong>其余分类（含 提现）</strong>：订单净收入 = details
+                          里「订单净收入」原值。
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -963,8 +1144,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
                     <div>· 订单净收入合计：按第三点“订单净收入”的分情况口径汇总；</div>
                     <div>
-                      · 收入金额（入账）合计 = 各分类首层 value 正数之和；
-                      支出金额（出账）合计 = 各分类首层 value 负数之和。
+                      · 收入金额（入账）合计 = 各分类首层 value 正数之和； 支出金额（出账）合计 =
+                      各分类首层 value 负数之和。
                     </div>
                   </div>
                 </li>
@@ -974,16 +1155,17 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                   <strong>五、纯收支分类（除 小额打款 / 提现）</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
                     <div>
-                      定义：某分类除「收入金额（入账）/ 支出金额（出账）」外，其余明细列
-                      （含 订单净收入 及全部费用列）均为 0，即后端未给出任何费用拆分。
+                      定义：某分类除「收入金额（入账）/ 支出金额（出账）」外，其余明细列 （含
+                      订单净收入 及全部费用列）均为 0，即后端未给出任何费用拆分。
                     </div>
                     <div>
-                      规则：<strong>订单净收入 = 收入金额（入账）</strong>（首层 value 为正的部分，否则 0）；
-                      且该分类的<strong>支出金额（出账）</strong>（首层 value 为负的部分，保留负号）
-                      计入<strong>本期费用</strong>。
+                      规则：<strong>订单净收入 = 收入金额（入账）</strong>（首层 value
+                      为正的部分，否则 0）； 且该分类的<strong>支出金额（出账）</strong>（首层 value
+                      为负的部分，保留负号） 计入<strong>本期费用</strong>。
                     </div>
                     <div>
-                      典型如：上门取件-支付快递费 / 退换货运费险 / 充值基础保证金 / 消费者赔付 等纯支出项。
+                      典型如：上门取件-支付快递费 / 退换货运费险 / 充值基础保证金 / 消费者赔付
+                      等纯支出项。
                     </div>
                   </div>
                 </li>
@@ -992,17 +1174,24 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>六、余额对账表（顶部汇总表）字段</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div><strong>本期收款</strong> = 订单净收入合计（同一口径：小额打款取首层 value、
-                      纯收支分类取收入金额（入账）、其余取 details 原值）。</div>
+                    <div>
+                      <strong>本期收款</strong> = 订单净收入合计（同一口径：小额打款取首层 value、
+                      纯收支分类取收入金额（入账）、其余取 details 原值）。
+                    </div>
                     <div>
                       <strong>本期费用</strong> = 平台服务费 + 佣金 + 服务商佣金 + 招商服务费 +
-                      站外推广费（五列的合计，保留负号）+
-                      除 小额打款 / 提现 外各「纯收支」分类的支出金额（出账）。
+                      站外推广费（五列的合计，保留负号）+ 除 小额打款 / 提现
+                      外各「纯收支」分类的支出金额（出账）。
                     </div>
-                    <div><strong>上月余额</strong> = PDD_LAST_BALANCE.totalIncome；<strong>期末余额</strong> =
-                      PDD_BALANCE.totalIncome（无则回退 queryEndingBalance）。
+                    <div>
+                      <strong>上月余额</strong> = PDD_LAST_BALANCE.totalIncome；
+                      <strong>期末余额</strong> = PDD_BALANCE.totalIncome（无则回退
+                      queryEndingBalance）。
                     </div>
-                    <div><strong>提现</strong> = 「提现」分类行的支出金额（出账）；<strong>结息</strong>：默认 0。</div>
+                    <div>
+                      <strong>提现</strong> = 「提现」分类行的支出金额（出账）；
+                      <strong>结息</strong>：默认 0。
+                    </div>
                   </div>
                 </li>
 
@@ -1010,8 +1199,13 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>七、计算余额与校验</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div><strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</div>
-                    <div><strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色 0.00，否则红色实际差异</div>
+                    <div>
+                      <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
+                    </div>
+                    <div>
+                      <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
+                      0.00，否则红色实际差异
+                    </div>
                   </div>
                 </li>
               </ul>
@@ -1030,22 +1224,34 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         </div>
         <Table
           columns={[
-            // 分类、管报名称：暂无数据，先占位空列（后续由后端补充）
+            // 分类、管报名称：按 dyFeeMapping 的硬编码映射由「业务描述（分类别）」归类，
+            // 未映射的业务描述兜底为 其他/其他；明细行已按分类分组排序，
+            // 相同 分类/管报名称 的相邻行通过 rowSpan 合并展示
             {
               title: '分类',
               dataIndex: 'category',
               key: 'category',
-              width: 120,
+              width: 90,
               fixed: 'left' as const,
-              render: () => <span style={{ fontSize: 12 }}></span>,
+              render: (_: any, record: FinanceDyCostStatVo, index: number) => ({
+                children: (
+                  <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                    {dyBizDescOf(record.name).category}
+                  </span>
+                ),
+                props: { rowSpan: dyRowSpans.category[index] },
+              }),
             },
             {
               title: '管报名称',
               dataIndex: 'mgmtReportName',
               key: 'mgmtReportName',
-              width: 120,
+              width: 110,
               fixed: 'left' as const,
-              render: () => <span style={{ fontSize: 12 }}></span>,
+              render: (_: any, record: FinanceDyCostStatVo, index: number) => ({
+                children: <span style={{ fontSize: 12 }}>{dyBizDescOf(record.name).mgmtName}</span>,
+                props: { rowSpan: dyRowSpans.mgmtName[index] },
+              }),
             },
             {
               title: '业务描述（分类别）',
@@ -1055,13 +1261,14 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               fixed: 'left' as const,
               render: (text: string) => <EllipsisTooltipCell title={text} />,
             },
-            ...dyFeeColumns,
+            ...dyFeeColumnGroups,
           ]}
-          dataSource={statModalVisible ? dyStatData : []}
+          dataSource={statModalVisible ? dyDetailRows : []}
           rowKey={(record, index) => `${record.name}-${index}`}
           loading={statLoading}
           size="small"
-          className="stat-table-small"
+          bordered
+          className="stat-table-small dy-detail-table"
           style={{ fontSize: 12, marginBottom: 16 }}
           pagination={false}
           scroll={{ x: 420 + dyDetailColumnNames.length * 120 + 200 }}
@@ -1111,8 +1318,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               : undefined
           }
         />
-
-        </Modal>
+      </Modal>
     </>
   );
 };

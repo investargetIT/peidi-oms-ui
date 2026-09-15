@@ -1,14 +1,16 @@
 import ExcelJS from 'exceljs';
 import type { DyBatchStatResult } from './batchStatBuilder';
 import type { FinanceDyCostStatVo } from '@/services/channelExtendCostApi';
+import { dyBizDescOf, dyColumnMetaOf, sortDyRowsByCategory } from './dyFeeMapping';
 
 /**
  * 抖音 - 批量导出 Excel 渲染
  *
  * 每家店一个 Excel，含 2 个 Sheet，对应「费用统计」弹窗里的 2 张表：
  *   Sheet 1「抖音余额对账」 —— 单行 11 列（列与弹窗顶部汇总表一致）
- *   Sheet 2「抖音费用明细」 —— 每个业务分类一行 + 末尾「合计」行，
- *          列 = 业务描述（分类别）+ 动态明细列 + 收入金额（入账）+ 支出金额（出账）
+ *   Sheet 2「抖音费用明细」 —— 表头 2 行（动态明细列上方一组组头：费用分类），
+ *          每个业务分类一行 + 末尾「合计」行，
+ *          列 = 分类 + 管报名称 + 业务描述（分类别）+ 动态明细列 + 收入金额（入账）+ 支出金额（出账）
  */
 
 const HEADER_BG_ARGB = 'FFF0F0F0';
@@ -94,7 +96,16 @@ function renderDetailSheet(
   data: FinanceDyCostStatVo[],
 ) {
   const ws = workbook.addWorksheet('抖音费用明细');
+
+  // 组头一行：每个动态明细列的费用分类（与弹窗 2 层表头一致；映射之外留空不显示）
+  const groupRow1: (string | number)[] = ['/', '/', '分类'];
+  result.columnNames.forEach((colName) => groupRow1.push(dyColumnMetaOf(colName).feeType));
+  groupRow1.push('', '');
+  ws.addRow(groupRow1).eachCell((cell) => applyHeaderStyle(cell));
+
   const headers = [
+    '分类',
+    '管报名称',
     '业务描述（分类别）',
     ...result.columnNames,
     '收入金额（入账）',
@@ -107,9 +118,12 @@ function renderDetailSheet(
     return d && typeof d.value === 'number' ? d.value : 0;
   };
 
-  // 数据行：每个业务分类一行（口径与弹窗 dyFeeColumns 完全一致）
-  data.forEach((cat) => {
-    const values: (string | number)[] = [cat.name || ''];
+  // 数据行：每个业务分类一行（口径与弹窗 dyFeeColumns 完全一致；
+  // 分类 / 管报名称按 dyFeeMapping 硬编码映射，未映射兜底 其他/其他；
+  // 行序与弹窗一致：按分类分组排序，相同分类的行相邻，便于人工合并查看）
+  sortDyRowsByCategory(data).forEach((cat) => {
+    const bizMeta = dyBizDescOf(cat.name);
+    const values: (string | number)[] = [bizMeta.category, bizMeta.mgmtName, cat.name || ''];
     result.columnNames.forEach((colName) => {
       if (colName === '订单净收入') {
         // 小额打款：订单净收入取首层 value（注意非 details 里的「订单净收入」值）
@@ -130,7 +144,7 @@ function renderDetailSheet(
     values.push(round2(v < 0 ? v : 0)); // 支出金额（出账）
     const dataRow = ws.addRow(values);
     dataRow.eachCell((cell, col) => {
-      if (col === 1) {
+      if (col <= 3) {
         cell.font = { size: 12 };
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
       } else {
@@ -144,7 +158,8 @@ function renderDetailSheet(
 
   // 合计行（末行，加粗 + 灰底，口径与弹窗 dyStatSummaryRow 一致）
   if (data.length > 0) {
-    const sumValues: (string | number)[] = ['合计'];
+    // 合计行：分类 / 管报名称 两列为空，「合计」落在业务描述（分类别）列
+    const sumValues: (string | number)[] = ['', '', '合计'];
     result.columnNames.forEach((colName) => {
       sumValues.push(round2(result.summaryRow[colName] ?? 0));
     });
@@ -152,7 +167,7 @@ function renderDetailSheet(
     sumValues.push(round2(result.summaryRow['支出金额'] ?? 0));
     const sumRow = ws.addRow(sumValues);
     sumRow.eachCell((cell, col) => {
-      if (col === 1) {
+      if (col <= 3) {
         cell.font = { size: 12, bold: true };
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
       } else {
