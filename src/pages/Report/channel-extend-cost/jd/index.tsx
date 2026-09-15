@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Collapse, Modal, Table, message } from 'antd';
+import { Collapse, Input, Modal, Table, message } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import ChannelExtendCostApi, {
   type FinanceJdCostStatVo,
@@ -19,6 +20,54 @@ import JdBatchExportButton from './BatchExportButton';
  * 请求参数：{ shopId, startDate, endDate }（start/end 取选中月份的月初/月末）
  * 响应：{ jd2ExpenseStat: 钱包支出分类, jd1CalculateStat: 账单收支计算 }
  */
+
+// 费用分类统计：取「京东账单收支计算列表」总计行每列的合计，
+// 按 分类/管报名称/业务描述 归类展示（样式参考拼多多费用统计弹窗）
+const JD1_CATEGORY_MAPPING: { major: string; category: string; desc: string }[] = [
+  { major: '平台费用', category: '交易服务费', desc: '交易服务费' },
+  { major: '平台费用', category: '白条', desc: '代收白条网络推广技术服务费' },
+  { major: '其他', category: '其他', desc: '价保返佣' },
+  { major: '平台费用', category: '佣金', desc: '佣金' },
+  { major: '其他', category: '其他', desc: '货款' },
+  { major: '平台费用', category: '运费险', desc: '运费保险服务费' },
+  { major: '平台费用', category: '京豆', desc: '随单送的京豆' },
+  { major: '其他', category: '其他', desc: '平台券价保补贴' },
+  { major: '其他', category: '其他', desc: '平台券价保补贴佣金' },
+  { major: '其他', category: '其他', desc: '代收配送费' },
+  { major: '其他', category: '其他', desc: '综合违约金' },
+];
+
+// 按「第一层分类 → 第二层管报名称」排序后的映射（相同层的行排在一起，合并才连续），
+// 组间顺序按清单首次出现先后（稳定排序，组内保持原相对顺序）。
+// 表格数据行与「计算逻辑说明」里的清单共用这一份排序结果，保证两边展示顺序一致。
+const SORTED_JD1_CATEGORY_MAPPING = (() => {
+  const majorOrder: Record<string, number> = {};
+  const categoryOrder: Record<string, number> = {};
+  JD1_CATEGORY_MAPPING.forEach((m) => {
+    if (majorOrder[m.major] === undefined) {
+      majorOrder[m.major] = Object.keys(majorOrder).length;
+    }
+    const catKey = `${m.major}-${m.category}`;
+    if (categoryOrder[catKey] === undefined) {
+      categoryOrder[catKey] = Object.keys(categoryOrder).length;
+    }
+  });
+  return JD1_CATEGORY_MAPPING.map((m, originIndex) => ({ ...m, originIndex })).sort(
+    (a, b) =>
+      majorOrder[a.major] - majorOrder[b.major] ||
+      categoryOrder[`${a.major}-${a.category}`] - categoryOrder[`${b.major}-${b.category}`] ||
+      a.originIndex - b.originIndex,
+  );
+})();
+
+// 映射清单的扁平行（计算逻辑说明中映射表格的数据源，与 SORTED_JD1_CATEGORY_MAPPING 同源）
+const JD1_CATEGORY_MAPPING_ROWS = SORTED_JD1_CATEGORY_MAPPING.map((m) => ({
+  key: `${m.major}-${m.category}-${m.desc}`,
+  major: m.major,
+  category: m.category,
+  desc: m.desc,
+}));
+
 const JdExtendCostPanel: React.FC = () => {
   // 跟踪 Base 搜索栏当前选中的年月，供「批量导出」按钮展示当前月份
   const [exportYearMonth, setExportYearMonth] = useState<string>(
@@ -37,6 +86,8 @@ const JdExtendCostPanel: React.FC = () => {
   >([]);
   const [lastMonthBeginningBalance, setLastMonthBeginningBalance] = useState<number | null>(null);
   const [lastMonthEndingBalance, setLastMonthEndingBalance] = useState<number | null>(null);
+  // 计算逻辑说明「费用分类统计映射」表格的搜索关键字
+  const [jd1MappingSearch, setJd1MappingSearch] = useState('');
 
   // 按 yyyy-MM 算出当月 startDate / endDate
   const getMonthRange = (yearMonth: string) => {
@@ -327,7 +378,14 @@ const JdExtendCostPanel: React.FC = () => {
     '售后卖家赔付费',
     '综合违约金',
   ];
-  const COLLECTION_DEDUCT_CATEGORIES = ['直赔代扣', '违约金', '价保', '售后', '先行赔付', '挽单补偿险'];
+  const COLLECTION_DEDUCT_CATEGORIES = [
+    '直赔代扣',
+    '违约金',
+    '价保',
+    '售后',
+    '先行赔付',
+    '挽单补偿险',
+  ];
 
   // 本期费用 = (代收白条网络推广技术服务费 + 交易服务费 + 随单送的京豆
   //           + 运费保险服务费 + 价保返佣 + 佣金 + 直营服务费
@@ -346,6 +404,56 @@ const JdExtendCostPanel: React.FC = () => {
     '智能礼金新客推广费',
   ];
   const EXPENSE_JD2_CATEGORIES = ['京东联盟', '运营服务费'];
+
+  // 业务描述列动态宽度：按最长的业务描述字数估算（fontSize 12px + 左右 padding 8×2 + 余量）
+  const jd1DescColumnWidth = useMemo(() => {
+    const maxLen = Math.max(
+      ...SORTED_JD1_CATEGORY_MAPPING.map((m) => m.desc.length),
+      '业务描述'.length,
+    );
+    return maxLen * 12 + 40;
+  }, []);
+
+  // 费用分类统计数据行 + 分类合并(rowSpan)元信息（映射排序见模块级 SORTED_JD1_CATEGORY_MAPPING）
+  const jd1CategoryTable = useMemo(() => {
+    const majorCount: Record<string, number> = {};
+    const categoryCount: Record<string, number> = {};
+    const majorFirstIndex: Record<string, number> = {};
+    const categoryFirstIndex: Record<string, number> = {};
+    const rows = SORTED_JD1_CATEGORY_MAPPING.map((m, index) => {
+      const majorKey = m.major;
+      const catKey = `${m.major}-${m.category}`;
+      if (majorFirstIndex[majorKey] === undefined) majorFirstIndex[majorKey] = index;
+      if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
+      majorCount[majorKey] = (majorCount[majorKey] || 0) + 1;
+      categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
+      // 列在账单收支数据里不存在时展示 '-'
+      const amount = jd1BusinessDescList.includes(m.desc) ? jd1SummaryRow[m.desc] : undefined;
+      return { ...m, key: `${catKey}-${index}`, keyIndex: index, amount };
+    });
+    // 兜底：数据里出现但映射清单之外的业务描述 → 追加到末尾，归类为 空-空-业务描述
+    const mappedDescs = new Set(JD1_CATEGORY_MAPPING.map((m) => m.desc));
+    const unmappedDescs = jd1BusinessDescList.filter((desc) => !mappedDescs.has(desc));
+    unmappedDescs.forEach((desc, i) => {
+      const index = rows.length;
+      const catKey = `${''}-${''}`;
+      if (majorFirstIndex[''] === undefined) majorFirstIndex[''] = index;
+      if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
+      majorCount[''] = (majorCount[''] || 0) + 1;
+      categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
+      rows.push({
+        major: '',
+        category: '',
+        desc,
+        originIndex: -1,
+        key: `${catKey}-extra-${i}`,
+        keyIndex: index,
+        amount: jd1SummaryRow[desc],
+      });
+    });
+    return { rows, majorCount, categoryCount, majorFirstIndex, categoryFirstIndex };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jd1SummaryRow, jd1BusinessDescList]);
 
   const jdBalanceSummary = useMemo(() => {
     // 取 jd2 透视后那 1 行（pivotedJd2Data[0]），从中拿 5 个扣减项的金额
@@ -438,27 +546,21 @@ const JdExtendCostPanel: React.FC = () => {
         dataIndex: 'billMonth',
         key: 'billMonth',
         width: 80,
-        render: (text: string) => (
-          <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
-        ),
+        render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
       },
       {
         title: '平台',
         dataIndex: 'platform',
         key: 'platform',
         width: 60,
-        render: (text: string) => (
-          <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
-        ),
+        render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
       },
       {
         title: '账户名称',
         dataIndex: 'accountName',
         key: 'accountName',
         width: 150,
-        render: (text: string) => (
-          <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
-        ),
+        render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
       },
       {
         title: '期末余额（元）',
@@ -570,6 +672,10 @@ const JdExtendCostPanel: React.FC = () => {
           .jd1-table-small tr.jd1-excluded-row:hover > td {
             background: #ebebeb !important;
           }
+          /* 费用分类统计（bordered）：统一边框颜色，合并单元格区域边框深浅一致 */
+          .jd-category-table .ant-table-cell {
+            border-color: #f0f0f0 !important;
+          }
         `}</style>
 
         {/* 京东余额对账（汇总表，置于最上方，列顺序与样式参考拼多多「费用统计」最上面那张表） */}
@@ -602,23 +708,30 @@ const JdExtendCostPanel: React.FC = () => {
                 <li style={{ marginBottom: 4 }}>
                   <strong>京东余额对账：</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div><strong>上月余额</strong> = 京东接口返回的上月末账户余额（lastMonthEndingBalance）</div>
-                    <div><strong>期末余额</strong> = 上月余额 + 本月入账</div>
                     <div>
-                      <strong>本月入账</strong> = 京东账单收支计算列表的合计 −
-                      {DEDUCT_CATEGORIES.map((c) => c).join('、')}共
-                      {DEDUCT_CATEGORIES.length} 项
+                      <strong>上月余额</strong> =
+                      京东接口返回的上月末账户余额（lastMonthEndingBalance）
                     </div>
                     <div>
-                      <strong>本期费用</strong> = {EXPENSE_JD1_CATEGORIES.map((c) => `总计的${c}`).join(' + ')}
-                      − {EXPENSE_JD2_CATEGORIES.join(' − ')}
+                      <strong>期末余额</strong> = 上月余额 + 本月入账
+                    </div>
+                    <div>
+                      <strong>本月入账</strong> = 京东账单收支计算列表的合计 −
+                      {DEDUCT_CATEGORIES.map((c) => c).join('、')}共{DEDUCT_CATEGORIES.length} 项
+                    </div>
+                    <div>
+                      <strong>本期费用</strong> ={' '}
+                      {EXPENSE_JD1_CATEGORIES.map((c) => `总计的${c}`).join(' + ')}−{' '}
+                      {EXPENSE_JD2_CATEGORIES.join(' − ')}
                       <div style={{ marginLeft: 16 }}>
-                        （前 {EXPENSE_JD1_CATEGORIES.length} 项取自账单收支计算列表「总计行」对应列的纵向合计；
+                        （前 {EXPENSE_JD1_CATEGORIES.length}{' '}
+                        项取自账单收支计算列表「总计行」对应列的纵向合计；
                         {EXPENSE_JD2_CATEGORIES.join('、')}取自钱包支出分类统计）
                       </div>
                     </div>
                     <div>
-                      <strong>收款</strong> = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
+                      <strong>收款</strong> = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 −
+                      挽单补偿险
                     </div>
                     <div style={{ marginLeft: 16 }}>
                       A = {COLLECTION_A_CATEGORIES.map((c) => `账单收支总计行的${c}`).join(' + ')}；
@@ -626,7 +739,8 @@ const JdExtendCostPanel: React.FC = () => {
                     </div>
                     <div>
                       <strong>校验</strong> = 期末余额 − （上月余额 + 本期费用 + 收款 − 提现），
-                      提现取自钱包支出分类统计（上方「提现」列同源）；|值| &lt; 0.001 显示绿色 0.00，否则红色显示实际差异
+                      提现取自钱包支出分类统计（上方「提现」列同源）；|值| &lt; 0.001 显示绿色
+                      0.00，否则红色显示实际差异
                     </div>
                   </div>
                 </li>
@@ -646,6 +760,67 @@ const JdExtendCostPanel: React.FC = () => {
                   <strong>「总计行」：</strong>
                   所有日期的纵向合计，但会排除本月最后一天（例 7 月 31
                   日）；上月末日（6/30）正常参与合计。
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>费用分类统计：</strong>
+                  取「京东账单收支计算列表」总计行每列的合计，按固定映射归类为
+                  分类-管报名称-业务描述。完整映射如下，可搜索 / 按分类、管报名称筛选：
+                  <div style={{ marginTop: 8 }}>
+                    <Input
+                      placeholder="搜索分类 / 管报名称 / 业务描述"
+                      prefix={<SearchOutlined />}
+                      allowClear
+                      size="small"
+                      style={{ width: 240, marginBottom: 8 }}
+                      value={jd1MappingSearch}
+                      onChange={(e) => setJd1MappingSearch(e.target.value)}
+                    />
+                    <Table
+                      size="small"
+                      className="jd1-table-small"
+                      columns={[
+                        {
+                          title: '分类',
+                          dataIndex: 'major',
+                          key: 'major',
+                          width: 90,
+                          filters: Array.from(
+                            new Set(JD1_CATEGORY_MAPPING_ROWS.map((r) => r.major)),
+                          ).map((major) => ({ text: major, value: major })),
+                          onFilter: (value: React.Key | boolean, record: any) =>
+                            record.major === value,
+                          render: (text: string) => (
+                            <span style={{ fontWeight: 'bold' }}>{text}</span>
+                          ),
+                        },
+                        {
+                          title: '管报名称',
+                          dataIndex: 'category',
+                          key: 'category',
+                          width: 110,
+                          filters: Array.from(
+                            new Set(JD1_CATEGORY_MAPPING_ROWS.map((r) => r.category)),
+                          ).map((category) => ({ text: category, value: category })),
+                          onFilter: (value: React.Key | boolean, record: any) =>
+                            record.category === value,
+                        },
+                        { title: '业务描述', dataIndex: 'desc', key: 'desc' },
+                      ]}
+                      dataSource={JD1_CATEGORY_MAPPING_ROWS.filter(
+                        (r) =>
+                          !jd1MappingSearch ||
+                          r.major.includes(jd1MappingSearch) ||
+                          r.category.includes(jd1MappingSearch) ||
+                          r.desc.includes(jd1MappingSearch),
+                      )}
+                      pagination={false}
+                      scroll={{ y: 280 }}
+                      style={{ background: '#fff' }}
+                    />
+                    <div style={{ marginTop: 4, color: '#999' }}>
+                      兜底：若接口返回了映射之外的业务描述列，会追加到末尾，归类为「空-空-该业务描述」。
+                    </div>
+                  </div>
                 </li>
               </ul>
             </div>
@@ -673,56 +848,139 @@ const JdExtendCostPanel: React.FC = () => {
           style={{ marginBottom: 24 }}
         />
 
-        {/* 京东账单收支计算列表 */}
+        {/* 费用分类统计：取账单收支计算列表「总计行」每列合计，按 分类/管报名称 归类（样式参考拼多多费用统计） */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
-          京东账单收支计算列表
-          {(jd1Data.length > 0 || lastMonthJd1CalculateStat.length > 0) && (
-            <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
-              （{pivotedJd1Data.length} 个日期 / {jd1Data.length + lastMonthJd1CalculateStat.length}{' '}
-              条）
-            </span>
-          )}
+          费用分类统计
+          <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
+            （金额 = 京东账单收支计算列表「总计行」各业务列的合计）
+          </span>
         </div>
         <Table
-          columns={jd1Columns}
-          dataSource={pivotedJd1Data}
-          rowKey="billDate"
+          columns={[
+            {
+              title: '分类',
+              dataIndex: 'major',
+              key: 'major',
+              width: 90,
+              render: (_: unknown, record: any) => {
+                const isFirst = jd1CategoryTable.majorFirstIndex[record.major] === record.keyIndex;
+                return {
+                  children: (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{record.major}</span>
+                  ),
+                  props: { rowSpan: isFirst ? jd1CategoryTable.majorCount[record.major] : 0 },
+                };
+              },
+            },
+            {
+              title: '管报名称',
+              dataIndex: 'category',
+              key: 'category',
+              width: 100,
+              render: (_: unknown, record: any) => {
+                const catKey = `${record.major}-${record.category}`;
+                const isFirst = jd1CategoryTable.categoryFirstIndex[catKey] === record.keyIndex;
+                return {
+                  children: (
+                    <span style={{ fontSize: 12, fontWeight: 'bold' }}>{record.category}</span>
+                  ),
+                  props: { rowSpan: isFirst ? jd1CategoryTable.categoryCount[catKey] : 0 },
+                };
+              },
+            },
+            {
+              title: '业务描述',
+              dataIndex: 'desc',
+              key: 'desc',
+              // 动态宽度：按最长的业务描述字数估算（fontSize 12 + 左右 padding 8×2 + 余量）
+              width: jd1DescColumnWidth,
+              render: (text: string) => <span style={{ fontSize: 12 }}>{text}</span>,
+            },
+            {
+              title: '金额',
+              dataIndex: 'amount',
+              key: 'amount',
+              // 不设宽度：占满表格剩余宽度
+              render: (value: number) => (
+                <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                  {typeof value === 'number' ? value.toFixed(2) : '-'}
+                </span>
+              ),
+            },
+          ]}
+          dataSource={jd1CategoryTable.rows}
+          rowKey="key"
           loading={modalLoading}
           size="small"
-          className="jd1-table-small"
-          scroll={{ x: jd1ScrollX }}
+          className="jd1-table-small jd-category-table"
+          bordered
           pagination={false}
-          // 第一行 = 本月最后一天（如 2026-07-31），已从总计行排除，背景标灰
-          rowClassName={(record) =>
-            record.billDate === lastDayOfCurrentMonth ? 'jd1-excluded-row' : ''
-          }
-          summary={
-            pivotedJd1Data.length > 0
-              ? () => (
-                  <Table.Summary.Row style={{ background: '#fafafa' }} className="jd1-summary-row">
-                    {/* 账单日期列：总计标签 */}
-                    <Table.Summary.Cell index={0} align="left">
-                      <span style={{ fontSize: 12, fontWeight: 'bold' }}>总计</span>
-                    </Table.Summary.Cell>
-                    {/* 业务描述列：每列总和 */}
-                    {jd1BusinessDescList.map((desc, idx) => (
-                      <Table.Summary.Cell key={desc} index={idx + 1} align="left">
-                        <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                          {jd1SummaryRow[desc].toFixed(2)}
-                        </span>
-                      </Table.Summary.Cell>
-                    ))}
-                    {/* 总计列：所有行总计的总和 */}
-                    <Table.Summary.Cell index={jd1BusinessDescList.length + 1} align="left">
-                      <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                        {jd1SummaryRow.total.toFixed(2)}
-                      </span>
-                    </Table.Summary.Cell>
-                  </Table.Summary.Row>
-                )
-              : undefined
-          }
+          style={{ marginBottom: 24 }}
         />
+
+        {/* 京东账单收支计算列表：默认收起，点击展开查看明细 */}
+        <Collapse defaultActiveKey={[]}>
+          <Collapse.Panel
+            key="jd1"
+            header={
+              <span style={{ fontSize: 14, fontWeight: 500 }}>
+                京东账单收支计算列表
+                {(jd1Data.length > 0 || lastMonthJd1CalculateStat.length > 0) && (
+                  <span
+                    style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}
+                  >
+                    （{pivotedJd1Data.length} 个日期 /{' '}
+                    {jd1Data.length + lastMonthJd1CalculateStat.length} 条）
+                  </span>
+                )}
+              </span>
+            }
+          >
+            <Table
+              columns={jd1Columns}
+              dataSource={pivotedJd1Data}
+              rowKey="billDate"
+              loading={modalLoading}
+              size="small"
+              className="jd1-table-small"
+              scroll={{ x: jd1ScrollX }}
+              pagination={false}
+              // 第一行 = 本月最后一天（如 2026-07-31），已从总计行排除，背景标灰
+              rowClassName={(record) =>
+                record.billDate === lastDayOfCurrentMonth ? 'jd1-excluded-row' : ''
+              }
+              summary={
+                pivotedJd1Data.length > 0
+                  ? () => (
+                      <Table.Summary.Row
+                        style={{ background: '#fafafa' }}
+                        className="jd1-summary-row"
+                      >
+                        {/* 账单日期列：总计标签 */}
+                        <Table.Summary.Cell index={0} align="left">
+                          <span style={{ fontSize: 12, fontWeight: 'bold' }}>总计</span>
+                        </Table.Summary.Cell>
+                        {/* 业务描述列：每列总和 */}
+                        {jd1BusinessDescList.map((desc, idx) => (
+                          <Table.Summary.Cell key={desc} index={idx + 1} align="left">
+                            <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                              {jd1SummaryRow[desc].toFixed(2)}
+                            </span>
+                          </Table.Summary.Cell>
+                        ))}
+                        {/* 总计列：所有行总计的总和 */}
+                        <Table.Summary.Cell index={jd1BusinessDescList.length + 1} align="left">
+                          <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                            {jd1SummaryRow.total.toFixed(2)}
+                          </span>
+                        </Table.Summary.Cell>
+                      </Table.Summary.Row>
+                    )
+                  : undefined
+              }
+            />
+          </Collapse.Panel>
+        </Collapse>
       </Modal>
     </>
   );
