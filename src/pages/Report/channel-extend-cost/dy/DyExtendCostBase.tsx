@@ -1069,12 +1069,18 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
             dyStatData.length > 0
               ? () => (
                   <Table.Summary.Row className="dy-stat-summary-row">
+                    {/*
+                      注意：Table.Summary.Cell 的 index 必须传「真实列下标」，
+                      rc-table 会按列定义自动给合计行单元格应用 fixed-left/right 的 sticky 偏移。
+                      首格 colSpan={3} 占了 分类/管报名称/业务描述（分类别） 3 列，
+                      因此后续单元格 index 要从 3 开始，最后两列才能正确命中 fixed-right。
+                    */}
                     {/* 合计：跨「分类 + 管报名称 + 业务描述（分类别）」三列 */}
                     <Table.Summary.Cell index={0} align="left" colSpan={3}>
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>合计</span>
                     </Table.Summary.Cell>
                     {dyDetailColumnNames.map((detailName, idx) => (
-                      <Table.Summary.Cell key={detailName} index={idx + 1} align="right">
+                      <Table.Summary.Cell key={detailName} index={idx + 3} align="right">
                         <span style={{ fontSize: 12, fontWeight: 'bold' }}>
                           {dyStatSummaryRow[detailName] !== undefined
                             ? dyStatSummaryRow[detailName].toFixed(2)
@@ -1084,7 +1090,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                     ))}
                     <Table.Summary.Cell
                       key="收入金额"
-                      index={dyDetailColumnNames.length + 1}
+                      index={dyDetailColumnNames.length + 3}
                       align="right"
                     >
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
@@ -1093,7 +1099,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                     </Table.Summary.Cell>
                     <Table.Summary.Cell
                       key="支出金额"
-                      index={dyDetailColumnNames.length + 2}
+                      index={dyDetailColumnNames.length + 4}
                       align="right"
                     >
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
