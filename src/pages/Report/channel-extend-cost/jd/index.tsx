@@ -23,7 +23,14 @@ import JdBatchExportButton from './BatchExportButton';
 
 // 费用分类统计：取「京东账单收支计算列表」总计行每列的合计，
 // 按 分类/管报名称/业务描述 归类展示（样式参考拼多多费用统计弹窗）
-const JD1_CATEGORY_MAPPING: { major: string; category: string; desc: string }[] = [
+// source: 'jd2' 表示该行金额不从账单收支取，改从「京东钱包支出分类统计」对应分类取
+const JD1_CATEGORY_MAPPING: {
+  major: string;
+  category: string;
+  desc: string;
+  source?: 'jd2';
+}[] = [
+  { major: '推广费', category: '京东联盟', desc: '京东联盟', source: 'jd2' },
   { major: '平台费用', category: '交易服务费', desc: '交易服务费' },
   { major: '平台费用', category: '白条', desc: '代收白条网络推广技术服务费' },
   { major: '其他', category: '其他', desc: '价保返佣' },
@@ -427,8 +434,15 @@ const JdExtendCostPanel: React.FC = () => {
       if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
       majorCount[majorKey] = (majorCount[majorKey] || 0) + 1;
       categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
-      // 列在账单收支数据里不存在时展示 '-'
-      const amount = jd1BusinessDescList.includes(m.desc) ? jd1SummaryRow[m.desc] : undefined;
+      // 列在账单收支数据里不存在时展示 '-'；
+      // source === 'jd2' 的行（推广费-京东联盟）金额改从「京东钱包支出分类统计」对应分类取
+      let amount: number | undefined;
+      if (m.source === 'jd2') {
+        const jd2Row = pivotedJd2Data[0];
+        amount = jd2Row && typeof jd2Row[m.desc] === 'number' ? jd2Row[m.desc] : undefined;
+      } else {
+        amount = jd1BusinessDescList.includes(m.desc) ? jd1SummaryRow[m.desc] : undefined;
+      }
       return { ...m, key: `${catKey}-${index}`, keyIndex: index, amount };
     });
     // 兜底：数据里出现但映射清单之外的业务描述 → 追加到末尾，归类为 空-空-业务描述
@@ -453,7 +467,7 @@ const JdExtendCostPanel: React.FC = () => {
     });
     return { rows, majorCount, categoryCount, majorFirstIndex, categoryFirstIndex };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jd1SummaryRow, jd1BusinessDescList]);
+  }, [jd1SummaryRow, jd1BusinessDescList, pivotedJd2Data]);
 
   const jdBalanceSummary = useMemo(() => {
     // 取 jd2 透视后那 1 行（pivotedJd2Data[0]），从中拿 5 个扣减项的金额
@@ -764,7 +778,8 @@ const JdExtendCostPanel: React.FC = () => {
                 <li style={{ marginBottom: 2 }}>
                   <strong>费用分类统计：</strong>
                   取「京东账单收支计算列表」总计行每列的合计，按固定映射归类为
-                  分类-管报名称-业务描述。完整映射如下，可搜索 / 按分类、管报名称筛选：
+                  分类-管报名称-业务描述；其中「推广费-京东联盟-京东联盟」的金额取自
+                  「京东钱包支出分类统计」的京东联盟分类。完整映射如下，可搜索 / 按分类、管报名称筛选：
                   <div style={{ marginTop: 8 }}>
                     <Input
                       placeholder="搜索分类 / 管报名称 / 业务描述"
@@ -852,7 +867,8 @@ const JdExtendCostPanel: React.FC = () => {
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
           费用分类统计
           <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
-            （金额 = 京东账单收支计算列表「总计行」各业务列的合计）
+            （金额 = 京东账单收支计算列表「总计行」各业务列的合计；推广费-京东联盟
+            取自京东钱包支出分类统计）
           </span>
         </div>
         <Table
