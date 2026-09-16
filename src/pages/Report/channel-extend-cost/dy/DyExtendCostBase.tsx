@@ -507,6 +507,76 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
     return acc;
   }, [dyStatData, dyCategoryMeta]);
 
+  // 汇总费用表（只取 平台费用 / 推广费用 两类）：
+  // 行两类来源，行的数据取支出金额、列的数据取当列总计：
+  //   1) 首层分类（业务描述（分类别））映射后属于 平台费用 / 推广费用：
+  //      支出金额 = 该分类「支出金额（出账）」= 首层 value 为负的部分（保留负号），非负计 0
+  //   2) 动态明细费用列中费用分类（列维度映射）为 平台费用 / 推广费用：
+  //      支出金额 = 该列的纵向合计（当列总计，即合计行对应列的值）
+  // 排序：平台费用 → 推广费用（组间固定顺序）；组内先首层分类行、后费用列行，保持出现顺序。
+  const dyExpenseSummaryRows = useMemo(() => {
+    const rows: {
+      key: string;
+      category: string;
+      mgmtName: string;
+      desc: string;
+      amount: number;
+    }[] = [];
+    // 1) 首层分类行：行的数据取支出金额（出账）
+    dyStatData.forEach((cat) => {
+      const name = cat.name || '';
+      if (!name) return;
+      const meta = dyBizDescOf(name);
+      if (meta.category !== '平台费用' && meta.category !== '推广费用') return;
+      const v = typeof cat.value === 'number' ? cat.value : 0;
+      rows.push({
+        key: `biz-${name}`,
+        category: meta.category,
+        mgmtName: meta.mgmtName,
+        desc: name,
+        amount: v < 0 ? v : 0,
+      });
+    });
+    // 2) 费用列行：列的数据取当列总计
+    dyDetailColumnNames.forEach((col) => {
+      const meta = dyColumnMetaOf(col);
+      if (meta.feeType !== '平台费用' && meta.feeType !== '推广费用') return;
+      rows.push({
+        key: `col-${col}`,
+        category: meta.feeType,
+        mgmtName: meta.mgmtName,
+        desc: col,
+        amount: typeof dyStatSummaryRow[col] === 'number' ? dyStatSummaryRow[col] : 0,
+      });
+    });
+    // 组间排序：平台费用 → 推广费用（sort 为稳定排序，组内顺序不变）
+    const categoryOrder: Record<string, number> = { 平台费用: 0, 推广费用: 1 };
+    return rows.sort((a, b) => (categoryOrder[a.category] ?? 9) - (categoryOrder[b.category] ?? 9));
+  }, [dyStatData, dyDetailColumnNames, dyStatSummaryRow]);
+
+  // 汇总费用表「分类 / 管报名称」rowSpan 元信息（相邻同值分段，段首 rowSpan = 段长，其余 0）
+  const dyExpenseRowSpans = useMemo(() => {
+    const buildSpans = (getVal: (r: (typeof dyExpenseSummaryRows)[number]) => string) => {
+      const spans: number[] = dyExpenseSummaryRows.map(() => 0);
+      let start = 0;
+      while (start < dyExpenseSummaryRows.length) {
+        let end = start + 1;
+        while (
+          end < dyExpenseSummaryRows.length &&
+          getVal(dyExpenseSummaryRows[end]) === getVal(dyExpenseSummaryRows[start])
+        )
+          end++;
+        spans[start] = end - start;
+        start = end;
+      }
+      return spans;
+    };
+    return {
+      category: buildSpans((r) => r.category),
+      mgmtName: buildSpans((r) => `${r.category}|${r.mgmtName}`),
+    };
+  }, [dyExpenseSummaryRows]);
+
   // 抖音余额对账（最上面的汇总表）：
   //   本期收款 = 订单净收入（details 中「订单净收入」项）各分类之和（订单净收入合计）
   //   本期费用 = 合计的平台服务费 + 合计的佣金 + 合计的服务商佣金 + 合计的招商服务费
@@ -1208,10 +1278,119 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                     </div>
                   </div>
                 </li>
+
+                {/* 八、汇总费用表 */}
+                <li style={{ marginBottom: 6 }}>
+                  <strong>八、汇总费用表（平台费用 + 推广费用）</strong>
+                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                    <div>
+                      仅取 分类 为<strong>平台费用 / 推广费用</strong>
+                      的数据，行分两类来源（行的数据取支出金额，列的数据取当列总计）：
+                    </div>
+                    <div>
+                      · <strong>首层分类行</strong>（业务描述（分类别）映射后属于平台费用 /
+                      推广费用）：支出金额 = 该分类「支出金额（出账）」＝ 首层 value
+                      为负的部分（保留负号）；
+                    </div>
+                    <div>
+                      · <strong>费用列行</strong>（动态明细列的费用分类属于平台费用 /
+                      推广费用，如 平台服务费 / 佣金 / 服务商佣金 / 招商服务费 / 站外推广费）：
+                      支出金额 = 该列的纵向合计（当列总计）。
+                    </div>
+                    <div>
+                      行序：平台费用 → 推广费用；组内先首层分类行、后费用列行（保持出现顺序）；
+                      相同 分类 / 管报名称 的相邻单元格合并。
+                    </div>
+                    <div>
+                      <strong>合计</strong> = 本表各行支出金额之和（只含 平台费用 / 推广费用，
+                      不含 提现 等其他分类，与明细表「支出金额（出账）」列总计不同）。
+                    </div>
+                  </div>
+                </li>
               </ul>
             </div>
           </Collapse.Panel>
         </Collapse>
+
+        {/* 汇总费用：只取 平台费用 / 推广费用；行取支出金额（出账）/ 费用列当列总计，合计 = 本表各行支出金额之和 */}
+        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+          汇总费用
+          <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
+            （仅含 平台费用 / 推广费用；首层分类行取「支出金额（出账）」，费用列行取「当列总计」；
+            合计 = 本表各行支出金额之和）
+          </span>
+        </div>
+        <Table
+          columns={[
+            {
+              title: '分类',
+              dataIndex: 'category',
+              key: 'category',
+              width: 90,
+              render: (_: any, record: any, index: number) => ({
+                children: (
+                  <span style={{ fontSize: 12, fontWeight: 'bold' }}>{record.category}</span>
+                ),
+                props: { rowSpan: dyExpenseRowSpans.category[index] },
+              }),
+            },
+            {
+              title: '管报名称',
+              dataIndex: 'mgmtName',
+              key: 'mgmtName',
+              width: 110,
+              render: (_: any, record: any, index: number) => ({
+                children: <span style={{ fontSize: 12 }}>{record.mgmtName}</span>,
+                props: { rowSpan: dyExpenseRowSpans.mgmtName[index] },
+              }),
+            },
+            {
+              title: '业务描述（分类别）',
+              dataIndex: 'desc',
+              key: 'desc',
+              width: 180,
+              render: (text: string) => <EllipsisTooltipCell title={text} />,
+            },
+            {
+              title: '支出金额',
+              dataIndex: 'amount',
+              key: 'amount',
+              align: 'left' as const,
+              render: (value: number) => (
+                <span style={{ fontSize: 12 }}>
+                  {typeof value === 'number' ? value.toFixed(2) : '0.00'}
+                </span>
+              ),
+            },
+          ]}
+          dataSource={statModalVisible ? dyExpenseSummaryRows : []}
+          rowKey="key"
+          loading={statLoading}
+          size="small"
+          bordered
+          className="stat-table-small dy-detail-table"
+          style={{ fontSize: 12, marginBottom: 16 }}
+          pagination={false}
+          summary={
+            dyExpenseSummaryRows.length > 0
+              ? () => (
+                  <Table.Summary.Row className="dy-stat-summary-row">
+                    {/* 合计：跨「分类 + 管报名称 + 业务描述（分类别）」三列；支出金额 = 本表各行支出金额之和 */}
+                    <Table.Summary.Cell index={0} align="left" colSpan={3}>
+                      <span style={{ fontSize: 12, fontWeight: 'bold' }}>合计</span>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={3} align="left">
+                      <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+                        {dyExpenseSummaryRows
+                          .reduce((acc, r) => acc + (typeof r.amount === 'number' ? r.amount : 0), 0)
+                          .toFixed(2)}
+                      </span>
+                    </Table.Summary.Cell>
+                  </Table.Summary.Row>
+                )
+              : undefined
+          }
+        />
 
         {/* 明细表：业务描述（分类别）= data 第一层 name；后续各列 = details 里各费用项 */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
