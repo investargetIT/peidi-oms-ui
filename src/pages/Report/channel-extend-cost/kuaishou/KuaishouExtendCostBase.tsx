@@ -19,6 +19,7 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
+import { buildKuaishouStat } from './batchStatBuilder';
 
 export interface KuaishouExtendCostBaseProps {
   channel: string;
@@ -31,11 +32,6 @@ export interface KuaishouExtendCostBaseProps {
     channel: string | undefined;
   }) => boolean | void;
 }
-
-// 快手费用统计项的分类归属：固定两种——「平台费用」「其他」
-// 规则：计佣基数 → 其他；其余（赔付薯券 / 买手佣金 / 运费宝 / 平台佣金等）→ 平台费用
-const KUAISHOU_CATEGORY_ORDER = ['平台费用', '其他'];
-const getKuaishouCategory = (name: string | undefined) => (name === '计佣基数' ? '其他' : '平台费用');
 
 const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
   channel,
@@ -225,88 +221,22 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
     }
   };
 
-  // 快手余额对账 / 汇总：
-  //   本期收款 = 收入列之和（type 为「收入」的各项之和，value 为正）
-  //   本期费用 = 支出列之和（type 为「支出」的各项之和，保留负号）
-  //   期末/上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
-  //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 结息（提现默认 0）
-  //   校验     = 计算余额 - 期末余额
-  const kuaishouSummary = useMemo(() => {
-    let income = 0; // 本期收款 / 收入列之和
-    let expense = 0; // 本期费用 / 支出列之和（保留负号）
-    kuaishouStatData.forEach((it) => {
-      const v = typeof it.value === 'number' ? it.value : 0;
-      if (it.type === '收入') {
-        income += v;
-      } else {
-        expense += v;
-      }
-    });
-    const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
-    const lastMonthBalance = safeNum(beginningBalance);
-    const endBalance = safeNum(endingBalance);
-    const currentCollection = income;
-    const currentExpense = expense;
-    const withdraw = 0; // 提现默认 0
-    const interest = 0; // 结息固定 0
-    const calculatedBalance =
-      lastMonthBalance + currentCollection + currentExpense + withdraw + interest;
-    const checkDiff = calculatedBalance - endBalance;
-
-    return {
-      billMonth: currentYearMonth,
-      accountName: currentShopName,
-      platform: '快手',
-      endBalance,
-      lastMonthBalance,
-      currentCollection,
-      currentExpense,
-      withdraw,
-      interest,
-      calculatedBalance,
-      checkDiff,
-      // 明细表合计行使用的收入 / 支出 / 总金额
-      income,
-      expense,
-      total: income + expense,
-    };
-  }, [kuaishouStatData, beginningBalance, endingBalance, currentYearMonth, currentShopName]);
-
-  // 明细表行：把接口返回项映射为「分类 / 管报名称 / 收入 / 支出」。
-  //   type 为「收入」→ 放进收入列；type 为「支出」→ 放进支出列（保留负号）。
-  //   按分类聚合，分类顺序固定为 平台费用 / 其他（计佣基数 → 其他）。
-  const kuaishouStatRows = useMemo(() => {
-    const byCat: Record<string, any[]> = {};
-    kuaishouStatData.forEach((it) => {
-      const cat = getKuaishouCategory(it.name);
-      const v = typeof it.value === 'number' ? it.value : 0;
-      // 展示名：计佣基数 →「其他（净收入）」，其余沿用接口返回 name
-      const displayName = it.name === '计佣基数' ? '其他（净收入）' : it.name || '-';
-      const row = {
-        category: cat,
-        name: displayName,
-        income: it.type === '收入' ? v : 0,
-        expense: it.type === '支出' ? v : 0,
-      };
-      (byCat[cat] = byCat[cat] || []).push(row);
-    });
-    const rows: any[] = [];
-    KUAISHOU_CATEGORY_ORDER.forEach((cat) => {
-      (byCat[cat] || []).forEach((r) => rows.push(r));
-    });
-    // 分类列合并计数 / 首行下标
-    const catCount: Record<string, number> = {};
-    const catFirstIndex: Record<string, number> = {};
-    rows.forEach((r, i) => {
-      if (catCount[r.category] === undefined) {
-        catCount[r.category] = 1;
-        catFirstIndex[r.category] = i;
-      } else {
-        catCount[r.category] += 1;
-      }
-    });
-    return { rows, catCount, catFirstIndex };
-  }, [kuaishouStatData]);
+  // 快手统计结果（余额对账 + 明细行），与批量导出共用 batchStatBuilder，保证口径一致。
+  //   summary：本期收款=收入列之和、本期费用=支出列之和、期末/上月余额来自成本分类统计
+  //   rows    ：固定 5 行模板（其他/平台费用/推广费用），按后端 name 匹配取数
+  const kuaishouStatResult = useMemo(
+    () =>
+      buildKuaishouStat({
+        kuaishouStatData,
+        beginningBalance,
+        endingBalance,
+        yearMonth: currentYearMonth,
+        shopName: currentShopName,
+      }),
+    [kuaishouStatData, beginningBalance, endingBalance, currentYearMonth, currentShopName],
+  );
+  const kuaishouSummary = kuaishouStatResult.summary;
+  const kuaishouStatRows = kuaishouStatResult;
 
   useEffect(() => {
     fetchChannelData();
@@ -665,8 +595,8 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                   <div style={{ marginLeft: 16 }}>
                     <div>固定 4 列：<strong>分类</strong> / <strong>管报名称</strong> / <strong>收入</strong> / <strong>支出</strong>。</div>
                     <div>
-                      分类固定两种：<strong>平台费用</strong> / <strong>其他</strong>；
-                      接口返回的 <code>name</code> 即「管报名称」。
+                      固定 5 行模板，分类三种：<strong>其他</strong> / <strong>平台费用</strong> / <strong>推广费用</strong>；
+                      按后端返回的 <code>name</code> 匹配取数，<strong>后端未返回该 name 的行不展示</strong>（只展示有数据的行）。
                     </div>
                   </div>
                 </li>
@@ -675,8 +605,9 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>三、分类归属规则</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>· 名称为 <strong>计佣基数</strong> → 归入 <strong>其他</strong>；</div>
-                    <div>· 其余名称（赔付薯券 / 买手佣金 / 运费宝 / 平台佣金 等）→ 归入 <strong>平台费用</strong>。</div>
+                    <div>· <strong>其他</strong>：其他（净收入）= <code>合计收入</code> - <code>订单退款</code>；</div>
+                    <div>· <strong>平台费用</strong>：技术服务费；</div>
+                    <div>· <strong>推广费用</strong>：达人佣金 / 团长佣金 / 服务商佣金。</div>
                   </div>
                 </li>
 
@@ -684,9 +615,8 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>四、收入 / 支出列取值</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>收入列</strong> = <code>type</code> 为「收入」的那一条 <code>value</code>（正数）；</div>
-                    <div><strong>支出列</strong> = <code>type</code> 为「支出」的那一条 <code>value</code>（负数，保留负号）；</div>
-                    <div>不是对应的类型则填 0.00。</div>
+                    <div>以模板行为准：净收入按「合计收入 - 订单退款」结果为正填 <strong>收入列</strong>、为负填 <strong>支出列</strong>；</div>
+                    <div>直出行（技术服务费 / 各佣金）按后端 <code>type</code> 判断——「收入」填收入列（正数）、「支出」填支出列（负数，保留负号）。</div>
                   </div>
                 </li>
 
@@ -694,8 +624,8 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>五、合计行</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>· <strong>收入合计</strong> = 收入列所有值之和；</div>
-                    <div>· <strong>支出合计</strong> = 支出列所有值之和（保留负号）。</div>
+                    <div>· <strong>收入合计</strong> = 收入列所有值之和（净收入）；</div>
+                    <div>· <strong>支出合计</strong> = 支出列所有值之和（技术服务费 + 各佣金，保留负号）。</div>
                   </div>
                 </li>
 
@@ -726,15 +656,15 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
 
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
           快手费用统计
-          {kuaishouStatData.length > 0 && (
+          {kuaishouStatRows.rows.length > 0 && (
             <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
-              （共 {kuaishouStatData.length} 项，最下面一行【合计】为收入 / 支出总和）
+              （共 {kuaishouStatRows.rows.length} 项，最下面一行【合计】为收入 / 支出总和）
             </span>
           )}
         </div>
         <Table
           columns={[
-            // 分类：合并单元格（平台费用 / 其他）
+            // 分类：合并单元格（其他 / 平台费用 / 推广费用）
             {
               title: '分类',
               dataIndex: 'category',

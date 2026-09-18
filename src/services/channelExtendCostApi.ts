@@ -17,13 +17,6 @@ const channelExtendCostRequest = createRequest(
 //   },
 // );
 // ==================== 切换代码结束 ====================
-// 快手费用统计：临时使用本地测试接口（12.18），正式接口就绪后切换回 channelExtendCostRequest
-const kuaishouCostStatRequest = createRequest(
-  `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
-  {
-    timeout: 1000 * 60,
-  },
-);
 
 export interface PageRequest {
   accountType?: string;
@@ -625,8 +618,7 @@ export class ChannelExtendCostApi {
     msg: string;
     success?: boolean;
   }> {
-    // 临时使用本地测试接口（12.18）
-    return kuaishouCostStatRequest.get('/ks-cost-stat', { params });
+    return channelExtendCostRequest.get('/ks-cost-stat', { params });
   }
 }
 
