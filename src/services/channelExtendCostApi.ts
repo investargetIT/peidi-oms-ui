@@ -17,6 +17,13 @@ const channelExtendCostRequest = createRequest(
 //   },
 // );
 // ==================== 切换代码结束 ====================
+// 快手费用统计：临时使用本地测试接口（12.18），正式接口就绪后切换回 channelExtendCostRequest
+const kuaishouCostStatRequest = createRequest(
+  `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
+  {
+    timeout: 1000 * 60,
+  },
+);
 
 export interface PageRequest {
   accountType?: string;
@@ -311,6 +318,45 @@ export interface FinanceXhsCostStatReq {
   [property: string]: any;
 }
 
+// ----- 快手费用统计 -----
+
+/**
+ * 快手费用统计项（按 business_desc 分类）
+ * 返回 name-value-type 格式
+ * GET /oms/finance/channel-extend-cost/ks-cost-stat
+ */
+export interface FinanceKuaishouCostStatItemVo {
+  /**
+   * 费用名称（中文）
+   */
+  name?: string;
+  /**
+   * 类型：收入/支出
+   */
+  type?: string;
+  /**
+   * 费用金额（包含正负号）
+   */
+  value?: number;
+  [property: string]: any;
+}
+
+/**
+ * 快手费用统计请求
+ * GET /oms/finance/channel-extend-cost/ks-cost-stat
+ */
+export interface FinanceKuaishouCostStatReq {
+  /**
+   * 店铺ID
+   */
+  shopId: number;
+  /**
+   * 年月，格式：yyyy-MM
+   */
+  yearMonth: string;
+  [property: string]: any;
+}
+
 // ----- 支付宝费用统计 -----
 
 /**
@@ -567,6 +613,20 @@ export class ChannelExtendCostApi {
     success?: boolean;
   }> {
     return channelExtendCostRequest.get('/xhs-cost-stat', { params });
+  }
+
+  /**
+   * 快手费用统计（按 business_desc 分类，返回 name-value-type 格式）
+   * GET /oms/finance/channel-extend-cost/ks-cost-stat
+   */
+  static async getKuaishouCostStat(params: FinanceKuaishouCostStatReq): Promise<{
+    code: number;
+    data: FinanceKuaishouCostStatItemVo[];
+    msg: string;
+    success?: boolean;
+  }> {
+    // 临时使用本地测试接口（12.18）
+    return kuaishouCostStatRequest.get('/ks-cost-stat', { params });
   }
 }
 

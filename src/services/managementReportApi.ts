@@ -441,6 +441,27 @@ export interface FinanceXhsBillUploadReq {
 }
 
 /**
+ * 上传快手账单请求
+ * /oms/finance/ks-bill/upload
+ * billDate / financeBillConfigId 走 query string，file 走 multipart body
+ */
+export interface FinanceKsBillUploadReq {
+  /**
+   * 账单日期，格式：yyyy-MM
+   */
+  billDate: string;
+  /**
+   * 关联账单配置ID
+   */
+  financeBillConfigId: number;
+  /**
+   * 订单流水导出文件（xlsx/csv，表头 A1 为"商家ID"）
+   */
+  file: File;
+  [property: string]: any;
+}
+
+/**
  * 报表 API（管报数据 + 各渠道月账单）
  */
 export class ManagementReportApi {
@@ -617,6 +638,28 @@ export class ManagementReportApi {
       showLoading: false,
     });
   }
+  /**
+   * 上传快手账单
+   * POST /oms/finance/ks-bill/upload（multipart/form-data）
+   * billDate / financeBillConfigId 走 query string，file 走 multipart body
+   * 后端解析账单比较耗时，单独把超时拉到 1 小时
+   */
+  static async uploadKsBill(
+    data: FinanceKsBillUploadReq,
+  ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    return omsRequest.post('/finance/ks-bill/upload', formData, {
+      params: {
+        billDate: data.billDate,
+        financeBillConfigId: data.financeBillConfigId,
+      },
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 1000 * 60 * 60,
+      showLoading: false,
+    });
+  }
+
   /**
    * 新增拼多多推广费
    * POST /oms/finance/channel-extend-cost/pdd-promotion
