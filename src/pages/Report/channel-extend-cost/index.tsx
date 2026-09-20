@@ -37,10 +37,10 @@ const ChannelExtendCostTab: React.FC = () => {
   }, [subTab]);
 
   const subTabItems = [
-    { key: 'zfb', label: '支付宝' },
+    { key: 'zfb', label: '天猫支付宝' },
     { key: 'pdd', label: '拼多多' },
     { key: 'dy', label: '抖音' },
-    { key: 'tmall', label: '天猫' },
+    { key: 'tmall', label: '天猫聚合' },
     { key: 'xhs', label: '小红书' },
     { key: 'jd', label: '京东' },
     { key: 'kuaishou', label: '快手' },

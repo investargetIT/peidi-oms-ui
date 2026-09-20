@@ -14,8 +14,9 @@ import ChannelExtendCostApi from '@/services/channelExtendCostApi';
 export async function fetchShopBalances(
   shopId: number,
   yearMonth: string,
+  channel: string,
 ): Promise<{ beginningBalance: number | null; endingBalance: number | null }> {
-  const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth });
+  const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
   if (costRes.code !== 200) {
     throw new Error('getCostCategoryStat 返回非 200');
   }

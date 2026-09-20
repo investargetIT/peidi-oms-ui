@@ -22,7 +22,7 @@ export async function renderGenericShopStatExcel(args: {
   const prevYm = getPrevYearMonth(yearMonth);
 
   // 1. 先拉取分类统计数据
-  const statRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth });
+  const statRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
   if (statRes.code !== 200) {
     throw new Error('getCostCategoryStat 返回非 200');
   }

@@ -182,6 +182,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
       const statRes = await ChannelExtendCostApi.getCostCategoryStat({
         shopId: shopId!,
         yearMonth: yearMonth!,
+        channel,
       });
 
       if (statRes.code !== 200) {

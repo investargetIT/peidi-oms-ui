@@ -229,7 +229,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
       setDyStatData(statRes.data || []);
 
       // —— 余额对账表：老接口 /cost-category-stat 只取余额（参考天猫/共享 Base）——
-      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth });
+      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
       if (costRes.code !== 200) {
         message.error(typeof costRes.data === 'string' ? costRes.data : '获取统计数据失败');
         return;

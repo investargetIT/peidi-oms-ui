@@ -34,7 +34,7 @@ const XhsBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =
       }
       const xhsStatData = statRes.data || [];
       // 2. 余额对账：老接口 /cost-category-stat 内联余额项（无则回退 queryEndingBalance）
-      const balances = await fetchShopBalances(shopId, yearMonth);
+      const balances = await fetchShopBalances(shopId, yearMonth, "小红书");
       const statResult = buildXhsStat({
         xhsStatData,
         beginningBalance: balances.beginningBalance,

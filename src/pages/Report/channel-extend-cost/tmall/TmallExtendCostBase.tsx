@@ -12,89 +12,69 @@ import ChannelExtendCostApi, {
 import { displayShopName } from '../common/shopNameMap';
 
 // 账单明细汇总「费用分类」映射：分类（document_type）→ 费用分类（推广费用 / 平台费用 / 其他）。
-// 对应关系由业务提供，重复项已去重；未在映射内的分类展示 '-'。
-const ZFB_FEE_TYPE_GROUPS: { feeType: string; categories: string[] }[] = [
+// 对应关系来自业务提供的《8月聚合账户处理后文件》Sheet3 备注/费用分类 两列（唯一口径，已去重）；
+// 未在映射内的分类兜底展示为「空」并追加到末尾。
+const TMALL_FEE_TYPE_GROUPS: { feeType: string; categories: string[] }[] = [
   {
     feeType: '推广费用',
     categories: [
-      '百亿补贴软件服务费（渠道）',
-      '百亿补贴软件服务费T62（全渠道）',
-      '品牌新享-首单拉新计划',
+      '百亿补贴软件服务费渠道KY_ITEM',
+      '百亿补贴软件服务费T全渠道KY_ITEM',
+      '品牌新享-首单拉新计划KY_ITEM',
       '品牌新享-天猫营销托管软件服务费',
       '品牌新享天猫超级老客加速软件服务费',
-      '品牌新享天猫超级新客加速（固定）软件服务费',
-      '品牌新享新品孵化软件服务费',
+      '品牌新享天猫超级新客加速固定软件服务费',
+      '品牌新享新品孵化软件服务费KY_ITEM',
       '品牌新享-超级流量加速软件服务费',
       '品牌直播大场营销软件服务费',
-      '品牌新享天猫新客营销托管',
       '光合平台软件服务费',
-      '猫猫币抵扣项目平台垫付资金',
-      '猫猫币抵扣项目推广服务费',
-      '淘宝客佣金',
       '淘宝内容推广服务费',
-      '超市福袋',
-      '店播佣金',
-      '渠道推广服务费',
-      '淘客U选返佣',
-      '销售渠道推广费',
-      '营销活动-品类消费金',
-      '营销活动-淘客',
-      '营销活动-淘客团长服务费',
-      '用户权益推广服务费',
-      '直播收费（佣金）',
+      '淘宝天猫跨境服务增值费端内',
     ],
   },
   {
     feeType: '平台费用',
     categories: [
-      '返点积分',
       '基础软件服务费',
-      '缺货赔付',
       '淘金币软件服务费',
-      '天猫佣金',
-      '消费者体验提升计划服务费',
-      '先用后付技术服务费',
-      '先用后付服务费',
-      '淘宝天猫跨境服务增值费',
-      '商家集运物流服务费',
-      '商家集运中转操作费',
-      '公益宝贝捐赠',
-      '官方物流送货上门服务费',
-      '技术服务费(花呗分期免息营销)',
-      '闪购仓-退货入仓费',
-      '闪购仓-装卸费',
-      '闪购仓基础供应链管理服务费',
       '天猫U先入仓物流抽佣',
-      '天猫U先试用超市物流服务费',
-      '天猫淘宝商家跨境服务基础费',
-      '寄售集货仓物流费',
-      '评价有礼服务费',
-      '售后客服服务费',
-      '售前客服服务费',
-      '送货上门服务费',
-      '退货运费保障服务费',
+      '天猫U先试用超市物流服务费KY_ITEM',
+      '先用后付技术服务费',
+      '公益宝贝',
     ],
   },
   {
     feeType: '其他',
-    categories: ['收款', '提现', 'BP'],
+    // 天猫「其他」与配置表单一致：分类为「收款」的各类明细（订单打款/订单退款/消费券代付资金扣回/限时红包代商家垫付扣回/百亿补贴定向营销费用/猫猫币抵扣项目平台垫付资金）均归为「其他」；
+    // 同时兼容 document_type 直接返回「收款 / 提现 / BP」的情况。
+    categories: [
+      '收款',
+      '提现',
+      'BP',
+      '订单打款',
+      '订单退款',
+      '消费券代付资金扣回',
+      '限时红包代商家垫付扣回',
+      '百亿补贴定向营销费用',
+      '猫猫币抵扣项目平台垫付资金',
+    ],
   },
 ];
 
-// 扁平化映射表：分类 → 费用分类（由 ZFB_FEE_TYPE_GROUPS 派生，保证两处一致）
-const ZFB_FEE_TYPE_MAP: Record<string, string> = ZFB_FEE_TYPE_GROUPS.reduce((map, group) => {
+// 扁平化映射表：分类 → 费用分类（由 TMALL_FEE_TYPE_GROUPS 派生，保证两处一致）
+const TMALL_FEE_TYPE_MAP: Record<string, string> = TMALL_FEE_TYPE_GROUPS.reduce((map, group) => {
   group.categories.forEach((cat) => {
     map[cat] = group.feeType;
   });
   return map;
 }, {} as Record<string, string>);
 
-// 映射清单的扁平行（计算逻辑说明中映射表格的数据源，与 ZFB_FEE_TYPE_MAP 同源）
-const ZFB_FEE_TYPE_ROWS = ZFB_FEE_TYPE_GROUPS.flatMap((group) =>
+// 映射清单的扁平行（计算逻辑说明中映射表格的数据源，与 TMALL_FEE_TYPE_MAP 同源）
+const TMALL_FEE_TYPE_ROWS = TMALL_FEE_TYPE_GROUPS.flatMap((group) =>
   group.categories.map((cat) => ({ key: cat, feeType: group.feeType, category: cat })),
 );
 
-export interface ZfbExtendCostBaseProps {
+export interface TmallExtendCostBaseProps {
   channel: string;
   extraActions?: React.ReactNode;
   onYearMonthChange?: (yearMonth: string) => void;
@@ -107,13 +87,14 @@ export interface ZfbExtendCostBaseProps {
 }
 
 /**
- * 支付宝 - 渠道推广费用 独立面板（由 shared/ChannelExtendCostBase 拷贝而来，已与 Base 解耦）
+ * 天猫（天猫聚合） - 渠道推广费用 独立面板（由 zfb/ZfbExtendCostBase 拷贝而来，已与 Base 解耦）
  *
- * 支付宝「费用统计」走专属接口：
+ * 天猫「费用统计」接口与支付宝一致，走专属接口：
  *   POST /oms/finance/channel-extend-cost/bill/zfb/detail-summary（账单明细汇总查询）
  * 请求参数 { financeBillConfigId, billDate: yyyy-MM }（financeBillConfigId 取当前行记录的账单配置ID）。
+ * 余额对账与支付宝一致：老接口 GET /cost-category-stat 取 PDD_LAST_BALANCE / PDD_BALANCE，无则回退 queryEndingBalance。
  */
-const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
+const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
   channel,
   extraActions,
   onYearMonthChange,
@@ -132,7 +113,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
   const [statModalVisible, setStatModalVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
-  const [zfbStatData, setZfbStatData] = useState<FinanceZfbCostStatVo | null>(null);
+  const [statData, setStatData] = useState<FinanceZfbCostStatVo | null>(null);
   const [currentShopName, setCurrentShopName] = useState<string>('');
   const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
   // 余额（对账用，与抖音一致）：
@@ -208,9 +189,9 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
     }
   };
 
-  // 打开支付宝费用统计弹窗
-  //   1) 支付宝费用明细/汇总：专属接口 POST /bill/zfb/detail-summary
-  //   2) 支付宝余额对账：与抖音一致，用老接口 GET /cost-category-stat 只取
+  // 打开天猫费用统计弹窗
+  //   1) 天猫费用明细/汇总：专属接口 POST /bill/zfb/detail-summary
+  //   2) 天猫余额对账：与抖音一致，用老接口 GET /cost-category-stat 只取
   //        PDD_LAST_BALANCE（上月余额/期初）和 PDD_BALANCE（本月期末）；
   //        接口未内联余额时回退 queryEndingBalance
   const openStatModal = async (record: FinanceChannelExtendCostItemVo) => {
@@ -218,9 +199,9 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
     const yearMonth = record.yearMonth;
     const shopId = record.shopId;
     const financeBillConfigId = record.financeBillConfigId;
-    const title = `${displayShopName(wdtName) || ''} ${yearMonth} 支付宝费用统计`;
+    const title = `${displayShopName(wdtName) || ''} ${yearMonth} 天猫费用统计`;
     setStatModalTitle(title);
-    setZfbStatData(null);
+    setStatData(null);
     setBeginningBalance(null);
     setEndingBalance(null);
     setCurrentShopName(displayShopName(wdtName) || '');
@@ -246,7 +227,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
         message.error(typeof res.data === 'string' ? res.data : '获取统计数据失败');
         return;
       }
-      setZfbStatData(res.data);
+      setStatData(res.data);
 
       // —— 余额对账：老接口 /cost-category-stat 只取余额（参考抖音/共享 Base）——
       if (shopId === undefined || shopId === null) {
@@ -311,31 +292,31 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
         }
       }
     } catch (error) {
-      console.error('获取支付宝统计数据失败:', error);
-      message.error('获取支付宝统计数据失败');
+      console.error('获取天猫统计数据失败:', error);
+      message.error('获取天猫统计数据失败');
     } finally {
       setStatLoading(false);
     }
   };
 
-  const zfbRows = useMemo(() => zfbStatData?.rows || [], [zfbStatData]);
-  const zfbTotal = zfbStatData?.total;
-  const zfbIncomeTotal = useMemo(
-    () => zfbTotal?.totalIncome ?? zfbRows.reduce((sum, r) => sum + (r.totalIncome || 0), 0),
-    [zfbRows, zfbTotal],
+  const statRows = useMemo(() => statData?.rows || [], [statData]);
+  const statTotal = statData?.total;
+  const statIncomeTotal = useMemo(
+    () => statTotal?.totalIncome ?? statRows.reduce((sum, r) => sum + (r.totalIncome || 0), 0),
+    [statRows, statTotal],
   );
-  const zfbExpenseTotal = useMemo(
-    () => zfbTotal?.totalExpense ?? zfbRows.reduce((sum, r) => sum + (r.totalExpense || 0), 0),
-    [zfbRows, zfbTotal],
+  const statExpenseTotal = useMemo(
+    () => statTotal?.totalExpense ?? statRows.reduce((sum, r) => sum + (r.totalExpense || 0), 0),
+    [statRows, statTotal],
   );
   // 明细行按「费用分类」分组排序（推广费用 → 平台费用 → 其他 → 未映射），组内保持接口原相对顺序。
   // rowSpan 合并要求相同费用分类的行连续，因此展示前先排序（仅影响明细表展示顺序，余额对账汇总不受影响）。
-  const zfbDetailRows = useMemo(() => {
+  const statDetailRows = useMemo(() => {
     const groupOrder: Record<string, number> = { 推广费用: 0, 平台费用: 1, 其他: 2, 空: 3 };
     // 兜底：映射之外的分类归为「空」，追加到末尾展示
     const feeTypeOf = (row: FinanceZfbCostStatDetailItemVo) =>
-      ZFB_FEE_TYPE_MAP[row.category || ''] ?? '空';
-    return zfbRows
+      TMALL_FEE_TYPE_MAP[row.category || ''] ?? '空';
+    return statRows
       .map((row, index) => ({ row, index }))
       .sort(
         (a, b) =>
@@ -343,21 +324,21 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
           a.index - b.index,
       )
       .map((it) => it.row);
-  }, [zfbRows]);
+  }, [statRows]);
 
   // 费用分类合并(rowSpan)元信息：各费用分类在排序后明细行中的首行索引与行数
-  const zfbFeeTypeSpan = useMemo(() => {
+  const statFeeTypeSpan = useMemo(() => {
     const count: Record<string, number> = {};
     const firstIndex: Record<string, number> = {};
-    zfbDetailRows.forEach((row, index) => {
-      const feeType = ZFB_FEE_TYPE_MAP[row.category || ''] ?? '空';
+    statDetailRows.forEach((row, index) => {
+      const feeType = TMALL_FEE_TYPE_MAP[row.category || ''] ?? '空';
       if (firstIndex[feeType] === undefined) firstIndex[feeType] = index;
       count[feeType] = (count[feeType] || 0) + 1;
     });
     return { count, firstIndex };
-  }, [zfbDetailRows]);
+  }, [statDetailRows]);
 
-  // 支付宝余额对账（顶部汇总表）：本期收款 / 提现 / 结息 / 本期费用
+  // 天猫余额对账（顶部汇总表）：本期收款 / 提现 / 结息 / 本期费用
   //   按「账单明细汇总 rows 的分类」归类：
   //     本期收款 = "收款" 分类的收入金额 + 支出金额
   //     提现     = "提现" 分类的收入金额 + 支出金额
@@ -366,14 +347,14 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
   //   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
   //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
   //   校验     = 计算余额 - 期末余额
-  const zfbSummary = useMemo(() => {
+  const statSummary = useMemo(() => {
     const sumOf = (r: FinanceZfbCostStatDetailItemVo) =>
       (r.totalIncome || 0) + (r.totalExpense || 0);
     let collection = 0; // 本期收款
     let withdraw = 0; // 提现
     let interest = 0; // 结息
     let expense = 0; // 本期费用（其余分类收入+支出之和）
-    zfbRows.forEach((r) => {
+    statRows.forEach((r) => {
       const val = sumOf(r);
       if (r.category === '收款') collection += val;
       else if (r.category === '提现') withdraw += val;
@@ -393,7 +374,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
     return {
       billMonth: currentYearMonth,
       accountName: currentShopName,
-      platform: '支付宝',
+      platform: '天猫',
       endBalance,
       lastMonthBalance,
       currentCollection,
@@ -403,7 +384,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
       calculatedBalance,
       checkDiff,
     };
-  }, [zfbRows, currentYearMonth, currentShopName, beginningBalance, endingBalance]);
+  }, [statRows, currentYearMonth, currentShopName, beginningBalance, endingBalance]);
 
   useEffect(() => {
     fetchChannelData();
@@ -485,11 +466,11 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
       // 按固定映射由「分类」归一为 推广费用/平台费用/其他；映射之外的分类兜底为「空」并追加到末尾；
       // 相同费用分类的行通过 rowSpan 合并（明细行已按费用分类排序，保证合并区域连续）
       render: (_: unknown, record: FinanceZfbCostStatDetailItemVo, index: number) => {
-        const feeType = ZFB_FEE_TYPE_MAP[record.category || ''] ?? '空';
-        const isFirst = zfbFeeTypeSpan.firstIndex[feeType] === index;
+        const feeType = TMALL_FEE_TYPE_MAP[record.category || ''] ?? '空';
+        const isFirst = statFeeTypeSpan.firstIndex[feeType] === index;
         return {
           children: <span style={{ fontSize: 12, fontWeight: 'bold' }}>{feeType}</span>,
-          props: { rowSpan: isFirst ? zfbFeeTypeSpan.count[feeType] : 0 },
+          props: { rowSpan: isFirst ? statFeeTypeSpan.count[feeType] : 0 },
         };
       },
     },
@@ -629,8 +610,8 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
             white-space: nowrap !important;
           }
         `}</style>
-        {/* 支付宝余额对账（顶部汇总表，逻辑与抖音一致） */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>支付宝余额对账</div>
+        {/* 天猫余额对账（顶部汇总表，逻辑与抖音一致） */}
+        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>天猫余额对账</div>
         <Table
           className="stat-table-compact"
           columns={[
@@ -756,7 +737,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
               },
             },
           ]}
-          dataSource={statModalVisible ? [zfbSummary] : []}
+          dataSource={statModalVisible ? [statSummary] : []}
           rowKey="billMonth"
           loading={statLoading}
           size="small"
@@ -880,7 +861,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
                           dataIndex: 'feeType',
                           key: 'feeType',
                           width: 100,
-                          filters: ZFB_FEE_TYPE_GROUPS.map((group) => ({
+                          filters: TMALL_FEE_TYPE_GROUPS.map((group) => ({
                             text: group.feeType,
                             value: group.feeType,
                           })),
@@ -892,7 +873,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
                         },
                         { title: '分类', dataIndex: 'category', key: 'category' },
                       ]}
-                      dataSource={ZFB_FEE_TYPE_ROWS.filter(
+                      dataSource={TMALL_FEE_TYPE_ROWS.filter(
                         (it) =>
                           !feeTypeMappingSearch ||
                           it.category.includes(feeTypeMappingSearch) ||
@@ -913,7 +894,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
         <Table
           className="stat-table-compact"
           columns={detailColumns}
-          dataSource={statModalVisible ? zfbDetailRows : []}
+          dataSource={statModalVisible ? statDetailRows : []}
           rowKey={(record, index) => `${record.category}-${record.accountCode}-${index}`}
           loading={statLoading}
           size="small"
@@ -921,28 +902,28 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
           scroll={{ x: 'max-content' }}
           pagination={false}
           summary={
-            zfbRows.length > 0
+            statRows.length > 0
               ? () => (
                   <Table.Summary.Row>
                     <Table.Summary.Cell index={0} />
                     <Table.Summary.Cell index={1} align="left">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                        {zfbTotal?.category || '总计'}
+                        {statTotal?.category || '总计'}
                       </span>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={2} align="left">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                        {zfbTotal?.accountCode || ''}
+                        {statTotal?.accountCode || ''}
                       </span>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={3} align="right">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                        {zfbIncomeTotal.toFixed(2)}
+                        {statIncomeTotal.toFixed(2)}
                       </span>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={4} align="right">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                        {zfbExpenseTotal.toFixed(2)}
+                        {statExpenseTotal.toFixed(2)}
                       </span>
                     </Table.Summary.Cell>
                   </Table.Summary.Row>
@@ -955,4 +936,4 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
   );
 };
 
-export default ZfbExtendCostBase;
+export default TmallExtendCostBase;

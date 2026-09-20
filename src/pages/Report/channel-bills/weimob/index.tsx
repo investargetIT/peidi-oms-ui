@@ -54,6 +54,7 @@ const WechatBillPanel: React.FC = () => {
         shopName: shopName || undefined,
         generateStatus,
         platform: '微信',
+        channel: 'wm',
         ...params,
       };
       const res: { code: number; data?: IPageFinanceZfbBillInfoVo; msg?: string; success?: boolean } =
@@ -156,7 +157,7 @@ const WechatBillPanel: React.FC = () => {
 
     // 2. 创建任务（后端请求异步进行中，不阻塞 UI）
     const taskId = addTask({
-      channel: '微信',
+      channel: '微盟',
       shopName: configLabel,
       billDate: billDateStr,
       fileName,
@@ -164,7 +165,7 @@ const WechatBillPanel: React.FC = () => {
     message.success(`上传任务已提交，详见右下角任务卡片（共 1 项进行中）`);
 
     // 3. 异步执行上传（不 await 阻塞）
-    ManagementReportApi.uploadWxBill({
+    ManagementReportApi.uploadWmBill({
       billDate: billDateStr,
       financeBillConfigId: selectedConfigId,
       file: uploadFile,
@@ -191,7 +192,7 @@ const WechatBillPanel: React.FC = () => {
         }
       })
       .catch((error) => {
-        console.error('上传微信账单失败:', error);
+        console.error('上传微盟账单失败:', error);
         const errMsg = (error && (error.msg || error.message)) || '上传失败，请稍后重试';
         updateTask(taskId, { status: 'failed', finishedAt: Date.now(), errorMessage: errMsg });
         message.error(errMsg);
@@ -279,7 +280,7 @@ const WechatBillPanel: React.FC = () => {
 
       {/* 上传账单弹窗 */}
       <Modal
-        title="上传微信账单"
+        title="上传微盟账单"
         open={uploadModalOpen}
         onCancel={() => setUploadModalOpen(false)}
         onOk={handleUpload}
@@ -299,7 +300,7 @@ const WechatBillPanel: React.FC = () => {
           description={
             <div style={{ fontSize: 12, lineHeight: 1.7 }}>
               1. 支持 .xlsx / .xls / .csv 格式<br />
-              2. 请先在【账单配置】中维护该店铺的微信账单配置<br />
+              2. 请先在【账单配置】中维护该店铺的微盟账单配置<br />
               3. 账单日期格式：yyyy-MM（如 2026-07）<br />
               4. 流水文件表头第 1 列为「记账时间」
             </div>

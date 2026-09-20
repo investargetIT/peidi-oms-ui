@@ -278,6 +278,94 @@ export interface FinanceChannelExtendCostImportVo {
 }
 
 /**
+ * 微信/微盟流水汇总行
+ * /oms/finance/wx-bill/upload、/oms/finance/wm-bill/upload 返回 summary 数组元素
+ */
+export interface LedgerSummaryRowVo {
+  /**
+   * 收支类型（收入/支出；总计行为空）
+   */
+  accountType?: string;
+  /**
+   * 汇总金额（元）
+   */
+  amount?: number;
+  /**
+   * 业务类型（交易/扣除交易手续费/退款/提现；总计行固定为"总计"）
+   */
+  businessType?: string;
+  /**
+   * 分类（收款/交易手续费/提现/其他）
+   */
+  category?: string;
+  /**
+   * 费用分类（其他/平台费用）
+   */
+  expenseCategory?: string;
+  [property: string]: any;
+}
+
+/**
+ * 微信/微盟账单导入结果
+ * /oms/finance/wx-bill/upload、/oms/finance/wm-bill/upload 返回
+ */
+export interface FinanceLedgerBillUploadVo {
+  /**
+   * 渠道编码（wx=微信/星云有客，wm=微盟），对应 finance_channel_extend_cost.channel
+   */
+  channel?: string;
+  /**
+   * 错误信息列表
+   */
+  errorMessages?: string[];
+  /**
+   * 失败数
+   */
+  failCount?: number;
+  /**
+   * 处理日志
+   */
+  logs?: string[];
+  /**
+   * 是否成功
+   */
+  success?: boolean;
+  /**
+   * 成功导入数
+   */
+  successCount?: number;
+  /**
+   * 按(业务类型,收支类型)汇总的表格行（含总计行）
+   */
+  summary?: LedgerSummaryRowVo[];
+  /**
+   * 总记录数
+   */
+  totalCount?: number;
+  [property: string]: any;
+}
+
+/**
+ * 上传微信/微盟账单请求
+ * billDate / financeBillConfigId 走 query string，file 走 multipart body
+ */
+export interface FinanceWxWmBillUploadReq {
+  /**
+   * 账单日期，格式：yyyy-MM
+   */
+  billDate: string;
+  /**
+   * 关联账单配置ID
+   */
+  financeBillConfigId: number;
+  /**
+   * 流水文件（xlsx/csv，表头第1列"记账时间"）
+   */
+  file: File;
+  [property: string]: any;
+}
+
+/**
  * 上传天猫账单请求
  */
 export interface FinanceTmBillUploadReq {
@@ -462,6 +550,15 @@ export interface FinanceKsBillUploadReq {
 }
 
 /**
+ * 各渠道月账单 /zfb-bill/page 的 channel 取值映射：
+ * 微信=wx、微盟=wm，其余渠道（支付宝/拼多多/抖音/天猫/小红书/京东/快手）与 platform 一致。
+ */
+export const ZFB_BILL_CHANNEL_MAP: Record<string, string> = {
+  微信: 'wx',
+  微盟: 'wm',
+};
+
+/**
  * 报表 API（管报数据 + 各渠道月账单）
  */
 export class ManagementReportApi {
@@ -480,7 +577,12 @@ export class ManagementReportApi {
   static async getZfbBillPage(
     params: FinanceZfbBillInfoPageReq,
   ): Promise<ResponseData<IPageFinanceZfbBillInfoVo>> {
-    return omsRequest.post('/finance/zfb-bill/page', params);
+    return omsRequest.post('/finance/zfb-bill/page', {
+      ...params,
+      // channel 必传：优先取调用方显式传入的 channel；否则按映射（微信=wx、微盟=wm），其余渠道与 platform 一致
+      channel:
+        params.channel || (ZFB_BILL_CHANNEL_MAP[params.platform || ''] ?? params.platform),
+    });
   }
   /**
    * 各渠道月账单 - 生成
@@ -506,8 +608,16 @@ export class ManagementReportApi {
   static async getBillConfigList(params?: {
     platform?: string;
     shopName?: string;
+    channel?: string;
   }): Promise<ResponseData<FinanceZfbBillConfig[]>> {
-    return omsRequest.get('/finance/bill-config/list', { params });
+    return omsRequest.get('/finance/bill-config/list', {
+      params: {
+        ...params,
+        // channel 必传：优先取调用方显式传入的 channel；否则按映射（微信=wx、微盟=wm），其余与 platform 一致
+        channel:
+          params?.channel || (ZFB_BILL_CHANNEL_MAP[params?.platform || ''] ?? params?.platform),
+      },
+    });
   }
   /**
    * 上传天猫账单
@@ -650,6 +760,48 @@ export class ManagementReportApi {
     const formData = new FormData();
     formData.append('file', data.file);
     return omsRequest.post('/finance/ks-bill/upload', formData, {
+      params: {
+        billDate: data.billDate,
+        financeBillConfigId: data.financeBillConfigId,
+      },
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 1000 * 60 * 60,
+      showLoading: false,
+    });
+  }
+  /**
+   * 上传微信账单
+   * POST /oms/finance/wx-bill/upload（multipart/form-data）
+   * billDate / financeBillConfigId 走 query string，file 走 multipart body
+   * 后端解析账单比较耗时，单独把超时拉到 1 小时
+   */
+  static async uploadWxBill(
+    data: FinanceWxWmBillUploadReq,
+  ): Promise<ResponseData<FinanceLedgerBillUploadVo>> {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    return omsRequest.post('/finance/wx-bill/upload', formData, {
+      params: {
+        billDate: data.billDate,
+        financeBillConfigId: data.financeBillConfigId,
+      },
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 1000 * 60 * 60,
+      showLoading: false,
+    });
+  }
+  /**
+   * 上传微盟账单
+   * POST /oms/finance/wm-bill/upload（multipart/form-data）
+   * billDate / financeBillConfigId 走 query string，file 走 multipart body
+   * 后端解析账单比较耗时，单独把超时拉到 1 小时
+   */
+  static async uploadWmBill(
+    data: FinanceWxWmBillUploadReq,
+  ): Promise<ResponseData<FinanceLedgerBillUploadVo>> {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    return omsRequest.post('/finance/wm-bill/upload', formData, {
       params: {
         billDate: data.billDate,
         financeBillConfigId: data.financeBillConfigId,

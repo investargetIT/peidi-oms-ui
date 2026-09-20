@@ -530,6 +530,8 @@ export class ChannelExtendCostApi {
   static async getCostCategoryStat(params: {
     shopId: number;
     yearMonth: string;
+    /** 渠道名（支付宝/拼多多/抖音/天猫/小红书/京东/快手），后端已调整为必传 */
+    channel: string;
     [key: string]: any;
   }): Promise<{
     code: number;

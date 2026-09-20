@@ -157,7 +157,7 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
       setXhsStatData(statRes.data || []);
 
       // —— 余额对账：老接口 /cost-category-stat 只取余额（与抖音 / 共享 Base 一致）——
-      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth });
+      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
       if (costRes.code !== 200) {
         message.error(typeof costRes.data === 'string' ? costRes.data : '获取统计数据失败');
         return;
