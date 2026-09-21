@@ -98,7 +98,8 @@ const WmExtendCostBase: React.FC<WmExtendCostBaseProps> = ({
         pageNum: channelPagination.current,
         pageSize: channelPagination.pageSize,
         accountType: searchAccountType || undefined,
-        channel: channelCode,
+        // channel 本地联调按后端排期传中文「微盟」（原 wm/编码），后端调整后可改回 channelCode
+        channel,
         shopId: searchShopId || undefined,
         ...params,
       };
@@ -158,7 +159,8 @@ const WmExtendCostBase: React.FC<WmExtendCostBaseProps> = ({
       setWmStatData(statRes.data || []);
 
       // —— 余额对账：老接口 /cost-category-stat 只取余额（与抖音 / 共享 Base 一致）——
-      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel: channelCode });
+      // channel 本地联调按后端排期传中文「微盟」（原 wm/编码），后端调整后可改回 channelCode
+      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
       if (costRes.code !== 200) {
         message.error(typeof costRes.data === 'string' ? costRes.data : '获取统计数据失败');
         return;

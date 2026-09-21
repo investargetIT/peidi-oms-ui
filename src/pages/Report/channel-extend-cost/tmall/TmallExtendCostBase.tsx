@@ -10,6 +10,7 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
+import { remarkToCategory, TMALL_REMARK_CATEGORY_MAP } from './batchStatBuilder';
 
 // 账单明细汇总「费用分类」映射：分类（document_type）→ 费用分类（推广费用 / 平台费用 / 其他）。
 // 对应关系来自业务提供的《8月聚合账户处理后文件》Sheet3 备注/费用分类 两列（唯一口径，已去重）；
@@ -69,9 +70,17 @@ const TMALL_FEE_TYPE_MAP: Record<string, string> = TMALL_FEE_TYPE_GROUPS.reduce(
   return map;
 }, {} as Record<string, string>);
 
-// 映射清单的扁平行（计算逻辑说明中映射表格的数据源，与 TMALL_FEE_TYPE_MAP 同源）
+// 备注 → 分类 映射见 batchStatBuilder（TMALL_REMARK_CATEGORY_MAP / remarkToCategory，已 import）
+
+// 映射清单的扁平行（计算逻辑说明中映射表格的数据源，与 TMALL_FEE_TYPE_MAP 同源）：
+// category 为「备注→分类」归一后的真分类，remark 为明细接口原样返回的备注
 const TMALL_FEE_TYPE_ROWS = TMALL_FEE_TYPE_GROUPS.flatMap((group) =>
-  group.categories.map((cat) => ({ key: cat, feeType: group.feeType, category: cat })),
+  group.categories.map((cat) => ({
+    key: cat,
+    feeType: group.feeType,
+    category: TMALL_REMARK_CATEGORY_MAP[cat] ?? cat,
+    remark: cat,
+  })),
 );
 
 export interface TmallExtendCostBaseProps {
@@ -338,6 +347,39 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
     return { count, firstIndex };
   }, [statDetailRows]);
 
+  // 分类列合并(rowSpan)：按「备注→分类」归一后的分类，仅在排序后明细行中连续出现的同一分类
+  // 合并（其余费用分类组内若同分类被打断，也不会跨组误合，保证 rowSpan 连续合法）。
+  const statCategoryRowSpan = useMemo(() => {
+    const spans: number[] = new Array(statDetailRows.length).fill(0);
+    statDetailRows.forEach((row, index) => {
+      if (index === 0) {
+        let c = 1;
+        while (
+          index + c < statDetailRows.length &&
+          remarkToCategory(statDetailRows[index + c].category || '') ===
+            remarkToCategory(row.category || '')
+        ) {
+          c += 1;
+        }
+        spans[index] = c;
+      } else {
+        const prevCat = remarkToCategory(statDetailRows[index - 1].category || '');
+        const curCat = remarkToCategory(row.category || '');
+        if (prevCat !== curCat) {
+          let c = 1;
+          while (
+            index + c < statDetailRows.length &&
+            remarkToCategory(statDetailRows[index + c].category || '') === curCat
+          ) {
+            c += 1;
+          }
+          spans[index] = c;
+        }
+      }
+    });
+    return spans;
+  }, [statDetailRows]);
+
   // 天猫余额对账（顶部汇总表）：本期收款 / 提现 / 结息 / 本期费用
   //   按「账单明细汇总 rows 的分类」归类：
   //     本期收款 = "收款" 分类的收入金额 + 支出金额
@@ -356,9 +398,11 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
     let expense = 0; // 本期费用（其余分类收入+支出之和）
     statRows.forEach((r) => {
       const val = sumOf(r);
-      if (r.category === '收款') collection += val;
-      else if (r.category === '提现') withdraw += val;
-      else if (r.category === '结息') interest += val;
+      // 按「备注→分类」归一后归类（detail-summary 对天猫返回的是备注原样），与明细「分类」列同口径
+      const cat = remarkToCategory(r.category);
+      if (cat === '收款') collection += val;
+      else if (cat === '提现') withdraw += val;
+      else if (cat === '结息') interest += val;
       else expense += val;
     });
 
@@ -474,7 +518,21 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
         };
       },
     },
-    { title: '分类', dataIndex: 'category', key: 'category', width: 180 },
+    {
+      // 分类 = 由「备注」按固定映射归一（多数两者同名，仅「收款」下各明细以备注细分）；
+      // 相同「分类」的连续行通过 rowSpan 合并（用法与费用分类列一致）
+      title: '分类',
+      key: 'category',
+      width: 180,
+      render: (_: unknown, record: FinanceZfbCostStatDetailItemVo, index: number) => {
+        const cat = remarkToCategory(record.category) ?? '-';
+        return {
+          children: <span style={{ fontSize: 12 }}>{cat}</span>,
+          props: { rowSpan: statCategoryRowSpan[index] || 0 },
+        };
+      },
+    },
+    { title: '备注', dataIndex: 'category', key: 'remark', width: 240 },
     { title: '对方账号', dataIndex: 'accountCode', key: 'accountCode', width: 200 },
     {
       title: '收入金额（元）',
@@ -824,8 +882,14 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
                     <div>
                       ·
-                      列：费用分类（按固定映射归一）、分类（document_type）、对方账号、收入金额、支出金额，来自接口
+                      列：费用分类（按固定映射归一）、分类（由备注归一）、备注（接口原样）、对方账号、收入金额、支出金额，来自接口
                       rows。
+                    </div>
+                    <div>
+                      · 「分类」= 由「备注」按固定映射归一（多数两者同名，仅「收款」下各明细以备注细分）。
+                    </div>
+                    <div>
+                      · 「费用分类」与「分类」相同取值分别合并（rowSpan）展示。
                     </div>
                     <div>· 底部合计行取接口 total（收入 / 支出全量合计）。</div>
                     <div>· 收入金额 / 支出金额为固定列，横向滚动时保持可见。</div>
@@ -835,16 +899,16 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
                 {/* 五、费用分类映射 */}
                 <li style={{ marginBottom: 0 }}>
                   <strong>五、费用分类映射：</strong>
-                  明细表左侧「费用分类」按固定映射由「分类」归一（对应关系由业务提供，重复项已去重）；
+                  明细表「费用分类 / 分类」均按固定映射由「备注」归一（对应关系由业务提供，重复项已去重）；
                   明细行按 费用分类（推广费用 → 平台费用 → 其他 →
-                  未映射）分组排序，相同费用分类的单元格合并展示。完整映射如下，可搜索 /
-                  按费用分类筛选。
+                  未映射）分组排序，相同「费用分类」与「分类」的单元格分别合并展示。
+                  完整映射如下，可搜索 / 按费用分类筛选。
                   <div style={{ marginTop: 4, color: '#999' }}>
                     兜底：若接口返回了映射之外的分类，会追加到末尾，归类为「空-该分类」。
                   </div>
                   <div style={{ marginTop: 8 }}>
                     <Input
-                      placeholder="搜索分类或费用分类"
+                      placeholder="搜索备注/分类或费用分类"
                       prefix={<SearchOutlined />}
                       allowClear
                       size="small"
@@ -872,10 +936,12 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
                           ),
                         },
                         { title: '分类', dataIndex: 'category', key: 'category' },
+                        { title: '备注', dataIndex: 'remark', key: 'remark' },
                       ]}
                       dataSource={TMALL_FEE_TYPE_ROWS.filter(
                         (it) =>
                           !feeTypeMappingSearch ||
+                          it.remark.includes(feeTypeMappingSearch) ||
                           it.category.includes(feeTypeMappingSearch) ||
                           it.feeType.includes(feeTypeMappingSearch),
                       )}
@@ -908,20 +974,21 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
                     <Table.Summary.Cell index={0} />
                     <Table.Summary.Cell index={1} align="left">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
-                        {statTotal?.category || '总计'}
+                        {remarkToCategory(statTotal?.category) || '总计'}
                       </span>
                     </Table.Summary.Cell>
-                    <Table.Summary.Cell index={2} align="left">
+                    <Table.Summary.Cell index={2} />
+                    <Table.Summary.Cell index={3} align="left">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
                         {statTotal?.accountCode || ''}
                       </span>
                     </Table.Summary.Cell>
-                    <Table.Summary.Cell index={3} align="right">
+                    <Table.Summary.Cell index={4} align="right">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
                         {statIncomeTotal.toFixed(2)}
                       </span>
                     </Table.Summary.Cell>
-                    <Table.Summary.Cell index={4} align="right">
+                    <Table.Summary.Cell index={5} align="right">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
                         {statExpenseTotal.toFixed(2)}
                       </span>

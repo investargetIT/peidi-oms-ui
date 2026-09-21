@@ -10,6 +10,21 @@ import type {
  * 弹窗渲染和「批量导出 Excel」共用同一份口径，保证两边展示完全一致。
  */
 
+// 备注 → 分类 映射（与《8月聚合账户处理后文件》Sheet3 一致）：
+// 天猫明细接口的 category 实际返回「备注」原样，多数备注与分类同名；
+// 仅「收款」分类下的各明细以备注细分，这里把备注归一为「收款」。
+export const TMALL_REMARK_CATEGORY_MAP: Record<string, string> = {
+  订单打款: '收款',
+  订单退款: '收款',
+  百亿补贴定向营销费用: '收款',
+  消费券代付资金扣回: '收款',
+  限时红包代商家垫付扣回: '收款',
+  猫猫币抵扣项目平台垫付资金: '收款',
+};
+// 备注 → 分类：映射不到时回退为备注本身（兼容接口直接返回「收款 / 提现 / BP」等真分类）
+export const remarkToCategory = (remark: string | undefined) =>
+  TMALL_REMARK_CATEGORY_MAP[remark || ''] ?? remark;
+
 export interface TmallBalanceSummary {
   billMonth: string;
   accountName: string;
@@ -69,9 +84,11 @@ export function buildTmallStat(args: {
   let expense = 0; // 本期费用（其余分类收入+支出之和）
   rows.forEach((r) => {
     const val = sumOf(r);
-    if (r.category === '收款') collection += val;
-    else if (r.category === '提现') withdraw += val;
-    else if (r.category === '结息') interest += val;
+    // 按「备注→分类」归一后归类（明细接口返回的是备注原样），与明细「分类」列同口径
+    const cat = remarkToCategory(r.category);
+    if (cat === '收款') collection += val;
+    else if (cat === '提现') withdraw += val;
+    else if (cat === '结息') interest += val;
     else expense += val;
   });
 

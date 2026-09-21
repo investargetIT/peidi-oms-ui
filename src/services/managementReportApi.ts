@@ -14,6 +14,17 @@ const omsRequest = createRequest(`${process.env.BASE_URL}`, {
 // });
 // ==================== 切换代码结束 ====================
 
+// ==================== 各渠道月账单-本地测试环境切换 ====================
+// 各渠道月账单接口，生产环境使用（已切回生产，本地联调时再改为 12.18）
+const billRequest = createRequest(`${process.env.BASE_URL}`, {
+  timeout: 1000 * 60,
+});
+// 测试环境使用
+// const billRequest = createRequest(`http://12.18.1.36:8085/oms`, {
+//   timeout: 1000 * 60,
+// });
+// ==================== 切换代码结束 ====================
+
 /* ==================== 管报数据查询 ==================== */
 
 /**
@@ -551,11 +562,12 @@ export interface FinanceKsBillUploadReq {
 
 /**
  * 各渠道月账单 /zfb-bill/page 的 channel 取值映射：
- * 微信=wx、微盟=wm，其余渠道（支付宝/拼多多/抖音/天猫/小红书/京东/快手）与 platform 一致。
+ * 其余渠道（支付宝/拼多多/抖音/天猫/小红书/京东/快手）与 platform 一致。
+ * 微信/微盟本地联调时按后端排期传中文「微信」「微盟」（原 wx/wm），后端调整后可改回。
  */
 export const ZFB_BILL_CHANNEL_MAP: Record<string, string> = {
-  微信: 'wx',
-  微盟: 'wm',
+  微信: '微信',
+  微盟: '微盟',
 };
 
 /**
@@ -577,7 +589,8 @@ export class ManagementReportApi {
   static async getZfbBillPage(
     params: FinanceZfbBillInfoPageReq,
   ): Promise<ResponseData<IPageFinanceZfbBillInfoVo>> {
-    return omsRequest.post('/finance/zfb-bill/page', {
+    // 本地测试
+    return billRequest.post('/finance/zfb-bill/page', {
       ...params,
       // channel 必传：优先取调用方显式传入的 channel；否则按映射（微信=wx、微盟=wm），其余渠道与 platform 一致
       channel:
@@ -589,14 +602,15 @@ export class ManagementReportApi {
    * 统一调用 /zfb-bill/generate 接口，通过 platform 参数区分渠道
    */
   static async generateZfbBill(params: FinanceZfbBillGenerateReq): Promise<ResponseData<any>> {
-    return omsRequest.post('/finance/zfb-bill/generate', params);
+    // 本地测试
+    return billRequest.post('/finance/zfb-bill/generate', params);
   }
   /**
    * 各渠道月账单 - 批量下载（后端代理打包为 ZIP 返回，避免 OSS CORS 限制）
    * 后端实现思路：接收 ids 列表，服务端到 OSS 拉取文件，打包成 zip 流式返回（Content-Type: application/zip）
    */
   static async batchDownloadZfbBill(params: { ids: number[]; platform?: string }): Promise<Blob> {
-    const resp = await omsRequest.post('/finance/zfb-bill/batch-download', params, {
+    const resp = await billRequest.post('/finance/zfb-bill/batch-download', params, {
       responseType: 'blob',
     });
     return resp as unknown as Blob;
@@ -610,7 +624,8 @@ export class ManagementReportApi {
     shopName?: string;
     channel?: string;
   }): Promise<ResponseData<FinanceZfbBillConfig[]>> {
-    return omsRequest.get('/finance/bill-config/list', {
+    // 本地测试
+    return billRequest.get('/finance/bill-config/list', {
       params: {
         ...params,
         // channel 必传：优先取调用方显式传入的 channel；否则按映射（微信=wx、微盟=wm），其余与 platform 一致
@@ -632,7 +647,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
-    return omsRequest.post('/finance/tm-bill/upload', formData, {
+    return billRequest.post('/finance/tm-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
       timeout: 1000 * 60 * 60,
@@ -653,7 +668,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
-    return omsRequest.post('/finance/dy-bill/upload', formData, {
+    return billRequest.post('/finance/dy-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
       timeout: 1000 * 60 * 60,
@@ -676,7 +691,7 @@ export class ManagementReportApi {
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file1', data.file1);
     formData.append('file2', data.file2);
-    return omsRequest.post('/finance/jd-bill/upload', formData, {
+    return billRequest.post('/finance/jd-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
       timeout: 1000 * 60 * 60,
@@ -695,7 +710,7 @@ export class ManagementReportApi {
   ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
     const formData = new FormData();
     formData.append('file', data.file);
-    return omsRequest.post('/finance/tm-stockout-bill/upload', formData, {
+    return billRequest.post('/finance/tm-stockout-bill/upload', formData, {
       params: {
         billDate: data.billDate,
         financeBillConfigId: data.financeBillConfigId,
@@ -718,7 +733,7 @@ export class ManagementReportApi {
     const formData = new FormData();
     formData.append('file1', data.file1);
     formData.append('file2', data.file2);
-    return omsRequest.post('/finance/xhs-bill/upload', formData, {
+    return billRequest.post('/finance/xhs-bill/upload', formData, {
       params: {
         billDate: data.billDate,
         financeBillConfigId: data.financeBillConfigId,
@@ -742,7 +757,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
-    return omsRequest.post('/finance/pdd-bill/upload', formData, {
+    return billRequest.post('/finance/pdd-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 1000 * 60 * 60,
       showLoading: false,
@@ -759,7 +774,7 @@ export class ManagementReportApi {
   ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
     const formData = new FormData();
     formData.append('file', data.file);
-    return omsRequest.post('/finance/ks-bill/upload', formData, {
+    return billRequest.post('/finance/ks-bill/upload', formData, {
       params: {
         billDate: data.billDate,
         financeBillConfigId: data.financeBillConfigId,
@@ -780,7 +795,7 @@ export class ManagementReportApi {
   ): Promise<ResponseData<FinanceLedgerBillUploadVo>> {
     const formData = new FormData();
     formData.append('file', data.file);
-    return omsRequest.post('/finance/wx-bill/upload', formData, {
+    return billRequest.post('/finance/wx-bill/upload', formData, {
       params: {
         billDate: data.billDate,
         financeBillConfigId: data.financeBillConfigId,
@@ -801,7 +816,7 @@ export class ManagementReportApi {
   ): Promise<ResponseData<FinanceLedgerBillUploadVo>> {
     const formData = new FormData();
     formData.append('file', data.file);
-    return omsRequest.post('/finance/wm-bill/upload', formData, {
+    return billRequest.post('/finance/wm-bill/upload', formData, {
       params: {
         billDate: data.billDate,
         financeBillConfigId: data.financeBillConfigId,
@@ -817,7 +832,8 @@ export class ManagementReportApi {
    * POST /oms/finance/channel-extend-cost/pdd-promotion
    */
   static async addPddPromotion(data: FinancePddPromotionAddReq): Promise<ResponseData<boolean>> {
-    return omsRequest.post('/finance/channel-extend-cost/pdd-promotion', data);
+    // 本地测试
+    return billRequest.post('/finance/channel-extend-cost/pdd-promotion', data);
   }
 }
 

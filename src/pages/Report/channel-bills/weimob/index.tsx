@@ -54,7 +54,7 @@ const WechatBillPanel: React.FC = () => {
         shopName: shopName || undefined,
         generateStatus,
         platform: '微信',
-        channel: 'wm',
+        channel: '微盟',
         ...params,
       };
       const res: { code: number; data?: IPageFinanceZfbBillInfoVo; msg?: string; success?: boolean } =
@@ -93,7 +93,7 @@ const WechatBillPanel: React.FC = () => {
   const fetchConfigList = async () => {
     setConfigLoading(true);
     try {
-      const res = await ManagementReportApi.getBillConfigList({ platform: '微信', channel: 'wm' });
+      const res = await ManagementReportApi.getBillConfigList({ platform: '微信', channel: '微盟' });
       if (res.code === 200) {
         const list = (res.data || []).filter((c) => c.isDel !== 1);
         setConfigList(list);

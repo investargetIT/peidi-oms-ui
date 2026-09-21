@@ -26,7 +26,7 @@ export interface KuaishouRowDef {
 
 /** 后端返回 name 顺序无关，模板顺序即最终展示顺序 */
 export const KUAISHOU_ROW_DEFS: KuaishouRowDef[] = [
-  { category: '其他', displayName: '其他', sourceName: '合计收入', net: true },
+  { category: '其他', displayName: '其他（净收入）', sourceName: '合计收入', net: true },
   { category: '平台费用', displayName: '技术服务费', sourceName: '技术服务费' },
   { category: '推广费用', displayName: '达人佣金', sourceName: '达人佣金' },
   { category: '推广费用', displayName: '团长佣金', sourceName: '团长佣金' },
