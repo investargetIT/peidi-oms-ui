@@ -350,6 +350,56 @@ export interface FinanceKuaishouCostStatReq {
   [property: string]: any;
 }
 
+// ----- 微信/微盟费用统计 -----
+
+/**
+ * 微信/微盟流水汇总行
+ *
+ * LedgerSummaryRowVo
+ * GET /oms/finance/channel-extend-cost/wx-cost-summary
+ * GET /oms/finance/channel-extend-cost/wm-cost-summary
+ */
+export interface FinanceLedgerSummaryRowVo {
+  /**
+   * 收支类型（收入/支出；总计行为空）
+   */
+  accountType?: string;
+  /**
+   * 汇总金额（元）
+   */
+  amount?: number;
+  /**
+   * 业务类型（交易/扣除交易手续费/退款/提现；总计行固定为"总计"）
+   */
+  businessType?: string;
+  /**
+   * 分类（收款/交易手续费/提现/其他）
+   */
+  category?: string;
+  /**
+   * 费用分类（其他/平台费用）
+   */
+  expenseCategory?: string;
+  [property: string]: any;
+}
+
+/**
+ * 微信/微盟流水汇总请求
+ * GET /oms/finance/channel-extend-cost/wx-cost-summary
+ * GET /oms/finance/channel-extend-cost/wm-cost-summary
+ */
+export interface FinanceWxWmCostSummaryReq {
+  /**
+   * 店铺ID
+   */
+  shopId: number;
+  /**
+   * 年月，格式：yyyy-MM
+   */
+  yearMonth: string;
+  [property: string]: any;
+}
+
 // ----- 支付宝费用统计 -----
 
 /**
@@ -621,6 +671,30 @@ export class ChannelExtendCostApi {
     success?: boolean;
   }> {
     return channelExtendCostRequest.get('/ks-cost-stat', { params });
+  }
+  /**
+   * 微信流水汇总（按业务类型/收支类型聚合，返回分类/费用分类/总计）
+   * GET /oms/finance/channel-extend-cost/wx-cost-summary
+   */
+  static async getWxCostSummary(params: FinanceWxWmCostSummaryReq): Promise<{
+    code: number;
+    data: FinanceLedgerSummaryRowVo[];
+    msg: string;
+    success?: boolean;
+  }> {
+    return channelExtendCostRequest.get('/wx-cost-summary', { params });
+  }
+  /**
+   * 微盟流水汇总（按业务类型/收支类型聚合，返回分类/费用分类/总计）
+   * GET /oms/finance/channel-extend-cost/wm-cost-summary
+   */
+  static async getWmCostSummary(params: FinanceWxWmCostSummaryReq): Promise<{
+    code: number;
+    data: FinanceLedgerSummaryRowVo[];
+    msg: string;
+    success?: boolean;
+  }> {
+    return channelExtendCostRequest.get('/wm-cost-summary', { params });
   }
 }
 

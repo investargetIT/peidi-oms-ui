@@ -93,7 +93,7 @@ const WechatBillPanel: React.FC = () => {
   const fetchConfigList = async () => {
     setConfigLoading(true);
     try {
-      const res = await ManagementReportApi.getBillConfigList({ platform: '微信' });
+      const res = await ManagementReportApi.getBillConfigList({ platform: '微信', channel: 'wm' });
       if (res.code === 200) {
         const list = (res.data || []).filter((c) => c.isDel !== 1);
         setConfigList(list);

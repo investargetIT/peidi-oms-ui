@@ -303,24 +303,27 @@ const BatchExportButton: React.FC<BatchExportButtonProps> = ({
 };
 
 /**
- * 按渠道拉取全部店铺（getShops + platform 精确过滤）
- * 供拼多多 / 天猫 / 抖音 / 小红书等批量导出按钮复用
+ * 按渠道拉取全部店铺（getShops + channel + platform 过滤）
+ * 供拼多多 / 天猫 / 抖音 / 小红书等批量导出按钮复用。
+ * 一般渠道 channel === platform；微信为 (微信, 微信)、微盟为 (微盟, 微信)。
+ * @param channel 渠道
+ * @param platform 平台，缺省时与 channel 相同
  */
-export async function fetchChannelShops(channel: string): Promise<ShopVo[]> {
+export async function fetchChannelShops(channel: string, platform?: string): Promise<ShopVo[]> {
+  const p = platform || channel;
   const params = {
     sortStr: '',
-    searchStr: JSON.stringify({
-      searchName: 'platform',
-      searchValue: channel,
-      searchType: 'like',
-    }),
+    searchStr: JSON.stringify([
+      { searchName: 'channel', searchType: 'like', searchValue: channel },
+      { searchName: 'platform', searchType: 'like', searchValue: p },
+    ]),
   };
   const res = await ChannelExtendCostApi.getShops(params);
   if (res.code !== 200) {
     throw new Error('获取店铺列表失败');
   }
   return (res.data || []).filter(
-    (s) => s.platform === channel && s.id !== undefined && s.id !== null,
+    (s) => s.platform === p && s.id !== undefined && s.id !== null,
   );
 }
 

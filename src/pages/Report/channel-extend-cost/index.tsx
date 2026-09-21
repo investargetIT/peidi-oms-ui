@@ -6,6 +6,8 @@ import DyExtendCostPanel from './dy';
 import TmallExtendCostPanel from './tmall';
 import XhsExtendCostPanel from './xhs';
 import KuaishouExtendCostPanel from './kuaishou';
+import WechatExtendCostPanel from './wechat';
+import WeimobExtendCostPanel from './weimob';
 import JdExtendCostPanel from './jd';
 
 const SUB_TAB_KEY = 'channel_extend_cost_sub_tab';
@@ -15,7 +17,7 @@ const MIGRATION_FLAG_KEY = 'channel_extend_cost_sub_tab_v2_migrated';
 /**
  * 渠道推广费用 - 一级 Tab
  *
- * 7 个渠道（支付宝/拼多多/抖音/天猫/小红书/京东/快手）按统一顺序排列。
+ * 9 个渠道（天猫支付宝/拼多多/抖音/天猫聚合/小红书/京东/快手/微信/微盟）按统一顺序排列。
  * 各渠道共用 ../shared/ChannelExtendCostBase 实现，仅 channel 名称不同。
  * 后续如果某个渠道有独立的业务差异，可在该渠道目录下 fork 一份独立实现。
  */
@@ -44,6 +46,8 @@ const ChannelExtendCostTab: React.FC = () => {
     { key: 'xhs', label: '小红书' },
     { key: 'jd', label: '京东' },
     { key: 'kuaishou', label: '快手' },
+    { key: 'wechat', label: '微信' },
+    { key: 'weimob', label: '微盟' },
   ];
 
   const renderSubTabContent = () => {
@@ -62,6 +66,10 @@ const ChannelExtendCostTab: React.FC = () => {
         return <KuaishouExtendCostPanel />;
       case 'jd':
         return <JdExtendCostPanel />;
+      case 'wechat':
+        return <WechatExtendCostPanel />;
+      case 'weimob':
+        return <WeimobExtendCostPanel />;
       default:
         return null;
     }
