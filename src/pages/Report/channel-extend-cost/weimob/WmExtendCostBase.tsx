@@ -672,9 +672,10 @@ const WmExtendCostBase: React.FC<WmExtendCostBaseProps> = ({
                   <strong>四、微盟余额对账</strong>
                   <div style={{ marginLeft: 16 }}>
                     <div><strong>期末余额</strong>（本月末）/ <strong>上月余额</strong>（期初）均来自系统余额返回；</div>
-                    <div><strong>本期收款</strong> = 明细里所有收入之和；</div>
-                    <div><strong>本期费用</strong> = 明细里所有支出之和（保留负号）；</div>
-                    <div><strong>提现 / 结息</strong>：本期暂不涉及，记为 0。</div>
+                    <div><strong>本期收款</strong> = 明细里 分类=收款 的收入与支出之和（收入为正、支出为负）；</div>
+                    <div><strong>本期费用</strong> = 明细里 分类≠收款 且 分类≠提现 的收入与支出之和（收入为正、支出为负）；</div>
+                    <div><strong>提现</strong> = 明细里 分类=提现 的收入与支出之和（收入为正、支出为负）；</div>
+                    <div><strong>结息</strong>：本期暂不涉及，记为 0。</div>
                   </div>
                 </li>
 
@@ -682,7 +683,7 @@ const WmExtendCostBase: React.FC<WmExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 8 }}>
                   <strong>五、计算余额与校验</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息（本期费用为负，等价于「上月余额 + 收入 − 支出」）。</div>
+                    <div><strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息（本期收款/本期费用/提现均已含收入与支出的正负号）。</div>
                     <div><strong>校验</strong> = 计算余额 − 期末余额：接近 0 表示账目对得上（显示 0.00 绿色），否则红色显示差异，便于发现不平。</div>
                   </div>
                 </li>

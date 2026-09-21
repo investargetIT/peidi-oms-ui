@@ -58,11 +58,12 @@ export interface WmBatchStatResult {
  * 组装微信批量导出所需的全部统计结果。
  *
  * 口径：
- *   本期收款 = 汇总行中 收支类型=收入 的金额之和
- *   本期费用 = 汇总行中 收支类型=支出 的金额之和（保留负号）
- *   合计行   = 上面两个汇总（不依赖后端「总计」行，但展示其总金额用于交叉核对）
- *   提现 / 结息 = 默认 0
- *   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息（本期费用保留负号）
+ *   本期收款 = 汇总行中 分类=收款 的收入与支出之和（收入为正、支出为负）
+ *   本期费用 = 汇总行中 分类≠收款 且 分类≠提现 的收入与支出之和（收入为正、支出为负）
+ *   提现     = 汇总行中 分类=提现 的收入与支出之和（收入为正、支出为负）
+ *   合计行   = 明细收入 + 明细支出（净额，不依赖后端「总计」行，但展示其总金额用于交叉核对）
+ *   结息     = 默认 0
+ *   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息（本期收款/本期费用/提现均已含收入与支出正负号）
  *   校验     = 计算余额 - 期末余额
  */
 export function buildWmStat(args: {
@@ -77,8 +78,11 @@ export function buildWmStat(args: {
   // —— 平铺流水行（总计行单独抽出），按接口返回顺序展示，不做额外排序/合并映射 ——
   let totalRow: WmDetailRow | null = null;
   const flat: WmDetailRow[] = [];
-  let income = 0; // 本期收款（收入，正数）
-  let expense = 0; // 本期费用（支出，保留负号）
+  let income = 0; // 收入合计（正数，仅用于明细表合计行净额）
+  let expense = 0; // 支出合计（保留负号，仅用于明细表合计行净额）
+  let collectionSum = 0; // 本期收款：分类=收款 的收入(+)/支出(-)之和
+  let feeExpenseSum = 0; // 本期费用：分类≠收款 且 分类≠提现 的收入(+)/支出(-)之和
+  let withdrawSum = 0; // 提现：分类=提现 的收入(+)/支出(-)之和
   let totalAmount = 0; // 总计兜底 = Σ|amount|
 
   (wmStatData || []).forEach((it) => {
@@ -87,10 +91,11 @@ export function buildWmStat(args: {
     const amount = it.accountType === '支出' ? -Math.abs(rawAmount) : rawAmount;
     // 业务类型 -> 分类/费用分类 自定义映射（命中则覆盖后端返回，否则用后端自带值）
     const rule = WX_WM_DEFAULT_MAPPING[it.businessType || ''];
+    const category = rule?.category ?? (it.category || '');
     const row: WmDetailRow = {
       expenseCategory: rule?.expenseCategory ?? (it.expenseCategory || ''),
       // 分类：优先使用自定义映射（业务类型 -> 分类），否则用后端返回的 category
-      category: rule?.category ?? (it.category || ''),
+      category,
       businessType: it.businessType || '',
       accountType: it.accountType || '',
       amount,
@@ -101,6 +106,10 @@ export function buildWmStat(args: {
     }
     flat.push(row);
     totalAmount += Math.abs(amount);
+    // 本期收款 = 分类=收款 的收入+支出；提现 = 分类=提现 的收入+支出；本期费用 = 分类≠收款且≠提现 的收入+支出（金额均已带符号）
+    if (category === '收款') collectionSum += amount;
+    else if (category === '提现') withdrawSum += amount;
+    else feeExpenseSum += amount;
     if (it.accountType === '收入') income += rawAmount;
     else if (it.accountType === '支出') expense += amount; // amount 已为负
   });
@@ -147,10 +156,10 @@ export function buildWmStat(args: {
   const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
   const lastMonthBalance = safeNum(beginningBalance);
   const endBalance = safeNum(endingBalance);
-  const withdraw = 0; // 提现默认 0
+  const withdraw = withdrawSum; // 提现：分类=提现 的收入+支出
   const interest = 0; // 结息固定 0
-  // 计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息（本期费用保留负号）
-  const calculatedBalance = lastMonthBalance + income + expense + withdraw + interest;
+  // 计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息（本期收款/本期费用/提现均已含收入与支出正负号）
+  const calculatedBalance = lastMonthBalance + collectionSum + feeExpenseSum + withdraw + interest;
   const checkDiff = calculatedBalance - endBalance;
 
   const summary = {
@@ -159,8 +168,9 @@ export function buildWmStat(args: {
     platform: '微盟',
     endBalance,
     lastMonthBalance,
-    currentCollection: income,
-    currentExpense: expense,
+    // 本期收款 = 分类=收款 的收入+支出；本期费用 = 分类≠收款 的收入+支出
+    currentCollection: collectionSum,
+    currentExpense: feeExpenseSum,
     withdraw,
     interest,
     calculatedBalance,
