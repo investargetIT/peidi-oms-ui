@@ -15,7 +15,7 @@ const omsRequest = createRequest(`${process.env.BASE_URL}`, {
 // ==================== 切换代码结束 ====================
 
 // ==================== 各渠道月账单-本地测试环境切换 ====================
-// 各渠道月账单接口，生产环境使用（已切回生产，本地联调时再改为 12.18）
+// 各渠道月账单接口，生产环境使用（本地联调时再改为 12.18）
 const billRequest = createRequest(`${process.env.BASE_URL}`, {
   timeout: 1000 * 60,
 });
@@ -467,7 +467,7 @@ export interface FinancePddPromotionAddReq {
 
 /**
  * 上传京东账单请求
- * 京东特殊：一次需要上传 2 个文件 —— 账单明细（file1）+ 财务汇总表（file2）
+ * 京东特殊：一次需要上传 2 个文件 —— 财务汇总表（file1）+ 月账单（file2）
  */
 export interface FinanceJdBillUploadReq {
   /**
@@ -679,7 +679,7 @@ export class ManagementReportApi {
   /**
    * 上传京东账单
    * POST /oms/finance/jd-bill/upload（multipart/form-data）
-   * 京东一次需要上传 2 个文件：账单明细 file1 + 财务汇总 file2
+   * 京东一次需要上传 2 个文件：财务汇总表 file1 + 月账单 file2
    * 后端解析账单比较耗时（10+ 分钟），单独把超时拉到 1 小时
    */
   static async uploadJdBill(

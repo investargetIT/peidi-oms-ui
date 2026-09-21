@@ -284,7 +284,7 @@ const ZfbBillPanel: React.FC = () => {
     onRemove: () => {
       setStockoutFile(null);
     },
-    accept: '.zip,.csv,.xlsx,.xls',
+    // accept: '.zip,.csv,.xlsx,.xls',  # 放开文件类型限制(可选所有文件)
   };
 
   const handleStockoutUpload = async () => {

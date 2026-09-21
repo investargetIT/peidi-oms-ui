@@ -19,7 +19,7 @@ const channelExtendCostRequest = createRequest(
 // ==================== 切换代码结束 ====================
 
 // ==================== 分类统计-本地测试环境切换 ====================
-// GET /cost-category-stat 分渠道推广费用分类统计接口，生产环境使用（已切回生产，本地联调时再改为 12.18）
+// GET /cost-category-stat 分渠道推广费用分类统计接口，生产环境使用（本地联调时再改为 12.18）
 const costCategoryStatLocalRequest = createRequest(
   `${process.env.BASE_URL}/finance/channel-extend-cost`,
   {

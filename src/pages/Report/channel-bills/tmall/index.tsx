@@ -124,7 +124,7 @@ const TmallBillPanel: React.FC = () => {
     onRemove: () => {
       setUploadFile(null);
     },
-    accept: '.xlsx,.xls,.csv',
+    // accept: '.xlsx,.xls,.csv',  # 放开文件类型限制(可选所有文件)
   };
 
   const handleUpload = async () => {

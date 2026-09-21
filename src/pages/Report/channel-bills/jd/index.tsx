@@ -39,7 +39,7 @@ const JdBillPanel: React.FC = () => {
   const [configList, setConfigList] = useState<FinanceZfbBillConfig[]>([]);
   const [configLoading, setConfigLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | undefined>(undefined);
-  // 京东上传需要 2 个文件：账单明细(file1) + 财务汇总(file2)
+  // 京东上传需要 2 个文件：财务汇总表(file1) + 月账单(file2)
   const [uploadFile1, setUploadFile1] = useState<File | null>(null);
   const [uploadFile2, setUploadFile2] = useState<File | null>(null);
   // 上传走异步任务模式：弹窗关掉后由 UploadTaskDrawer 跟踪，无需在面板内阻塞 UI
@@ -118,7 +118,7 @@ const JdBillPanel: React.FC = () => {
     await fetchConfigList();
   };
 
-  // 账单明细文件 (file1)
+  // 财务汇总表文件 (file1)
   const uploadFile1Props: UploadProps = {
     beforeUpload: (file) => {
       setUploadFile1(file);
@@ -128,10 +128,10 @@ const JdBillPanel: React.FC = () => {
     onRemove: () => {
       setUploadFile1(null);
     },
-    accept: '.xlsx,.xls,.csv',
+    // accept: '.xlsx,.xls,.csv',  # 放开文件类型限制(可选所有文件)
   };
 
-  // 财务汇总表文件 (file2)
+  // 月账单文件 (file2)
   const uploadFile2Props: UploadProps = {
     beforeUpload: (file) => {
       setUploadFile2(file);
@@ -141,7 +141,7 @@ const JdBillPanel: React.FC = () => {
     onRemove: () => {
       setUploadFile2(null);
     },
-    accept: '.xlsx,.xls,.csv',
+    // accept: '.xlsx,.xls,.csv',  # 放开文件类型限制(可选所有文件)
   };
 
   const handleUpload = async () => {
@@ -154,11 +154,11 @@ const JdBillPanel: React.FC = () => {
       return;
     }
     if (!uploadFile1) {
-      message.error('请选择账单明细文件');
+      message.error('请选择财务汇总表文件');
       return;
     }
     if (!uploadFile2) {
-      message.error('请选择财务汇总表文件');
+      message.error('请选择月账单文件');
       return;
     }
 
@@ -347,7 +347,7 @@ const JdBillPanel: React.FC = () => {
           description={
             <div style={{ fontSize: 12, lineHeight: 1.7 }}>
               1. 支持 .xlsx / .xls / .csv 格式<br />
-              2. 京东一次需要上传 <b>2 个文件</b>：账单明细（file1）+ 财务汇总表（file2），缺一不可<br />
+              2. 京东一次需要上传 <b>2 个文件</b>：财务汇总表（file1）+ 月账单（file2），缺一不可<br />
               3. 请先在【账单配置】中维护该店铺的京东账单配置（accessToken、appId 等）<br />
               4. 账单日期格式：yyyy-MM（如 2026-07）
             </div>
@@ -389,7 +389,7 @@ const JdBillPanel: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
-              账单明细文件（file1） <span style={{ color: '#ff4d4f' }}>*</span>
+              财务汇总表文件（file1） <span style={{ color: '#ff4d4f' }}>*</span>
             </span>
             <Upload {...uploadFile1Props}>
               <Button icon={<UploadOutlined />} disabled={configLoading}>
@@ -399,7 +399,7 @@ const JdBillPanel: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
-              财务汇总表文件（file2） <span style={{ color: '#ff4d4f' }}>*</span>
+              月账单（file2） <span style={{ color: '#ff4d4f' }}>*</span>
             </span>
             <Upload {...uploadFile2Props}>
               <Button icon={<UploadOutlined />} disabled={configLoading}>

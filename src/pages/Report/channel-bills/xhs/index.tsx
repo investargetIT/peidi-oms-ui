@@ -128,7 +128,7 @@ const XhsBillPanel: React.FC = () => {
     onRemove: () => {
       setUploadFile1(null);
     },
-    accept: '.xlsx,.xls,.csv',
+    // accept: '.xlsx,.xls,.csv',  # 放开文件类型限制(可选所有文件)
   };
 
   // 订单结算明细文件 (file2)
@@ -141,7 +141,7 @@ const XhsBillPanel: React.FC = () => {
     onRemove: () => {
       setUploadFile2(null);
     },
-    accept: '.xlsx,.xls,.csv',
+    // accept: '.xlsx,.xls,.csv',  # 放开文件类型限制(可选所有文件)
   };
 
   const handleUpload = async () => {
