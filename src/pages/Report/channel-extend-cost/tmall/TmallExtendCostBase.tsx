@@ -10,67 +10,16 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
-import { remarkToCategory, TMALL_REMARK_CATEGORY_MAP } from './batchStatBuilder';
+import {
+  remarkToCategory,
+  TMALL_REMARK_CATEGORY_MAP,
+  TMALL_FEE_TYPE_GROUPS,
+  TMALL_FEE_TYPE_MAP,
+} from './batchStatBuilder';
 
-// 账单明细汇总「费用分类」映射：分类（document_type）→ 费用分类（推广费用 / 平台费用 / 其他）。
-// 对应关系来自业务提供的《8月聚合账户处理后文件》Sheet3 备注/费用分类 两列（唯一口径，已去重）；
-// 未在映射内的分类兜底展示为「空」并追加到末尾。
-const TMALL_FEE_TYPE_GROUPS: { feeType: string; categories: string[] }[] = [
-  {
-    feeType: '推广费用',
-    categories: [
-      '百亿补贴软件服务费渠道KY_ITEM',
-      '百亿补贴软件服务费T全渠道KY_ITEM',
-      '品牌新享-首单拉新计划KY_ITEM',
-      '品牌新享-天猫营销托管软件服务费',
-      '品牌新享天猫超级老客加速软件服务费',
-      '品牌新享天猫超级新客加速固定软件服务费',
-      '品牌新享新品孵化软件服务费KY_ITEM',
-      '品牌新享-超级流量加速软件服务费',
-      '品牌直播大场营销软件服务费',
-      '光合平台软件服务费',
-      '淘宝内容推广服务费',
-      '淘宝天猫跨境服务增值费端内',
-    ],
-  },
-  {
-    feeType: '平台费用',
-    categories: [
-      '基础软件服务费',
-      '淘金币软件服务费',
-      '天猫U先入仓物流抽佣',
-      '天猫U先试用超市物流服务费KY_ITEM',
-      '先用后付技术服务费',
-      '公益宝贝',
-    ],
-  },
-  {
-    feeType: '其他',
-    // 天猫「其他」与配置表单一致：分类为「收款」的各类明细（订单打款/订单退款/消费券代付资金扣回/限时红包代商家垫付扣回/百亿补贴定向营销费用/猫猫币抵扣项目平台垫付资金）均归为「其他」；
-    // 同时兼容 document_type 直接返回「收款 / 提现 / BP」的情况。
-    categories: [
-      '收款',
-      '提现',
-      'BP',
-      '订单打款',
-      '订单退款',
-      '消费券代付资金扣回',
-      '限时红包代商家垫付扣回',
-      '百亿补贴定向营销费用',
-      '猫猫币抵扣项目平台垫付资金',
-    ],
-  },
-];
-
-// 扁平化映射表：分类 → 费用分类（由 TMALL_FEE_TYPE_GROUPS 派生，保证两处一致）
-const TMALL_FEE_TYPE_MAP: Record<string, string> = TMALL_FEE_TYPE_GROUPS.reduce((map, group) => {
-  group.categories.forEach((cat) => {
-    map[cat] = group.feeType;
-  });
-  return map;
-}, {} as Record<string, string>);
-
-// 备注 → 分类 映射见 batchStatBuilder（TMALL_REMARK_CATEGORY_MAP / remarkToCategory，已 import）
+// 「费用分类」映射（分类 → 推广费用 / 平台费用 / 其他）与「备注 → 分类」映射
+// 均已抽到 batchStatBuilder（TMALL_FEE_TYPE_GROUPS / TMALL_FEE_TYPE_MAP / remarkToCategory），
+// 弹窗与「批量导出」共用同一份，避免口径在两端各自维护而漂移。
 
 // 映射清单的扁平行（计算逻辑说明中映射表格的数据源，与 TMALL_FEE_TYPE_MAP 同源）：
 // category 为「备注→分类」归一后的真分类，remark 为明细接口原样返回的备注

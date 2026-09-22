@@ -7,10 +7,11 @@ import type {
 /**
  * 京东 - 批量导出 计算工具（与「费用统计」弹窗保持完全一致）
  *
- * 把京东 jd-cost-stat 接口返回的原始数据，重算成三张表的数据：
+ * 把京东 jd-cost-stat 接口返回的原始数据，重算成四张表的数据：
  *   1. 京东余额对账（单行，6 列）
  *   2. 京东钱包支出分类统计（透视成 1 行 N 列：每个 remarkCategory 一列）
- *   3. 京东账单收支计算列表（透视成 N 行：每 billDate 一行，每 businessDesc 一列 + 总计列）
+ *   3. 费用分类统计（按固定映射把账单收支总计行归类为 分类-管报名称-业务描述）
+ *   4. 京东账单收支计算列表（透视成 N 行：每 billDate 一行，每 businessDesc 一列 + 总计列）
  *
  * 计算口径与 jd/index.tsx 弹窗里的 useMemo 完全对齐，保证导出与页面展示一致。
  */
@@ -43,6 +44,8 @@ export interface JdBatchStatResult {
   pivotedJd1: JdPivotedRow[];
   /** 总计行（排除本月最后一天，但保留上月末日） */
   jd1SummaryRow: Record<string, number>;
+  /** 费用分类统计表（与弹窗一致：固定映射归类 + rowSpan 合并元信息） */
+  jd1Category: JdCategoryTable;
 }
 
 export interface BuildJdStatArgs {
@@ -95,7 +98,130 @@ const EXPENSE_JD1_CATEGORIES = [
 ];
 const EXPENSE_JD2_CATEGORIES = ['京东联盟', '运营服务费'];
 
+// ===== 费用分类统计映射（与 jd/index.tsx 弹窗完全一致） =====
+export interface JdCategoryMapping {
+  major: string;
+  category: string;
+  desc: string;
+  source?: 'jd2';
+}
+
+// 费用分类统计：取「京东账单收支计算列表」总计行每列的合计，
+// 按 分类/管报名称/业务描述 归类展示（样式参考拼多多费用统计弹窗）
+// source: 'jd2' 表示该行金额不从账单收支取，改从「京东钱包支出分类统计」对应分类取
+const JD1_CATEGORY_MAPPING: JdCategoryMapping[] = [
+  { major: '推广费', category: '京东联盟', desc: '京东联盟', source: 'jd2' },
+  { major: '平台费用', category: '交易服务费', desc: '交易服务费' },
+  { major: '平台费用', category: '白条', desc: '代收白条网络推广技术服务费' },
+  { major: '其他', category: '其他', desc: '价保返佣' },
+  { major: '平台费用', category: '佣金', desc: '佣金' },
+  { major: '其他', category: '其他', desc: '货款' },
+  { major: '平台费用', category: '运费险', desc: '运费保险服务费' },
+  { major: '平台费用', category: '京豆', desc: '随单送的京豆' },
+  { major: '其他', category: '其他', desc: '平台券价保补贴' },
+  { major: '其他', category: '其他', desc: '平台券价保补贴佣金' },
+  { major: '其他', category: '其他', desc: '代收配送费' },
+  { major: '其他', category: '其他', desc: '综合违约金' },
+];
+
+// 按「第一层分类 → 第二层管报名称」排序后的映射（相同层的行排在一起，合并才连续），
+// 组间顺序按清单首次出现先后（稳定排序，组内保持原相对顺序）。
+const SORTED_JD1_CATEGORY_MAPPING = (() => {
+  const majorOrder: Record<string, number> = {};
+  const categoryOrder: Record<string, number> = {};
+  JD1_CATEGORY_MAPPING.forEach((m) => {
+    if (majorOrder[m.major] === undefined) {
+      majorOrder[m.major] = Object.keys(majorOrder).length;
+    }
+    const catKey = `${m.major}-${m.category}`;
+    if (categoryOrder[catKey] === undefined) {
+      categoryOrder[catKey] = Object.keys(categoryOrder).length;
+    }
+  });
+  return JD1_CATEGORY_MAPPING.map((m, originIndex) => ({ ...m, originIndex })).sort(
+    (a, b) =>
+      majorOrder[a.major] - majorOrder[b.major] ||
+      categoryOrder[`${a.major}-${a.category}`] - categoryOrder[`${b.major}-${b.category}`] ||
+      a.originIndex - b.originIndex,
+  );
+})();
+
+/** 费用分类统计 展示行 */
+export interface JdCategoryRow {
+  /** 第一层分类（合并单元格用） */
+  major: string;
+  /** 第二层管报名称（合并单元格用） */
+  category: string;
+  /** 业务描述 */
+  desc: string;
+  /** 金额（来源按 source；未命中时为 undefined，展示 '-'） */
+  amount: number | undefined;
+}
+
+/** 费用分类统计 表格视图（含 rowSpan 元信息，与 jd/index.tsx 的 jd1CategoryTable 一致） */
+export interface JdCategoryTable {
+  rows: JdCategoryRow[];
+  majorCount: Record<string, number>;
+  categoryCount: Record<string, number>;
+  majorFirstIndex: Record<string, number>;
+  categoryFirstIndex: Record<string, number>;
+}
+
 const num = (v: unknown): number => (typeof v === 'number' && !Number.isNaN(v) ? v : 0);
+
+/**
+ * 组装「费用分类统计」表格（与 jd/index.tsx 弹窗 jd1CategoryTable 完全同口径）：
+ *   - 按固定映射把账单收支计算列表「总计行」各业务列归到 分类-管报名称-业务描述；
+ *   - source === 'jd2' 的行金额取自「京东钱包支出分类统计」对应分类；
+ *   - 映射之外的业务描述追加到末尾，归类为「空-空-业务描述」。
+ */
+export function buildJdCategoryTable(args: {
+  /** 账单收支计算列表「总计行」（各业务列合计） */
+  jd1SummaryRow: Record<string, number>;
+  /** 账单收支计算列表的有序业务描述列 */
+  jd1Columns: string[];
+  /** 钱包支出分类透视（1 行） */
+  pivotedJd2: Record<string, number>[];
+}): JdCategoryTable {
+  const { jd1SummaryRow, jd1Columns, pivotedJd2 } = args;
+  const majorCount: Record<string, number> = {};
+  const categoryCount: Record<string, number> = {};
+  const majorFirstIndex: Record<string, number> = {};
+  const categoryFirstIndex: Record<string, number> = {};
+  const rows: JdCategoryRow[] = [];
+
+  SORTED_JD1_CATEGORY_MAPPING.forEach((m, index) => {
+    const majorKey = m.major;
+    const catKey = `${m.major}-${m.category}`;
+    if (majorFirstIndex[majorKey] === undefined) majorFirstIndex[majorKey] = index;
+    if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
+    majorCount[majorKey] = (majorCount[majorKey] || 0) + 1;
+    categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
+    let amount: number | undefined;
+    if (m.source === 'jd2') {
+      const jd2Row = pivotedJd2[0];
+      amount = jd2Row && typeof jd2Row[m.desc] === 'number' ? jd2Row[m.desc] : undefined;
+    } else {
+      amount = jd1Columns.includes(m.desc) ? jd1SummaryRow[m.desc] : undefined;
+    }
+    rows.push({ major: m.major, category: m.category, desc: m.desc, amount });
+  });
+
+  // 兜底：数据里出现但映射清单之外的业务描述 → 追加到末尾，归类为「空-空-该业务描述」
+  const mappedDescs = new Set(JD1_CATEGORY_MAPPING.map((m) => m.desc));
+  const unmappedDescs = jd1Columns.filter((desc) => !mappedDescs.has(desc));
+  unmappedDescs.forEach((desc) => {
+    const index = rows.length;
+    const catKey = `${''}-${''}`;
+    if (majorFirstIndex[''] === undefined) majorFirstIndex[''] = index;
+    if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
+    majorCount[''] = (majorCount[''] || 0) + 1;
+    categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
+    rows.push({ major: '', category: '', desc, amount: jd1SummaryRow[desc] });
+  });
+
+  return { rows, majorCount, categoryCount, majorFirstIndex, categoryFirstIndex };
+}
 
 /**
  * 按 yyyy-MM 算出当月 startDate / endDate
@@ -223,5 +349,11 @@ export function buildJdStat(args: BuildJdStatArgs): JdBatchStatResult {
     jd1Columns: descOrder,
     pivotedJd1,
     jd1SummaryRow,
+    // 费用分类统计表（固定映射把总计行归类，与弹窗一致）
+    jd1Category: buildJdCategoryTable({
+      jd1SummaryRow,
+      jd1Columns: descOrder,
+      pivotedJd2: jd2CatOrder.length > 0 ? [jd2Row] : [],
+    }),
   };
 }

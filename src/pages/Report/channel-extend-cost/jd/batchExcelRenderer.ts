@@ -102,7 +102,62 @@ function renderJd2Sheet(workbook: ExcelJS.Workbook, result: JdBatchStatResult) {
   });
 }
 
-// ===== Sheet 3：京东账单收支计算列表 =====
+// ===== Sheet 3：费用分类统计 =====
+// 与弹窗「费用分类统计」表一致：分类 / 管报名称 / 业务描述 / 金额，
+// 分类与管报名称两列按 rowSpan 合并单元格。
+function renderJdCategorySheet(workbook: ExcelJS.Workbook, result: JdBatchStatResult) {
+  const ws = workbook.addWorksheet('费用分类统计');
+  ws.addRow(['分类', '管报名称', '业务描述', '金额']).eachCell((cell) => applyHeaderStyle(cell));
+
+  const table = result.jd1Category;
+  const addedRows: ExcelJS.Row[] = [];
+  table.rows.forEach((row) => {
+    addedRows.push(ws.addRow([row.major, row.category, row.desc, row.amount === undefined ? null : Math.round(row.amount * 100) / 100]));
+  });
+
+  // 合并前清掉非 master 行的合并列值
+  table.rows.forEach((row, idx) => {
+    if (table.majorFirstIndex[row.major] !== idx) addedRows[idx].getCell(1).value = null;
+    if (table.categoryFirstIndex[`${row.major}-${row.category}`] !== idx) {
+      addedRows[idx].getCell(2).value = null;
+    }
+  });
+
+  // 合并 + 回写 master 值（规避 ExcelJS 合并丢值的坑）
+  table.rows.forEach((row, idx) => {
+    const excelRowIdx = idx + 2; // Excel 行号（1 = 表头）
+    if (table.majorCount[row.major] > 1 && table.majorFirstIndex[row.major] === idx) {
+      ws.mergeCells(excelRowIdx, 1, excelRowIdx + table.majorCount[row.major] - 1, 1);
+    }
+    if (table.majorFirstIndex[row.major] === idx) addedRows[idx].getCell(1).value = row.major;
+    const catSpan = table.categoryCount[`${row.major}-${row.category}`];
+    if (catSpan > 1 && table.categoryFirstIndex[`${row.major}-${row.category}`] === idx) {
+      ws.mergeCells(excelRowIdx, 2, excelRowIdx + catSpan - 1, 2);
+    }
+    if (table.categoryFirstIndex[`${row.major}-${row.category}`] === idx) {
+      addedRows[idx].getCell(2).value = row.category;
+    }
+  });
+
+  // 样式：分类/管报名称加粗；金额列右对齐数值格式
+  table.rows.forEach((row, idx) => {
+    const excelRow = addedRows[idx];
+    excelRow.getCell(1).font = { size: 12, bold: true };
+    excelRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+    excelRow.getCell(2).font = { size: 12, bold: true };
+    excelRow.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+    excelRow.getCell(3).font = { size: 12 };
+    excelRow.getCell(3).alignment = { horizontal: 'left', vertical: 'middle' };
+    excelRow.getCell(4).numFmt = '0.00';
+    excelRow.getCell(4).font = { size: 12, bold: true };
+    excelRow.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' };
+    excelRow.eachCell((cell) => {
+      cell.border = thinBorder();
+    });
+  });
+}
+
+// ===== Sheet 4：京东账单收支计算列表 =====
 function renderJd1Sheet(workbook: ExcelJS.Workbook, result: JdBatchStatResult) {
   const ws = workbook.addWorksheet('京东账单收支计算列表');
   ws.columns = [
@@ -168,6 +223,7 @@ export async function renderJdStatExcel(result: JdBatchStatResult): Promise<Blob
 
   renderBalanceSheet(workbook, result);
   renderJd2Sheet(workbook, result);
+  renderJdCategorySheet(workbook, result);
   renderJd1Sheet(workbook, result);
 
   const buffer = await workbook.xlsx.writeBuffer();

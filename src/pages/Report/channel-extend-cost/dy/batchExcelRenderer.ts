@@ -118,10 +118,32 @@ function renderDetailSheet(
     return d && typeof d.value === 'number' ? d.value : 0;
   };
 
+  // 行序与弹窗一致：按分类分组排序（sortDyRowsByCategory），相同 分类/管报名称 的行相邻
+  const sorted = sortDyRowsByCategory(data);
+
+  // 「分类 / 管报名称」rowSpan（与弹窗 dyRowSpans 同口径）：
+  // 排序后按相邻同值分段，段首 rowSpan = 段长、其余 0；管报名称要求分类也相同
+  const buildSpans = (getVal: (r: FinanceDyCostStatVo) => string): number[] => {
+    const spans: number[] = sorted.map(() => 0);
+    let start = 0;
+    while (start < sorted.length) {
+      let end = start + 1;
+      while (end < sorted.length && getVal(sorted[end]) === getVal(sorted[start])) end++;
+      spans[start] = end - start;
+      start = end;
+    }
+    return spans;
+  };
+  const categorySpans = buildSpans((r) => dyBizDescOf(r.name).category);
+  const mgmtNameSpans = buildSpans((r) => {
+    const meta = dyBizDescOf(r.name);
+    return `${meta.category}|${meta.mgmtName}`;
+  });
+
   // 数据行：每个业务分类一行（口径与弹窗 dyFeeColumns 完全一致；
-  // 分类 / 管报名称按 dyFeeMapping 硬编码映射，未映射兜底 其他/其他；
-  // 行序与弹窗一致：按分类分组排序，相同分类的行相邻，便于人工合并查看）
-  sortDyRowsByCategory(data).forEach((cat) => {
+  // 分类 / 管报名称按 dyFeeMapping 硬编码映射，未映射兜底 其他/其他）
+  const addedRows: ExcelJS.Row[] = [];
+  sorted.forEach((cat) => {
     const bizMeta = dyBizDescOf(cat.name);
     const values: (string | number)[] = [bizMeta.category, bizMeta.mgmtName, cat.name || ''];
     result.columnNames.forEach((colName) => {
@@ -142,9 +164,36 @@ function renderDetailSheet(
     const v = typeof cat.value === 'number' ? cat.value : 0;
     values.push(round2(v > 0 ? v : 0)); // 收入金额（入账）
     values.push(round2(v < 0 ? v : 0)); // 支出金额（出账）
-    const dataRow = ws.addRow(values);
+    addedRows.push(ws.addRow(values));
+  });
+
+  // 合并前清掉非 master 行的合并列值（col 1 分类 / col 2 管报名称）
+  sorted.forEach((_, idx) => {
+    if (categorySpans[idx] === 0) addedRows[idx].getCell(1).value = null;
+    if (mgmtNameSpans[idx] === 0) addedRows[idx].getCell(2).value = null;
+  });
+
+  // 合并 + 回写 master 值（规避 ExcelJS 合并丢值的坑）
+  sorted.forEach((_, idx) => {
+    const excelRowIdx = idx + 3; // 2 行表头（组头 + 列头）=> 数据从第 3 行起
+    if (categorySpans[idx] > 1) {
+      ws.mergeCells(excelRowIdx, 1, excelRowIdx + categorySpans[idx] - 1, 1);
+    }
+    if (categorySpans[idx] >= 1) addedRows[idx].getCell(1).value = dyBizDescOf(sorted[idx].name).category;
+    if (mgmtNameSpans[idx] > 1) {
+      ws.mergeCells(excelRowIdx, 2, excelRowIdx + mgmtNameSpans[idx] - 1, 2);
+    }
+    if (mgmtNameSpans[idx] >= 1) addedRows[idx].getCell(2).value = dyBizDescOf(sorted[idx].name).mgmtName;
+  });
+
+  // 样式
+  sorted.forEach((_, idx) => {
+    const dataRow = addedRows[idx];
     dataRow.eachCell((cell, col) => {
-      if (col <= 3) {
+      if (col === 1) {
+        cell.font = { size: 12, bold: true };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      } else if (col <= 3) {
         cell.font = { size: 12 };
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
       } else {

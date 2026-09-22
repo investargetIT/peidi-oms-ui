@@ -85,43 +85,85 @@ function renderBalanceSheet(workbook: ExcelJS.Workbook, result: TmallBatchStatRe
 }
 
 // ===== Sheet 2：账单明细汇总 =====
+// 列与弹窗明细表一致：费用分类 / 分类 / 备注 / 对方账号 / 收入金额（元）/ 支出金额（元）
+// 行 = buildTmallDetailRows 的视图行（费用分类/分类归一 + 分组排序 + rowSpan），
+//     故与弹窗完全一致；费用分类与分类两列按 rowSpan 合并单元格。
 function renderDetailSheet(workbook: ExcelJS.Workbook, result: TmallBatchStatResult) {
   const ws = workbook.addWorksheet('账单明细汇总');
-  ws.addRow(['分类', '对方账号', '收入金额（元）', '支出金额（元）']).eachCell((cell) =>
-    applyHeaderStyle(cell),
+  ws.addRow(['费用分类', '分类', '备注', '对方账号', '收入金额（元）', '支出金额（元）']).eachCell(
+    (cell) => applyHeaderStyle(cell),
   );
 
-  // 数据行：来自接口 rows
-  result.rows.forEach((row) => {
-    const dataRow = ws.addRow([
-      row.category || '',
-      row.accountCode || '',
-      round2(row.totalIncome || 0),
-      round2(row.totalExpense || 0),
-    ]);
-    dataRow.eachCell((cell, col) => {
-      if (col <= 2) {
-        cell.font = { size: 12 };
-        cell.alignment = { horizontal: 'left', vertical: 'middle' };
-      } else {
-        cell.numFmt = '0.00';
-        cell.font = { size: 12 };
-        cell.alignment = { horizontal: 'right', vertical: 'middle' };
-      }
+  const detail = result.detailRows;
+  const addedRows: ExcelJS.Row[] = [];
+  detail.forEach((row) => {
+    addedRows.push(
+      ws.addRow([
+        row.feeType,
+        row.category,
+        row.remark,
+        row.accountCode,
+        round2(row.totalIncome),
+        round2(row.totalExpense),
+      ]),
+    );
+  });
+
+  // 第二轮：清掉非 master 行的合并列 value（按 antd rowSpan 语义）
+  detail.forEach((row, idx) => {
+    const excelRow = addedRows[idx];
+    if (row.feeTypeSpan === 0) excelRow.getCell(1).value = null;
+    if (row.categorySpan === 0) excelRow.getCell(2).value = null;
+  });
+
+  // 第三轮：合并 + 合并后显式回写 master 值（规避 ExcelJS save/load 值被清空的坑）
+  detail.forEach((row, idx) => {
+    const excelRowIdx = idx + 2; // Excel 行号（1 = 表头）
+    if (row.feeTypeSpan > 1) {
+      ws.mergeCells(excelRowIdx, 1, excelRowIdx + row.feeTypeSpan - 1, 1);
+    }
+    if (row.feeTypeSpan >= 1) addedRows[idx].getCell(1).value = row.feeType;
+    if (row.categorySpan > 1) {
+      ws.mergeCells(excelRowIdx, 2, excelRowIdx + row.categorySpan - 1, 2);
+    }
+    if (row.categorySpan >= 1) addedRows[idx].getCell(2).value = row.category;
+  });
+
+  // 第四轮：样式（字体、数值格式、边框、对齐）
+  detail.forEach((row, idx) => {
+    const excelRow = addedRows[idx];
+    excelRow.getCell(5).numFmt = '0.00';
+    excelRow.getCell(6).numFmt = '0.00';
+    excelRow.getCell(1).font = { size: 12, bold: true }; // 费用分类加粗（与弹窗一致）
+    excelRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+    excelRow.getCell(2).font = { size: 12 };
+    excelRow.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
+    excelRow.getCell(3).font = { size: 12 };
+    excelRow.getCell(3).alignment = { horizontal: 'left', vertical: 'middle' };
+    excelRow.getCell(4).font = { size: 12 };
+    excelRow.getCell(4).alignment = { horizontal: 'left', vertical: 'middle' };
+    excelRow.getCell(5).font = { size: 12 };
+    excelRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
+    excelRow.getCell(6).font = { size: 12 };
+    excelRow.getCell(6).alignment = { horizontal: 'right', vertical: 'middle' };
+    excelRow.eachCell((cell) => {
       cell.border = thinBorder();
     });
   });
 
-  // 总计行（末行，加粗，取接口 total）
-  if (result.rows.length > 0) {
+  // 总计行（末行，加粗；分类已归一，与弹窗汇总行一致）
+  if (detail.length > 0 && result.totalRow) {
+    const tr = result.totalRow;
     const sumRow = ws.addRow([
-      result.total?.category || '总计',
-      result.total?.accountCode || '',
-      round2(result.incomeTotal),
-      round2(result.expenseTotal),
+      '',
+      tr.category,
+      '',
+      tr.accountCode,
+      round2(tr.incomeTotal),
+      round2(tr.expenseTotal),
     ]);
     sumRow.eachCell((cell, col) => {
-      if (col <= 2) {
+      if (col <= 4) {
         cell.font = { size: 12, bold: true };
         cell.alignment = { horizontal: 'left', vertical: 'middle' };
       } else {
