@@ -9,6 +9,14 @@ const DDLoginFree: React.FC = () => {
 
   useEffect(() => {
     console.log('mounted');
+    // 兜底：URL 未携带本次打开时间戳 _t 时，补一次带时间戳的重定向。
+    // 使每次打开微应用都是新 URL，绕过 webview 对入口 HTML 的缓存（发版后无需手动刷新）。
+    const _url = new URL(window.location.href);
+    if (!_url.searchParams.get('_t')) {
+      _url.searchParams.set('_t', String(Date.now()));
+      window.location.replace(_url.toString());
+      return;
+    }
     if (dd.env.platform === 'notInDingTalk') {
       setErrMsg('请在钉钉客户端打开');
       return;

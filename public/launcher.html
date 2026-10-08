@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>佩蒂OMS</title>
+  <style>
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      color: #666;
+      background: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">加载中…</div>
+  <script>
+    // ========== 钉钉微应用入口跳板 ==========
+    // 钉钉后台「首页地址」固定配置： http://oms.peidigroup.cn/launcher.html （配一次永久不改）
+    // 每次打开微应用，这里重定向到 /user/dd 并带上【本次打开的全新时间戳】：
+    //   URL 变了 → webview 缓存 key 必变 → 必然回源拉取最新的 index.html → 发版后无需手动刷新
+    (function () {
+      var target = '/user/dd?_t=' + Date.now();
+      // replace 不产生历史记录，防止用户按返回键又回到跳板
+      location.replace(target);
+    })();
+  </script>
+</body>
+</html>
