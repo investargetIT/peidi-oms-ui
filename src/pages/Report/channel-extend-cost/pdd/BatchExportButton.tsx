@@ -23,7 +23,7 @@ const PddBatchExportButton: React.FC<BatchExportButtonProps> = ({ channel, yearM
   <BatchExportButton
     channel={channel}
     yearMonth={yearMonth}
-    fetchShops={() => fetchChannelShops(channel)}
+    fetchShops={() => fetchChannelShops(channel, channel, { platformOnly: true })}
     renderShopExcel={(shop, shopName) =>
       renderGenericShopStatExcel({
         shopId: shop.id as number,

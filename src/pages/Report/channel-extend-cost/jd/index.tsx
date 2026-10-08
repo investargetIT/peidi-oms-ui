@@ -24,17 +24,20 @@ import JdBatchExportButton from './BatchExportButton';
 // 费用分类统计：取「京东账单收支计算列表」总计行每列的合计，
 // 按 分类/管报名称/业务描述 归类展示（样式参考拼多多费用统计弹窗）
 // source: 'jd2' 表示该行金额不从账单收支取，改从「京东钱包支出分类统计」对应分类取
+// sumDescs: 金额 = 账单收支总计行这些业务描述列之和（desc 仅作展示名，如佣金 = 佣金 + 价保返佣）
 const JD1_CATEGORY_MAPPING: {
   major: string;
   category: string;
   desc: string;
   source?: 'jd2';
+  sumDescs?: string[];
 }[] = [
   { major: '推广费', category: '京东联盟', desc: '京东联盟', source: 'jd2' },
   { major: '平台费用', category: '交易服务费', desc: '交易服务费' },
   { major: '平台费用', category: '白条', desc: '代收白条网络推广技术服务费' },
-  { major: '其他', category: '其他', desc: '价保返佣' },
-  { major: '平台费用', category: '佣金', desc: '佣金' },
+  { major: '平台费用', category: '佣金', desc: '佣金', sumDescs: ['佣金', '价保返佣'] },
+  { major: '平台费用', category: '直营服务费', desc: '直营服务费' },
+  { major: '平台费用', category: '运营服务费', desc: '运营服务费' },
   { major: '其他', category: '其他', desc: '货款' },
   { major: '平台费用', category: '运费险', desc: '运费保险服务费' },
   { major: '平台费用', category: '京豆', desc: '随单送的京豆' },
@@ -43,6 +46,12 @@ const JD1_CATEGORY_MAPPING: {
   { major: '其他', category: '其他', desc: '代收配送费' },
   { major: '其他', category: '其他', desc: '综合违约金' },
 ];
+
+// 已合并进「佣金」行的业务描述：不单独展示，也不再作为兜底列追加到末尾
+const MERGED_INTO_COMMISSION_DESCS = ['价保返佣'];
+
+// 即使当月无对应业务描述列也必须展示的行（金额显示 '-'）
+const FORCED_SHOW_DESCS = ['交易服务费', '直营服务费', '运营服务费'];
 
 // 按「第一层分类 → 第二层管报名称」排序后的映射（相同层的行排在一起，合并才连续），
 // 组间顺序按清单首次出现先后（稳定排序，组内保持原相对顺序）。
@@ -372,9 +381,10 @@ const JdExtendCostPanel: React.FC = () => {
     '运营服务费',
   ];
 
-  // 收款 = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
+  // 收款 = A + 中转履约服务费 − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
   // A = 京东账单收支计算列表(总计行)里 7 个业务描述的合计
   // 扣减项里 "直赔代扣/违约金/价保/售后/先行赔付/挽单补偿险" 来自京东钱包支出分类统计
+  // "中转履约服务费" 来自京东账单收支计算列表(总计行)对应业务描述列，作为 A 的加项
   // 注："价保扣款" 当前后端 jd1CalculateStat 还没返回，写在这等后续补上后自动生效
   const COLLECTION_A_CATEGORIES = [
     '代收配送费',
@@ -393,6 +403,8 @@ const JdExtendCostPanel: React.FC = () => {
     '先行赔付',
     '挽单补偿险',
   ];
+  // 收款 A 里的加项：取 jd1 账单收支计算列表「总计行」对应业务描述列（如 中转履约服务费）
+  const COLLECTION_JD1_ADD_DESCS = ['中转履约服务费'];
 
   // 本期费用 = (代收白条网络推广技术服务费 + 交易服务费 + 随单送的京豆
   //           + 运费保险服务费 + 价保返佣 + 佣金 + 直营服务费
@@ -423,48 +435,68 @@ const JdExtendCostPanel: React.FC = () => {
 
   // 费用分类统计数据行 + 分类合并(rowSpan)元信息（映射排序见模块级 SORTED_JD1_CATEGORY_MAPPING）
   const jd1CategoryTable = useMemo(() => {
-    const majorCount: Record<string, number> = {};
-    const categoryCount: Record<string, number> = {};
-    const majorFirstIndex: Record<string, number> = {};
-    const categoryFirstIndex: Record<string, number> = {};
-    const rows = SORTED_JD1_CATEGORY_MAPPING.map((m, index) => {
-      const majorKey = m.major;
+    // 1) 先按固定映射拼出所有候选行（含金额）；source/sumDescs 逻辑同前
+    const candidateRows = SORTED_JD1_CATEGORY_MAPPING.map((m, index) => {
       const catKey = `${m.major}-${m.category}`;
-      if (majorFirstIndex[majorKey] === undefined) majorFirstIndex[majorKey] = index;
-      if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
-      majorCount[majorKey] = (majorCount[majorKey] || 0) + 1;
-      categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
-      // 列在账单收支数据里不存在时展示 '-'；
-      // source === 'jd2' 的行（推广费-京东联盟）金额改从「京东钱包支出分类统计」对应分类取
+      // 列在账单收支数据里不存在时 amount 为 undefined（展示 '-'）；
+      // source === 'jd2' 的行（推广费-京东联盟）金额改从「京东钱包支出分类统计」对应分类取；
+      // sumDescs 的行金额 = 这些业务描述列之和（佣金 = 总计的佣金 + 总计的价保返佣）
       let amount: number | undefined;
       if (m.source === 'jd2') {
         const jd2Row = pivotedJd2Data[0];
         amount = jd2Row && typeof jd2Row[m.desc] === 'number' ? jd2Row[m.desc] : undefined;
+      } else if (Array.isArray(m.sumDescs) && m.sumDescs.length > 0) {
+        const present = m.sumDescs.filter((d) => jd1BusinessDescList.includes(d));
+        amount =
+          present.length > 0
+            ? present.reduce((sum, d) => sum + (jd1SummaryRow[d] || 0), 0)
+            : undefined;
       } else {
         amount = jd1BusinessDescList.includes(m.desc) ? jd1SummaryRow[m.desc] : undefined;
       }
       return { ...m, key: `${catKey}-${index}`, keyIndex: index, amount };
     });
+
     // 兜底：数据里出现但映射清单之外的业务描述 → 追加到末尾，归类为 空-空-业务描述
-    const mappedDescs = new Set(JD1_CATEGORY_MAPPING.map((m) => m.desc));
+    // （已合并进其他行的 desc（如价保返佣）不再单独追加）
+    const mappedDescs = new Set([
+      ...JD1_CATEGORY_MAPPING.map((m) => m.desc),
+      ...MERGED_INTO_COMMISSION_DESCS,
+    ]);
     const unmappedDescs = jd1BusinessDescList.filter((desc) => !mappedDescs.has(desc));
     unmappedDescs.forEach((desc, i) => {
-      const index = rows.length;
       const catKey = `${''}-${''}`;
-      if (majorFirstIndex[''] === undefined) majorFirstIndex[''] = index;
-      if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
-      majorCount[''] = (majorCount[''] || 0) + 1;
-      categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
-      rows.push({
+      candidateRows.push({
         major: '',
         category: '',
         desc,
         originIndex: -1,
         key: `${catKey}-extra-${i}`,
-        keyIndex: index,
+        keyIndex: candidateRows.length,
         amount: jd1SummaryRow[desc],
       });
     });
+
+    // 2) 过滤：业务描述没数据就不展示；交易服务费/直营服务费/运营服务费必须展示（没数据也展示 '-'）
+    const filteredRows = candidateRows.filter(
+      (r) => r.amount !== undefined || FORCED_SHOW_DESCS.includes(r.desc),
+    );
+
+    // 3) 按过滤后的最终顺序重算 rowSpan 合并元信息（keyIndex 对齐最终下标，渲染比对才成立）
+    const majorCount: Record<string, number> = {};
+    const categoryCount: Record<string, number> = {};
+    const majorFirstIndex: Record<string, number> = {};
+    const categoryFirstIndex: Record<string, number> = {};
+    const rows = filteredRows.map((r, index) => {
+      const majorKey = r.major;
+      const catKey = `${r.major}-${r.category}`;
+      if (majorFirstIndex[majorKey] === undefined) majorFirstIndex[majorKey] = index;
+      if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
+      majorCount[majorKey] = (majorCount[majorKey] || 0) + 1;
+      categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
+      return { ...r, keyIndex: index };
+    });
+
     return { rows, majorCount, categoryCount, majorFirstIndex, categoryFirstIndex };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jd1SummaryRow, jd1BusinessDescList, pivotedJd2Data]);
@@ -489,7 +521,12 @@ const JdExtendCostPanel: React.FC = () => {
       (sum, cat) => sum + (typeof jd2Row[cat] === 'number' ? jd2Row[cat] : 0),
       0,
     );
-    const collection = collectionA - collectionDeduct;
+    // 收款 A 里的加项：取 jd1 账单收支总计行的（中转履约服务费）
+    const collectionJd1Add = COLLECTION_JD1_ADD_DESCS.reduce(
+      (sum, desc) => sum + (typeof jd1SummaryRow[desc] === 'number' ? jd1SummaryRow[desc] : 0),
+      0,
+    );
+    const collection = collectionA + collectionJd1Add - collectionDeduct;
 
     // 本期费用 = 6 项 jd1 总计列之和 - jd2 京东联盟
     const expenseJd1Sum = EXPENSE_JD1_CATEGORIES.reduce(
@@ -744,12 +781,13 @@ const JdExtendCostPanel: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <strong>收款</strong> = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 −
-                      挽单补偿险
+                      <strong>收款</strong> = A + 中转履约服务费 − 直赔代扣 − 违约金 − 价保 − 售后 −
+                      先行赔付 − 挽单补偿险
                     </div>
                     <div style={{ marginLeft: 16 }}>
-                      A = {COLLECTION_A_CATEGORIES.map((c) => `账单收支总计行的${c}`).join(' + ')}；
-                      扣减项取自钱包支出分类统计
+                      A = {COLLECTION_A_CATEGORIES.map((c) => `账单收支总计行的${c}`).join(' + ')}，
+                      再加 账单收支总计行的中转履约服务费（A + 中转履约服务费）− 扣减项里
+                      直赔代扣/违约金/价保/售后/先行赔付/挽单补偿险 取自钱包支出分类统计
                     </div>
                     <div>
                       <strong>校验</strong> = 期末余额 − （上月余额 + 本期费用 + 收款 − 提现），
@@ -779,7 +817,11 @@ const JdExtendCostPanel: React.FC = () => {
                   <strong>费用分类统计：</strong>
                   取「京东账单收支计算列表」总计行每列的合计，按固定映射归类为
                   分类-管报名称-业务描述；其中「推广费-京东联盟-京东联盟」的金额取自
-                  「京东钱包支出分类统计」的京东联盟分类。完整映射如下，可搜索 / 按分类、管报名称筛选：
+                  「京东钱包支出分类统计」的京东联盟分类；「佣金」= 总计的佣金 +
+                  总计的价保返佣（价保返佣不单独展示）；「直营服务费」「运营服务费」
+                  按 平台费用-直营服务费/运营服务费 归类。默认仅展示当月有对应业务描述的行；
+                  交易服务费、直营服务费、运营服务费固定展示（无数据时金额显示 -）。
+                  完整映射如下，可搜索 / 按分类、管报名称筛选：
                   <div style={{ marginTop: 8 }}>
                     <Input
                       placeholder="搜索分类 / 管报名称 / 业务描述"

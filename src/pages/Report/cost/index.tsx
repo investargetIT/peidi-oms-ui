@@ -12,14 +12,26 @@ import {
   Upload,
   message,
 } from 'antd';
-import { SearchOutlined, EditOutlined, UploadOutlined, FileTextOutlined } from '@ant-design/icons';
+import { SearchOutlined, EditOutlined, UploadOutlined, FileTextOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import type { UploadProps } from 'antd';
 import FinanceUnitCostApi, {
   type FinanceUnitCostVo,
   type FinanceUnitCostPageReq,
   type FinanceUnitCostUpdateReq,
 } from '@/services/financeUnitCostApi';
+
+// Excel 单元格细边框（导出用）
+function thinBorder(): Partial<ExcelJS.Borders> {
+  return {
+    top: { style: 'thin' },
+    left: { style: 'thin' },
+    bottom: { style: 'thin' },
+    right: { style: 'thin' },
+  };
+}
 
 const CostTab: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -37,6 +49,8 @@ const CostTab: React.FC = () => {
   const [importDate, setImportDate] = useState<string>(dayjs().format('YYYY-MM'));
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  // 导出全部数据 loading
+  const [exporting, setExporting] = useState(false);
   // 导入结果详情弹窗
   const [importResult, setImportResult] = useState<{
     addCount: number;
@@ -71,7 +85,7 @@ const CostTab: React.FC = () => {
   const [searchProductNo, setSearchProductNo] = useState<string>('');
   const [searchU9No, setSearchU9No] = useState<string>('');
   const [searchIsNewProduct, setSearchIsNewProduct] = useState<string | undefined>(undefined);
-  const [searchMonth, setSearchMonth] = useState<Dayjs | null>(dayjs());
+  const [searchMonth, setSearchMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
   const [searchGroup, setSearchGroup] = useState<string>('');
 
   // 分页查询
@@ -138,6 +152,125 @@ const CostTab: React.FC = () => {
     setSearchMonth(null);
     setSearchGroup('');
     setPagination((prev) => ({ ...prev, current: 1 }));
+  };
+
+  // 导出表格所有数据：按当前筛选条件拉全量（不分页），生成 Excel 下载
+  const handleExportAll = async () => {
+    setExporting(true);
+    try {
+      const searchParams: FinanceUnitCostPageReq = {
+        pageNum: 1,
+        pageSize: 9999,
+        brandName: searchBrandName || undefined,
+        merchantCode: searchMerchantCode || undefined,
+        productNo: searchProductNo || undefined,
+        u9No: searchU9No || undefined,
+        isNewProduct: searchIsNewProduct || undefined,
+        group: searchGroup || undefined,
+      };
+      // 与列表查询一致：有月份时转成 createdAt 起点时间
+      if (searchMonth) {
+        searchParams.createdAt = searchMonth.startOf('month').format('YYYY-MM-DD HH:mm:ss');
+      }
+
+      const res = await FinanceUnitCostApi.getPage(searchParams);
+      if (res.code !== 200) {
+        message.error(res.msg || '导出失败');
+        return;
+      }
+      const records = res.data.records || [];
+      if (records.length === 0) {
+        message.warning('当前筛选条件下没有可导出的数据');
+        return;
+      }
+
+      // 表头与页面表格一致（不含「操作」列）
+      const HEADERS: { name: string; align: 'left' | 'right' }[] = [
+        { name: '组织', align: 'left' },
+        { name: '品牌', align: 'left' },
+        { name: '系列分类', align: 'left' },
+        { name: '料号', align: 'left' },
+        { name: '条码', align: 'left' },
+        { name: '货号', align: 'left' },
+        { name: '品名', align: 'left' },
+        { name: '财务单位成本', align: 'right' },
+        { name: '内部转移单价', align: 'right' },
+        { name: '备注', align: 'left' },
+        { name: '自有/外采', align: 'left' },
+        { name: '是否新品', align: 'left' },
+      ];
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'peidi-oms-ui';
+      workbook.created = new Date();
+      const ws = workbook.addWorksheet('成本核算');
+
+      // 列宽（索引对齐 HEADERS）
+      const COL_WIDTHS = [12, 16, 14, 12, 16, 16, 28, 14, 14, 16, 12, 12];
+      ws.columns = HEADERS.map((h, i) => ({
+        header: h.name,
+        key: `c${i}`,
+        width: COL_WIDTHS[i],
+      }));
+
+      // 表头样式：灰底加粗居中
+      ws.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true, size: 12 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } };
+        cell.border = thinBorder();
+      });
+
+      // 数据行
+      records.forEach((r: FinanceUnitCostVo) => {
+        const values: (string | number | undefined)[] = [
+          r.group || '',
+          r.brandName || '',
+          r.spu || '',
+          r.u9No || '',
+          r.merchantCode || '',
+          r.productNo || '',
+          r.goodsName || '',
+          r.financeCost,
+          r.internalPrice,
+          r.remark || '',
+          r.own || '',
+          r.isNewProduct === '1' ? '是' : r.isNewProduct === '0' ? '否' : r.isNewProduct || '',
+        ];
+        const row = ws.addRow(values);
+        row.eachCell((cell, colIndex) => {
+          cell.border = thinBorder();
+          cell.font = { size: 12 };
+          cell.alignment = {
+            horizontal: (HEADERS[colIndex - 1]?.align || 'left') as 'left' | 'right',
+            vertical: 'middle',
+          };
+          // 金额列保留 2 位小数
+          const key = HEADERS[colIndex - 1]?.name;
+          if (key === '财务单位成本' || key === '内部转移单价') {
+            if (typeof cell.value === 'number') {
+              cell.numFmt = '0.00';
+            }
+          }
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const monthLabel = searchMonth ? searchMonth.format('YYYY-MM') : '全部';
+      const fileName = `成本核算_${monthLabel}_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`;
+      saveAs(
+        new Blob([buffer], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+        fileName,
+      );
+      message.success(`导出成功：共 ${records.length} 条数据`);
+    } catch (error) {
+      console.error('导出成本核算数据失败:', error);
+      message.error('导出失败，请稍后重试');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const uploadProps: UploadProps = {
@@ -489,7 +622,17 @@ const CostTab: React.FC = () => {
               </Space>
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+            <Button
+              type="primary"
+              className="grayblue-btn"
+              style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+              icon={<DownloadOutlined />}
+              onClick={handleExportAll}
+              loading={exporting}
+            >
+              导出所有数据
+            </Button>
             <Button
               type="primary"
               className="grayblue-btn"

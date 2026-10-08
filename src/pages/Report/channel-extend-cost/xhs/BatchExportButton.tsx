@@ -24,7 +24,7 @@ const XhsBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =
   <BatchExportButton
     channel="小红书"
     yearMonth={yearMonth}
-    fetchShops={() => fetchChannelShops('小红书')}
+    fetchShops={() => fetchChannelShops('小红书', '小红书', { platformOnly: true })}
     renderShopExcel={async (shop, shopName) => {
       const shopId = shop.id as number;
       // 1. 明细：新接口 /xhs-cost-stat

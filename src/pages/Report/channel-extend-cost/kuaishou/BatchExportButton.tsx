@@ -24,7 +24,7 @@ const KuaishouBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth
   <BatchExportButton
     channel="快手"
     yearMonth={yearMonth}
-    fetchShops={() => fetchChannelShops('快手')}
+    fetchShops={() => fetchChannelShops('快手', '快手', { platformOnly: true })}
     renderShopExcel={async (shop, shopName) => {
       const shopId = shop.id as number;
       // 1. 明细：新接口 /kuaishou-cost-stat

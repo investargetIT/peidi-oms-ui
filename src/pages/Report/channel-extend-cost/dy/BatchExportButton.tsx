@@ -24,7 +24,7 @@ const DyBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =>
   <BatchExportButton
     channel="抖音"
     yearMonth={yearMonth}
-    fetchShops={() => fetchChannelShops('抖音')}
+    fetchShops={() => fetchChannelShops('抖音', '抖音', { platformOnly: true })}
     renderShopExcel={async (shop, shopName) => {
       const shopId = shop.id as number;
       // 1. 明细表：新接口 /dy-cost-stat

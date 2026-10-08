@@ -24,6 +24,7 @@ import ManagementReportApi, {
 } from '@/services/managementReportApi';
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
+import ExportAllBillsButton from '../common/ExportAllBillsButton';
 
 const ZfbBillPanel: React.FC = () => {
   const { addTask, updateTask } = useUploadTasks();
@@ -470,6 +471,19 @@ const ZfbBillPanel: React.FC = () => {
               >
                 上传缺货赔付账单
               </Button>
+              {/* 导出所有账单文件：按当前筛选条件导出全量账单 */}
+              <ExportAllBillsButton
+                platform="支付宝"
+                fileNamePrefix="支付宝"
+                query={() => ({
+                  billDate: billDate ? billDate.format('YYYY-MM') : undefined,
+                  shopName: shopName || undefined,
+                  companyName: companyName || undefined,
+                  alipayMerchantNo: alipayMerchantNo || undefined,
+                  merchantName: merchantName || undefined,
+                  generateStatus,
+                })}
+              />
               {/* 批量导出功能暂时关闭
               <Button
                 type="primary"

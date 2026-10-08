@@ -26,6 +26,7 @@ import ManagementReportApi, {
 } from '@/services/managementReportApi';
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
+import ExportAllBillsButton from '../common/ExportAllBillsButton';
 
 const DyBillPanel: React.FC = () => {
   const { addTask, updateTask } = useUploadTasks();
@@ -279,6 +280,16 @@ const DyBillPanel: React.FC = () => {
               >
                 上传账单
               </Button>
+              {/* 导出所有账单文件：按当前筛选条件导出全量账单 */}
+              <ExportAllBillsButton
+                platform="抖音"
+                fileNamePrefix="抖音"
+                query={() => ({
+                  billDate: billDate ? billDate.format('YYYY-MM') : undefined,
+                  shopName: shopName || undefined,
+                  generateStatus,
+                })}
+              />
             </Space>
           </div>
         </div>

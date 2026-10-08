@@ -72,7 +72,7 @@ const DEDUCT_CATEGORIES = [
   '运营服务费',
 ];
 
-// 收款 = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
+// 收款 = A + 中转履约服务费 − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
 const COLLECTION_A_CATEGORIES = [
   '代收配送费',
   '货款',
@@ -83,6 +83,8 @@ const COLLECTION_A_CATEGORIES = [
   '综合违约金',
 ];
 const COLLECTION_DEDUCT_CATEGORIES = ['直赔代扣', '违约金', '价保', '售后', '先行赔付', '挽单补偿险'];
+// 收款 A 里的加项：取 jd1 账单收支计算列表「总计行」对应业务描述列（如 中转履约服务费）
+const COLLECTION_JD1_ADD_DESCS = ['中转履约服务费'];
 
 // 本期费用 = 9 项 jd1 总计列之和 − 钱包支出里的京东联盟、运营服务费
 const EXPENSE_JD1_CATEGORIES = [
@@ -104,6 +106,8 @@ export interface JdCategoryMapping {
   category: string;
   desc: string;
   source?: 'jd2';
+  /** 金额 = 账单收支总计行这些业务描述列之和（desc 仅作展示名，如佣金 = 佣金 + 价保返佣） */
+  sumDescs?: string[];
 }
 
 // 费用分类统计：取「京东账单收支计算列表」总计行每列的合计，
@@ -113,8 +117,9 @@ const JD1_CATEGORY_MAPPING: JdCategoryMapping[] = [
   { major: '推广费', category: '京东联盟', desc: '京东联盟', source: 'jd2' },
   { major: '平台费用', category: '交易服务费', desc: '交易服务费' },
   { major: '平台费用', category: '白条', desc: '代收白条网络推广技术服务费' },
-  { major: '其他', category: '其他', desc: '价保返佣' },
-  { major: '平台费用', category: '佣金', desc: '佣金' },
+  { major: '平台费用', category: '佣金', desc: '佣金', sumDescs: ['佣金', '价保返佣'] },
+  { major: '平台费用', category: '直营服务费', desc: '直营服务费' },
+  { major: '平台费用', category: '运营服务费', desc: '运营服务费' },
   { major: '其他', category: '其他', desc: '货款' },
   { major: '平台费用', category: '运费险', desc: '运费保险服务费' },
   { major: '平台费用', category: '京豆', desc: '随单送的京豆' },
@@ -123,6 +128,12 @@ const JD1_CATEGORY_MAPPING: JdCategoryMapping[] = [
   { major: '其他', category: '其他', desc: '代收配送费' },
   { major: '其他', category: '其他', desc: '综合违约金' },
 ];
+
+// 已合并进「佣金」行的业务描述：不单独展示，也不再作为兜底列追加到末尾
+const MERGED_INTO_COMMISSION_DESCS = ['价保返佣'];
+
+// 即使当月无对应业务描述列也必须展示的行（金额显示 '-'）
+const FORCED_SHOW_DESCS = ['交易服务费', '直营服务费', '运营服务费'];
 
 // 按「第一层分类 → 第二层管报名称」排序后的映射（相同层的行排在一起，合并才连续），
 // 组间顺序按清单首次出现先后（稳定排序，组内保持原相对顺序）。
@@ -184,40 +195,54 @@ export function buildJdCategoryTable(args: {
   pivotedJd2: Record<string, number>[];
 }): JdCategoryTable {
   const { jd1SummaryRow, jd1Columns, pivotedJd2 } = args;
-  const majorCount: Record<string, number> = {};
-  const categoryCount: Record<string, number> = {};
-  const majorFirstIndex: Record<string, number> = {};
-  const categoryFirstIndex: Record<string, number> = {};
-  const rows: JdCategoryRow[] = [];
 
-  SORTED_JD1_CATEGORY_MAPPING.forEach((m, index) => {
-    const majorKey = m.major;
-    const catKey = `${m.major}-${m.category}`;
-    if (majorFirstIndex[majorKey] === undefined) majorFirstIndex[majorKey] = index;
-    if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
-    majorCount[majorKey] = (majorCount[majorKey] || 0) + 1;
-    categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
+  // 1) 先按固定映射拼出所有候选行（含金额）；source/sumDescs 逻辑同弹窗
+  const candidateRows: JdCategoryRow[] = SORTED_JD1_CATEGORY_MAPPING.map((m) => {
     let amount: number | undefined;
     if (m.source === 'jd2') {
       const jd2Row = pivotedJd2[0];
       amount = jd2Row && typeof jd2Row[m.desc] === 'number' ? jd2Row[m.desc] : undefined;
+    } else if (m.sumDescs && m.sumDescs.length > 0) {
+      // 佣金 = 总计的佣金 + 总计的价保返佣（价保返佣不单独展示）
+      const present = m.sumDescs.filter((desc) => jd1Columns.includes(desc));
+      amount =
+        present.length > 0
+          ? present.reduce((sum, desc) => sum + num(jd1SummaryRow[desc]), 0)
+          : undefined;
     } else {
       amount = jd1Columns.includes(m.desc) ? jd1SummaryRow[m.desc] : undefined;
     }
-    rows.push({ major: m.major, category: m.category, desc: m.desc, amount });
+    return { major: m.major, category: m.category, desc: m.desc, amount };
   });
 
   // 兜底：数据里出现但映射清单之外的业务描述 → 追加到末尾，归类为「空-空-该业务描述」
-  const mappedDescs = new Set(JD1_CATEGORY_MAPPING.map((m) => m.desc));
+  // （已合并进其他行的 desc（如价保返佣）不再单独追加）
+  const mappedDescs = new Set([
+    ...JD1_CATEGORY_MAPPING.map((m) => m.desc),
+    ...MERGED_INTO_COMMISSION_DESCS,
+  ]);
   const unmappedDescs = jd1Columns.filter((desc) => !mappedDescs.has(desc));
   unmappedDescs.forEach((desc) => {
-    const index = rows.length;
-    const catKey = `${''}-${''}`;
-    if (majorFirstIndex[''] === undefined) majorFirstIndex[''] = index;
+    candidateRows.push({ major: '', category: '', desc, amount: jd1SummaryRow[desc] });
+  });
+
+  // 2) 过滤：业务描述没数据就不展示；交易服务费/直营服务费/运营服务费必须展示（没数据也展示 '-'）
+  const rows = candidateRows.filter(
+    (r) => r.amount !== undefined || FORCED_SHOW_DESCS.includes(r.desc),
+  );
+
+  // 3) 按过滤后的最终顺序重算 rowSpan 合并元信息（Excel 渲染用数组下标对齐）
+  const majorCount: Record<string, number> = {};
+  const categoryCount: Record<string, number> = {};
+  const majorFirstIndex: Record<string, number> = {};
+  const categoryFirstIndex: Record<string, number> = {};
+  rows.forEach((row, index) => {
+    const majorKey = row.major;
+    const catKey = `${row.major}-${row.category}`;
+    if (majorFirstIndex[majorKey] === undefined) majorFirstIndex[majorKey] = index;
     if (categoryFirstIndex[catKey] === undefined) categoryFirstIndex[catKey] = index;
-    majorCount[''] = (majorCount[''] || 0) + 1;
+    majorCount[majorKey] = (majorCount[majorKey] || 0) + 1;
     categoryCount[catKey] = (categoryCount[catKey] || 0) + 1;
-    rows.push({ major: '', category: '', desc, amount: jd1SummaryRow[desc] });
   });
 
   return { rows, majorCount, categoryCount, majorFirstIndex, categoryFirstIndex };
@@ -315,7 +340,12 @@ export function buildJdStat(args: BuildJdStatArgs): JdBatchStatResult {
     (sum, cat) => sum + num(jd2Row[cat]),
     0,
   );
-  const collection = collectionA - collectionDeduct;
+  // 收款 A 里的加项：取 jd1 账单收支总计行的（中转履约服务费）
+  const collectionJd1Add = COLLECTION_JD1_ADD_DESCS.reduce(
+    (sum, desc) => sum + num(jd1SummaryRow[desc]),
+    0,
+  );
+  const collection = collectionA + collectionJd1Add - collectionDeduct;
 
   const expenseJd1Sum = EXPENSE_JD1_CATEGORIES.reduce(
     (sum, desc) => sum + num(jd1SummaryRow[desc]),

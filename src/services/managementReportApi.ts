@@ -608,10 +608,36 @@ export class ManagementReportApi {
   /**
    * 各渠道月账单 - 批量下载（后端代理打包为 ZIP 返回，避免 OSS CORS 限制）
    * 后端实现思路：接收 ids 列表，服务端到 OSS 拉取文件，打包成 zip 流式返回（Content-Type: application/zip）
+   * channel 可选：微信/微盟 platform 同为「微信」，需要显式传 channel 区分（微盟传「微盟」）
    */
-  static async batchDownloadZfbBill(params: { ids: number[]; platform?: string }): Promise<Blob> {
+  static async batchDownloadZfbBill(params: {
+    ids: number[];
+    platform?: string;
+    channel?: string;
+  }): Promise<Blob> {
     const resp = await billRequest.post('/finance/zfb-bill/batch-download', params, {
       responseType: 'blob',
+    });
+    return resp as unknown as Blob;
+  }
+  /**
+   * 各渠道月账单 - 导出所有账单文件（后端代理打包 ZIP 返回，避免 OSS CORS 限制）
+   * GET /oms/finance/bill/download?billDate=yyyy-MM&platform=...
+   * 入参：{ billDate: yyyy-MM, platform? }（platform 为空则下载所有平台）
+   * 返回：zip Blob（服务端按账单日期/平台到 OSS 拉取全部账单文件打包）
+   */
+  static async downloadBills(params: {
+    /** 账单日期，格式 yyyy-MM */
+    billDate: string;
+    /** 平台（可选，为空则下载所有平台） */
+    platform?: string;
+    /** 渠道（可选，微信/微盟 platform 同为「微信」时用于区分） */
+    channel?: string;
+  }): Promise<Blob> {
+    const resp = await billRequest.get('/finance/bill/download', {
+      params,
+      responseType: 'blob',
+      showLoading: false,
     });
     return resp as unknown as Blob;
   }
