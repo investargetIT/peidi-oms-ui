@@ -1,4 +1,5 @@
 import type { FinanceDyCostStatVo } from '@/services/channelExtendCostApi';
+import { dyBizDescOf, dyColumnMetaOf } from './dyFeeMapping';
 
 /**
  * 抖音 - 批量导出统计计算
@@ -37,6 +38,15 @@ export interface DyBalanceSummary {
   checkDiff: number;
 }
 
+/** 汇总费用表行（只含 平台费用 / 推广费用 两类） */
+export interface DyExpenseRow {
+  key: string;
+  category: string;
+  mgmtName: string;
+  desc: string;
+  amount: number;
+}
+
 export interface DyBatchStatResult {
   /** 动态明细列名（「订单净收入」固定第一个，其余按出现顺序） */
   columnNames: string[];
@@ -46,6 +56,8 @@ export interface DyBatchStatResult {
   summaryRow: Record<string, number>;
   /** 抖音余额对账（顶部汇总表） */
   balance: DyBalanceSummary;
+  /** 汇总费用表行（弹窗「汇总费用」表，与 dyExpenseSummaryRows 完全同口径） */
+  expenseSummaryRows: DyExpenseRow[];
 }
 
 /** 该分类 details 里某明细项的值（缺失 / 非数字按 0 处理） */
@@ -147,6 +159,53 @@ export function getDySummaryRow(
   acc['收入金额'] = incomeSum;
   acc['支出金额'] = expenseSum;
   return acc;
+}
+
+/**
+ * 汇总费用表（与弹窗 dyExpenseSummaryRows 完全同口径，只取 平台费用 / 推广费用 两类）：
+ *   1) 首层分类行（业务描述（分类别）映射后属于 平台费用 / 推广费用）：
+ *      支出金额 = 该分类「支出金额（出账）」＝ 首层 value 为负的部分（保留负号），非负计 0
+ *   2) 费用列行（动态明细列的费用分类属于 平台费用 / 推广费用）：
+ *      支出金额 = 该列的纵向合计（当列总计，即 summaryRow 对应列的值）
+ * 排序：平台费用 → 推广费用（组间固定顺序）；组内先首层分类行、后费用列行，保持出现顺序。
+ */
+export function getDyExpenseSummaryRows(args: {
+  data: FinanceDyCostStatVo[];
+  columnNames: string[];
+  summaryRow: Record<string, number>;
+}): DyExpenseRow[] {
+  const { data, columnNames, summaryRow } = args;
+  const rows: DyExpenseRow[] = [];
+  // 1) 首层分类行：行的数据取支出金额（出账）
+  data.forEach((cat) => {
+    const name = cat.name || '';
+    if (!name) return;
+    const meta = dyBizDescOf(name);
+    if (meta.category !== '平台费用' && meta.category !== '推广费用') return;
+    const v = typeof cat.value === 'number' ? cat.value : 0;
+    rows.push({
+      key: `biz-${name}`,
+      category: meta.category,
+      mgmtName: meta.mgmtName,
+      desc: name,
+      amount: v < 0 ? v : 0,
+    });
+  });
+  // 2) 费用列行：列的数据取当列总计
+  columnNames.forEach((col) => {
+    const meta = dyColumnMetaOf(col);
+    if (meta.feeType !== '平台费用' && meta.feeType !== '推广费用') return;
+    rows.push({
+      key: `col-${col}`,
+      category: meta.feeType,
+      mgmtName: meta.mgmtName,
+      desc: col,
+      amount: typeof summaryRow[col] === 'number' ? summaryRow[col] : 0,
+    });
+  });
+  // 组间排序：平台费用 → 推广费用（sort 为稳定排序，组内顺序不变）
+  const categoryOrder: Record<string, number> = { 平台费用: 0, 推广费用: 1 };
+  return rows.sort((a, b) => (categoryOrder[a.category] ?? 9) - (categoryOrder[b.category] ?? 9));
 }
 
 /**
@@ -268,5 +327,10 @@ export function buildDyStat(args: {
     yearMonth: args.yearMonth,
     shopName: args.shopName,
   });
-  return { columnNames, categoryMeta, summaryRow, balance };
+  const expenseSummaryRows = getDyExpenseSummaryRows({
+    data: args.dyStatData,
+    columnNames,
+    summaryRow,
+  });
+  return { columnNames, categoryMeta, summaryRow, balance, expenseSummaryRows };
 }

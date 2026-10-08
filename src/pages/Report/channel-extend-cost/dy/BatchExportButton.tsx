@@ -55,7 +55,7 @@ const DyBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =>
       return renderDyStatExcel(emptyStat, []);
     }}
     descriptionLines={[
-      '· 每店一个 Excel，含 2 个 Sheet：抖音余额对账 + 抖音费用明细（按业务分类）',
+      '· 每店一个 Excel，含 3 个 Sheet：抖音余额对账 + 抖音汇总费用（仅平台/推广费用）+ 抖音费用明细（按业务分类）',
       '· 明细表列按接口 details 动态生成，口径与前端弹窗完全一致（含合计行）',
       '· 失败的店铺会生成空模板，错误信息写入 zip 内的 _失败明细.txt',
     ]}

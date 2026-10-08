@@ -1,14 +1,16 @@
 import ExcelJS from 'exceljs';
-import type { DyBatchStatResult } from './batchStatBuilder';
+import type { DyBatchStatResult, DyExpenseRow } from './batchStatBuilder';
 import type { FinanceDyCostStatVo } from '@/services/channelExtendCostApi';
 import { dyBizDescOf, dyColumnMetaOf, sortDyRowsByCategory } from './dyFeeMapping';
 
 /**
  * 抖音 - 批量导出 Excel 渲染
  *
- * 每家店一个 Excel，含 2 个 Sheet，对应「费用统计」弹窗里的 2 张表：
+ * 每家店一个 Excel，含 3 个 Sheet，对应「费用统计」弹窗里的 3 张表：
  *   Sheet 1「抖音余额对账」 —— 单行 11 列（列与弹窗顶部汇总表一致）
- *   Sheet 2「抖音费用明细」 —— 表头 2 行（动态明细列上方一组组头：费用分类），
+ *   Sheet 2「抖音汇总费用」 —— 4 列（分类 / 管报名称 / 业务描述（分类别）/ 支出金额），
+ *          只含 平台费用 / 推广费用 两类的行 + 末尾「合计」行（与弹窗「汇总费用」表一致）
+ *   Sheet 3「抖音费用明细」 —— 表头 2 行（动态明细列上方一组组头：费用分类），
  *          每个业务分类一行 + 末尾「合计」行，
  *          列 = 分类 + 管报名称 + 业务描述（分类别）+ 动态明细列 + 收入金额（入账）+ 支出金额（出账）
  */
@@ -89,7 +91,96 @@ function renderBalanceSheet(workbook: ExcelJS.Workbook, result: DyBatchStatResul
   };
 }
 
-// ===== Sheet 2：抖音费用明细 =====
+// ===== Sheet 2：抖音汇总费用 =====
+function renderExpenseSummarySheet(workbook: ExcelJS.Workbook, result: DyBatchStatResult) {
+  const ws = workbook.addWorksheet('抖音汇总费用');
+  const headers = ['分类', '管报名称', '业务描述（分类别）', '支出金额'];
+  ws.addRow(headers).eachCell((cell) => applyHeaderStyle(cell));
+
+  const rows = result.expenseSummaryRows;
+
+  // 「分类 / 管报名称」rowSpan（与弹窗 dyExpenseRowSpans 同口径）：
+  // 排序后按相邻同值分段，段首 rowSpan = 段长、其余 0；管报名称要求分类也相同
+  const buildSpans = (getVal: (r: DyExpenseRow) => string): number[] => {
+    const spans: number[] = rows.map(() => 0);
+    let start = 0;
+    while (start < rows.length) {
+      let end = start + 1;
+      while (end < rows.length && getVal(rows[end]) === getVal(rows[start])) end++;
+      spans[start] = end - start;
+      start = end;
+    }
+    return spans;
+  };
+  const categorySpans = buildSpans((r) => r.category);
+  const mgmtNameSpans = buildSpans((r) => `${r.category}|${r.mgmtName}`);
+
+  const addedRows: ExcelJS.Row[] = [];
+  rows.forEach((row) => {
+    const values: (string | number)[] = [row.category, row.mgmtName, row.desc, round2(row.amount)];
+    addedRows.push(ws.addRow(values));
+  });
+
+  // 合并前清掉非 master 行的合并列值（col 1 分类 / col 2 管报名称）
+  rows.forEach((_, idx) => {
+    if (categorySpans[idx] === 0) addedRows[idx].getCell(1).value = null;
+    if (mgmtNameSpans[idx] === 0) addedRows[idx].getCell(2).value = null;
+  });
+
+  // 合并 + 回写 master 值（规避 ExcelJS 合并丢值的坑）
+  rows.forEach((_, idx) => {
+    const excelRowIdx = idx + 2; // 1 行表头 => 数据从第 2 行起
+    if (categorySpans[idx] > 1) {
+      ws.mergeCells(excelRowIdx, 1, excelRowIdx + categorySpans[idx] - 1, 1);
+    }
+    if (categorySpans[idx] >= 1) addedRows[idx].getCell(1).value = rows[idx].category;
+    if (mgmtNameSpans[idx] > 1) {
+      ws.mergeCells(excelRowIdx, 2, excelRowIdx + mgmtNameSpans[idx] - 1, 2);
+    }
+    if (mgmtNameSpans[idx] >= 1) addedRows[idx].getCell(2).value = rows[idx].mgmtName;
+  });
+
+  // 样式
+  rows.forEach((_, idx) => {
+    const dataRow = addedRows[idx];
+    dataRow.eachCell((cell, col) => {
+      if (col === 1) {
+        cell.font = { size: 12, bold: true };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      } else if (col <= 3) {
+        cell.font = { size: 12 };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      } else {
+        cell.numFmt = '0.00';
+        cell.font = { size: 12 };
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      }
+      cell.border = thinBorder();
+    });
+  });
+
+  // 合计行（末行，加粗 + 灰底，口径与弹窗「汇总费用」表 summary 一致：
+  // 合计 = 本表各行支出金额之和，只含 平台费用 / 推广费用）
+  if (rows.length > 0) {
+    const total = rows.reduce((acc, r) => acc + (typeof r.amount === 'number' ? r.amount : 0), 0);
+    const sumValues: (string | number)[] = ['', '', '合计', round2(total)];
+    const sumRow = ws.addRow(sumValues);
+    sumRow.eachCell((cell, col) => {
+      if (col <= 3) {
+        cell.font = { size: 12, bold: true };
+        cell.alignment = { horizontal: 'left', vertical: 'middle' };
+      } else {
+        cell.numFmt = '0.00';
+        cell.font = { size: 12, bold: true };
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SUMMARY_BG_ARGB } };
+      cell.border = thinBorder();
+    });
+  }
+}
+
+// ===== Sheet 3：抖音费用明细 =====
 function renderDetailSheet(
   workbook: ExcelJS.Workbook,
   result: DyBatchStatResult,
@@ -242,6 +333,7 @@ export async function renderDyStatExcel(
   workbook.created = new Date();
 
   renderBalanceSheet(workbook, result);
+  renderExpenseSummarySheet(workbook, result);
   renderDetailSheet(workbook, result, data);
 
   const buffer = await workbook.xlsx.writeBuffer();
