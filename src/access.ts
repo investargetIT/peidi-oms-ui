@@ -26,6 +26,8 @@ export default function access(
     canGeneralPermissions:
       parentDeptIds.includes(939900386) ||
       parentDeptIds.includes(981619927) ||
+      // 方云
+      userId === '1848656573381541890' ||
       // 徐滨梅
       userId === '1926449443739598860' ||
       // 庄严
@@ -34,6 +36,7 @@ export default function access(
     canFinance:
       parentDeptIds.includes(939900386) ||
       parentDeptIds.includes(981619927) ||
+      userId === '1848656573381541890' || // 方云
       userId === '1926449443739598860' || // 徐滨梅
       userId === '1926449443739598859' || // 庄严
       userId === '1874004550054621185' || // 孙舒欣
