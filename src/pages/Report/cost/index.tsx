@@ -252,6 +252,13 @@ const CostTab: React.FC = () => {
               cell.numFmt = '0.00';
             }
           }
+          // 料号：参考财务「销售单文件上传 - 处理后文件导出」中的料号逻辑，
+          // 直接以文本写入并设置 numFmt='@'，确保后置0不被 Excel 当数字取消掉
+          if (key === '料号') {
+            cell.value =
+              r.u9No === null || r.u9No === undefined ? '' : String(r.u9No).trim();
+            cell.numFmt = '@';
+          }
         });
       });
 

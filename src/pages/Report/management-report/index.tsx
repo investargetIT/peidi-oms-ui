@@ -101,6 +101,10 @@ const ManagementReportTab: React.FC = () => {
       // 表头
       const headers = columns.map((col) => col.title);
       sheet.addRow(headers);
+
+      // 料号列索引：需强制按文本导出，避免前导0/尾数(后置0)被 Excel 当数字处理而丢失
+      const u9ColIndex = columns.findIndex((col) => col.dataIndex === 'u9');
+
       // 数据（原封不动，仅取列对应的 dataIndex 字段）
       dataList.forEach((record) => {
         const rowValues = columns.map((col) => {
@@ -110,7 +114,16 @@ const ManagementReportTab: React.FC = () => {
           }
           return record[col.dataIndex] ?? '';
         });
-        sheet.addRow(rowValues);
+        const row = sheet.addRow(rowValues);
+
+        // 料号：参考财务「销售单文件上传 - 处理后文件导出」中的料号逻辑，
+        // 直接以文本写入并设置 numFmt='@'，确保后置0不被 Excel 当数字取消掉
+        if (u9ColIndex >= 0) {
+          const cell = row.getCell(u9ColIndex + 1);
+          const v = record[columns[u9ColIndex].dataIndex];
+          cell.value = v === null || v === undefined ? '' : String(v).trim();
+          cell.numFmt = '@';
+        }
       });
 
       // 简易列宽
