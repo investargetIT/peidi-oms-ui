@@ -520,6 +520,7 @@ const PendingReview: React.FC = () => {
           loading={downloadLoading}
           disabled={selectedDataList.length === 0}
           type="primary"
+          className="excel-export-btn"
           icon={<DownloadOutlined />}
           onClick={() => handleDownload()}
         >

@@ -179,6 +179,26 @@ export interface FinanceZfbBillInfoVo {
   companyName?: string;
   createdAt?: string;
   endingBalance?: number;
+  /**
+   * 财务收入（元）
+   */
+  financeIncome?: number;
+  /**
+   * 财务支出（元）
+   */
+  financeExpense?: number;
+  /**
+   * 店铺收入（元）
+   */
+  shopIncome?: number;
+  /**
+   * 店铺退款（元）
+   */
+  shopRefund?: number;
+  /**
+   * 推广金额（元）
+   */
+  promotionAmount?: number;
   fileUrl?: string;
   /**
    * 账单文件 URL 列表（与 fileNames 一一对应）

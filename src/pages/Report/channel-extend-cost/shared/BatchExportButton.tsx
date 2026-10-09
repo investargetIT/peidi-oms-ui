@@ -200,8 +200,7 @@ const BatchExportButton: React.FC<BatchExportButtonProps> = ({
       `}</style>
       <Button
         type="primary"
-        className="grayblue-btn"
-        style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+        className="excel-export-btn"
         icon={<DownloadOutlined />}
         onClick={openModal}
       >
@@ -218,8 +217,7 @@ const BatchExportButton: React.FC<BatchExportButtonProps> = ({
         width={560}
         destroyOnClose
         okButtonProps={{
-          className: 'grayblue-btn',
-          style: { background: '#2f54eb', borderColor: '#2f54eb' },
+          className: 'excel-export-btn',
           disabled: shops.length === 0 || exporting,
         }}
       >

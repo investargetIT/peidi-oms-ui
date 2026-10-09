@@ -461,6 +461,7 @@ const ReprocessForShop = () => {
                     <Button
                       disabled={selectedFiles.length === 0}
                       type="primary"
+                      className="excel-export-btn"
                       htmlType="submit"
                       icon={<DownloadOutlined />}
                       onClick={() => fetchListPage(true)}
@@ -476,6 +477,7 @@ const ReprocessForShop = () => {
                 <Button
                   disabled={selectedFiles.length === 0}
                   type="primary"
+                  className="excel-export-btn"
                   htmlType="submit"
                   icon={<DownloadOutlined />}
                   onClick={() => fetchListPage(false)}

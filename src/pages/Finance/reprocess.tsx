@@ -310,6 +310,7 @@ const Reprocess: FC = () => {
               <Button
                 disabled={uploadStatus == 'false' || executeStatus == 'false'}
                 type="primary"
+                className="excel-export-btn"
                 onClick={fetchListPage}
                 htmlType="submit"
                 loading={excelLoading}

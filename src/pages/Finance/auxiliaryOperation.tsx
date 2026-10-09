@@ -1,5 +1,5 @@
 import FinanceApi from '@/services/financeApi';
-import { PlusOutlined, ShopOutlined, UserOutlined } from '@ant-design/icons';
+import { DownloadOutlined, PlusOutlined, ShopOutlined, UserOutlined } from '@ant-design/icons';
 import {
   Alert,
   Button,
@@ -141,6 +141,14 @@ const AuxiliaryOperation: React.FC = () => {
         width={'90vw'}
         extra={
           <Space>
+            <Button
+              type="primary"
+              className="excel-export-btn"
+              icon={<DownloadOutlined />}
+              onClick={() => shopInfoRef.current?.handleShopInfoExport()}
+            >
+              店铺信息导出
+            </Button>
             <Button
               type="primary"
               icon={<PlusOutlined />}

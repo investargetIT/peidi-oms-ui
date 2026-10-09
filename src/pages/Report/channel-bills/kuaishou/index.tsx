@@ -294,7 +294,7 @@ const KsBillPanel: React.FC = () => {
         rowKey="id"
         loading={billLoading}
         size="small"
-        scroll={{ x: 1800 }}
+        scroll={{ x: 2400 }}
         pagination={{
           ...billPagination,
           showSizeChanger: true,

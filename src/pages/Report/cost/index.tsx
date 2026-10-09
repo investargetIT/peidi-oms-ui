@@ -632,8 +632,7 @@ const CostTab: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
             <Button
               type="primary"
-              className="grayblue-btn"
-              style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+              className="excel-export-btn"
               icon={<DownloadOutlined />}
               onClick={handleExportAll}
               loading={exporting}

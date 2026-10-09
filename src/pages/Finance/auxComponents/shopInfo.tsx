@@ -1,10 +1,29 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import FinanceApi from '@/services/financeApi';
 import { Button, Form, FormInstance, Input, message, Modal, Radio, Select, Table } from 'antd';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import dayjs from 'dayjs';
 
 export interface ShopInfoModalRef {
   handleShopInfoAdd: () => void;
+  handleShopInfoExport: () => void;
 }
+
+// 店铺信息导出列（对齐表格主要业务字段）
+const EXPORT_COLUMNS: { title: string; dataIndex: string }[] = [
+  { title: 'ID', dataIndex: 'id' },
+  { title: '店铺名称', dataIndex: 'shopName' },
+  { title: '旺店通店铺名称', dataIndex: 'wdtName' },
+  { title: '渠道', dataIndex: 'channel' },
+  { title: '平台', dataIndex: 'platform' },
+  { title: '组织', dataIndex: 'org' },
+  { title: '成本取值组织', dataIndex: 'unitCostOrg' },
+  { title: '团队', dataIndex: 'team' },
+  { title: '负责人', dataIndex: 'salesman' },
+  { title: '是否参与汇总', dataIndex: 'needSummary' },
+  { title: '是否仅退款', dataIndex: 'needRefund' },
+];
 
 const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
   const [dataSource, setDataSource] = useState<any[]>([]);
@@ -78,6 +97,58 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       } catch (error) {
         message.error('店铺信息修改失败' + error);
       }
+    }
+  };
+  // 店铺信息导出（导出当前全量店铺列表为 Excel）
+  const handleShopInfoExport = async () => {
+    if (!dataSource.length) {
+      message.warning('暂无店铺信息可导出');
+      return;
+    }
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'peidi-oms-ui';
+      workbook.created = new Date();
+      const sheet = workbook.addWorksheet('店铺信息');
+
+      // 表头
+      sheet.addRow(EXPORT_COLUMNS.map((c) => c.title));
+      sheet.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      // 数据
+      dataSource.forEach((record) => {
+        sheet.addRow(
+          EXPORT_COLUMNS.map((c) => {
+            const v = record[c.dataIndex];
+            // 是否参与汇总 / 是否仅退款：1→是 0→否
+            if (c.dataIndex === 'needSummary' || c.dataIndex === 'needRefund') {
+              return v === 1 || v === '1' ? '是' : v === 0 || v === '0' ? '否' : v ?? '';
+            }
+            return v ?? '';
+          }),
+        );
+      });
+
+      // 列宽
+      sheet.columns = EXPORT_COLUMNS.map((c, idx) => ({
+        width: Math.max(12, c.title.length * 2 + 4),
+        key: String(idx),
+      }));
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(
+        new Blob([buffer], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        }),
+        `店铺信息_${dayjs().format('YYYYMMDD_HHmmss')}.xlsx`,
+      );
+      message.success(`导出成功：共 ${dataSource.length} 条`);
+    } catch (error) {
+      console.error('导出店铺信息失败:', error);
+      message.error('导出失败，请稍后重试');
     }
   };
   //#endregion
@@ -331,6 +402,7 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
 
   useImperativeHandle(ref, () => ({
     handleShopInfoAdd,
+    handleShopInfoExport,
     fetchShopPage,
   }));
 

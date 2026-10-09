@@ -83,8 +83,7 @@ const ExportAllBillsButton: React.FC<ExportAllBillsButtonProps> = ({
   return (
     <Button
       type="primary"
-      className="grayblue-btn"
-      style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+      className="excel-export-btn"
       icon={<DownloadOutlined />}
       onClick={handleExport}
       loading={loading}

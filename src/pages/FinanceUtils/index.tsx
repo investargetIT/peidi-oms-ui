@@ -25,7 +25,13 @@ const Debug: FC = () => {
   return (
     <>
       <div style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={handleExport} loading={excelLoading} iconPosition="end">
+        <Button
+          type="primary"
+          className="excel-export-btn"
+          onClick={handleExport}
+          loading={excelLoading}
+          iconPosition="end"
+        >
           导出 Excel
         </Button>
       </div>

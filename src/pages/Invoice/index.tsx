@@ -842,8 +842,8 @@ const Invoice: React.FC = () => {
         <Space size={24}>
           <Button
             type="primary"
+            className="excel-export-btn"
             icon={<DownloadOutlined />}
-            style={{ background: '#217346', borderColor: '#217346' }}
             onClick={handleExportAllData}
           >
             导出未开票数据

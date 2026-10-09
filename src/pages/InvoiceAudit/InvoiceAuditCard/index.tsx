@@ -316,7 +316,12 @@ const InvoiceAuditCard: React.FC<InvoiceAuditCardProps> = ({
       {/* 操作按钮 */}
       <Flex justify="flex-end" align="center" style={{ marginTop: 24 }}>
         {(type === 'success' || type === 'info') && (
-          <Button icon={<DownloadOutlined />} onClick={() => handleDownload()}>
+          <Button
+            type="primary"
+            className="excel-export-btn"
+            icon={<DownloadOutlined />}
+            onClick={() => handleDownload()}
+          >
             下载开票模板
           </Button>
         )}

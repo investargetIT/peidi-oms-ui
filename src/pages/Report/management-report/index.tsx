@@ -565,7 +565,7 @@ const ManagementReportTab: React.FC = () => {
                   </Button>
                   <Button
                     type="primary"
-                    style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+                    className="excel-export-btn"
                     icon={<DownloadOutlined />}
                     onClick={handleMrDownload}
                   >
