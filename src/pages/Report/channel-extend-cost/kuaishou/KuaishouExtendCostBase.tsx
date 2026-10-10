@@ -223,7 +223,7 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
 
   // 快手统计结果（余额对账 + 明细行），与批量导出共用 batchStatBuilder，保证口径一致。
   //   summary：本期收款=收入列之和、本期费用=支出列之和、期末/上月余额来自成本分类统计
-  //   rows    ：固定 5 行模板（其他/平台费用/推广费用），按后端 name 匹配取数
+  //   rows    ：固定行模板（其他/平台费用/推广费用），按后端 name 匹配取数
   const kuaishouStatResult = useMemo(
     () =>
       buildKuaishouStat({
@@ -595,7 +595,7 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                   <div style={{ marginLeft: 16 }}>
                     <div>固定 4 列：<strong>分类</strong> / <strong>管报名称</strong> / <strong>收入</strong> / <strong>支出</strong>。</div>
                     <div>
-                      固定 5 行模板，分类三种：<strong>其他</strong> / <strong>平台费用</strong> / <strong>推广费用</strong>；
+                      固定行模板，分类三种：<strong>其他</strong> / <strong>平台费用</strong> / <strong>推广费用</strong>；
                       按后端返回的 <code>name</code> 匹配取数，<strong>后端未返回该 name 的行不展示</strong>（只展示有数据的行）。
                     </div>
                   </div>
@@ -606,7 +606,7 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                   <strong>三、分类归属规则</strong>
                   <div style={{ marginLeft: 16 }}>
                     <div>· <strong>其他</strong>：其他（净收入）= <code>合计收入</code> - <code>订单退款</code>；</div>
-                    <div>· <strong>平台费用</strong>：技术服务费；</div>
+                    <div>· <strong>平台费用</strong>：技术服务费 / 运费险（后端 运费险类）；</div>
                     <div>· <strong>推广费用</strong>：达人佣金 / 团长佣金 / 服务商佣金。</div>
                   </div>
                 </li>
@@ -616,7 +616,7 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                   <strong>四、收入 / 支出列取值</strong>
                   <div style={{ marginLeft: 16 }}>
                     <div>以模板行为准：净收入按「合计收入 - 订单退款」结果为正填 <strong>收入列</strong>、为负填 <strong>支出列</strong>；</div>
-                    <div>直出行（技术服务费 / 各佣金）按后端 <code>type</code> 判断——「收入」填收入列（正数）、「支出」填支出列（负数，保留负号）。</div>
+                    <div>直出行（技术服务费 / 运费险 / 各佣金）按后端 <code>type</code> 判断——「收入」填收入列（正数）、「支出」填支出列（负数，保留负号）。</div>
                   </div>
                 </li>
 
@@ -625,7 +625,7 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                   <strong>五、合计行</strong>
                   <div style={{ marginLeft: 16 }}>
                     <div>· <strong>收入合计</strong> = 收入列所有值之和（净收入）；</div>
-                    <div>· <strong>支出合计</strong> = 支出列所有值之和（技术服务费 + 各佣金，保留负号）。</div>
+                    <div>· <strong>支出合计</strong> = 支出列所有值之和（技术服务费 + 运费险 + 各佣金，保留负号）。</div>
                   </div>
                 </li>
 

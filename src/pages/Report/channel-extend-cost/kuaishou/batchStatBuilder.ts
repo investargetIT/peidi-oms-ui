@@ -6,9 +6,9 @@ import type { FinanceKuaishouCostStatItemVo } from '@/services/channelExtendCost
  * 从 KuaishouExtendCostBase「费用统计」弹窗里的 useMemo 计算逻辑抽成纯函数，
  * 弹窗渲染和「批量导出 Excel」共用同一份口径，保证两边展示完全一致。
  *
- * 展示形式：固定 5 行模板，按后端返回的 name 匹配取数（参考小红书）：
+ * 展示形式：固定行模板，按后端返回的 name 匹配取数（参考小红书）：
  *   分类「其他」     : 其他（净收入）= 合计收入 - 订单退款
- *   分类「平台费用」 : 技术服务费
+ *   分类「平台费用」 : 技术服务费 / 运费险（运费险类）
  *   分类「推广费用」 : 达人佣金 / 团长佣金 / 服务商佣金
  */
 
@@ -28,6 +28,8 @@ export interface KuaishouRowDef {
 export const KUAISHOU_ROW_DEFS: KuaishouRowDef[] = [
   { category: '其他', displayName: '其他（净收入）', sourceName: '合计收入', net: true },
   { category: '平台费用', displayName: '技术服务费', sourceName: '技术服务费' },
+  // 运费险：后端 business_desc = 运费险类，管报名称展示为「运费险」，归入平台费用
+  { category: '平台费用', displayName: '运费险', sourceName: '运费险类' },
   { category: '推广费用', displayName: '达人佣金', sourceName: '达人佣金' },
   { category: '推广费用', displayName: '团长佣金', sourceName: '团长佣金' },
   { category: '推广费用', displayName: '服务商佣金', sourceName: '服务商佣金' },

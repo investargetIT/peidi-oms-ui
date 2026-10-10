@@ -41,7 +41,13 @@ const KsBillPanel: React.FC = () => {
   const [configList, setConfigList] = useState<FinanceZfbBillConfig[]>([]);
   const [configLoading, setConfigLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | undefined>(undefined);
+  // 快手由「单表上传」改为「双表上传」：
+  //   uploadFile      = 订单流水导出文件（表头 A1：商家ID），支持 zip
+  //   uploadWalletFile= 安心钱包账单文件（表头 A1：账务流水号），可选，用于解析运费险
+  //   uploadStoreZipFile = 归档原始压缩包（如「货款账单.zip」），可选，传入后下载链接即为该 zip
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadWalletFile, setUploadWalletFile] = useState<File | null>(null);
+  const [uploadStoreZipFile, setUploadStoreZipFile] = useState<File | null>(null);
   // 上传走异步任务模式：弹窗关掉后由 UploadTaskDrawer 跟踪，无需在面板内阻塞 UI
 
   const fetchBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
@@ -111,20 +117,51 @@ const KsBillPanel: React.FC = () => {
     setUploadDate(dayjs().subtract(1, 'month'));
     setSelectedConfigId(undefined);
     setUploadFile(null);
+    setUploadWalletFile(null);
+    setUploadStoreZipFile(null);
     setConfigList([]);
     await fetchConfigList();
   };
 
+  // 订单流水导出文件（file，必填）
   const uploadProps: UploadProps = {
     beforeUpload: (file) => {
       setUploadFile(file);
       return false; // 阻止自动上传
     },
-    fileList: uploadFile ? [{ uid: '1', name: uploadFile.name, status: 'done' }] : [],
+    fileList: uploadFile ? [{ uid: 'file', name: uploadFile.name, status: 'done' }] : [],
     onRemove: () => {
       setUploadFile(null);
     },
     // accept: '.xlsx,.xls,.csv',  # 放开文件类型限制(可选所有文件)
+  };
+
+  // 安心钱包账单文件（walletFile，可选）
+  const walletUploadProps: UploadProps = {
+    beforeUpload: (file) => {
+      setUploadWalletFile(file);
+      return false; // 阻止自动上传
+    },
+    fileList: uploadWalletFile
+      ? [{ uid: 'walletFile', name: uploadWalletFile.name, status: 'done' }]
+      : [],
+    onRemove: () => {
+      setUploadWalletFile(null);
+    },
+  };
+
+  // 归档原始压缩包（storeZipFile，可选）
+  const storeZipUploadProps: UploadProps = {
+    beforeUpload: (file) => {
+      setUploadStoreZipFile(file);
+      return false; // 阻止自动上传
+    },
+    fileList: uploadStoreZipFile
+      ? [{ uid: 'storeZipFile', name: uploadStoreZipFile.name, status: 'done' }]
+      : [],
+    onRemove: () => {
+      setUploadStoreZipFile(null);
+    },
   };
 
   const handleUpload = async () => {
@@ -137,12 +174,13 @@ const KsBillPanel: React.FC = () => {
       return;
     }
     if (!uploadFile) {
-      message.error('请选择要上传的账单文件');
+      message.error('请选择要上传的订单流水导出文件');
       return;
     }
 
     const billDateStr = uploadDate.format('YYYY-MM');
-    const fileName = uploadFile.name;
+    // 任务卡片展示：把已选文件名拼起来（订单流水 + 安心钱包）
+    const fileName = [uploadFile.name, uploadWalletFile?.name].filter(Boolean).join(' + ');
     const configLabel =
       configList.find((c) => c.id === selectedConfigId)?.merchantName ||
       configList.find((c) => c.id === selectedConfigId)?.shopName ||
@@ -151,6 +189,8 @@ const KsBillPanel: React.FC = () => {
     // 1. 立刻关闭上传弹窗 & 重置表单
     setUploadModalOpen(false);
     setUploadFile(null);
+    setUploadWalletFile(null);
+    setUploadStoreZipFile(null);
     setSelectedConfigId(undefined);
 
     // 2. 创建任务（后端请求异步进行中，不阻塞 UI）
@@ -167,6 +207,8 @@ const KsBillPanel: React.FC = () => {
       billDate: billDateStr,
       financeBillConfigId: selectedConfigId,
       file: uploadFile,
+      walletFile: uploadWalletFile || undefined,
+      storeZipFile: uploadStoreZipFile || undefined,
     } as FinanceKsBillUploadReq)
       .then((res) => {
         const result: FinanceChannelExtendCostImportVo =
@@ -329,10 +371,11 @@ const KsBillPanel: React.FC = () => {
           message="上传说明"
           description={
             <div style={{ fontSize: 12, lineHeight: 1.7 }}>
-              1. 支持 .xlsx / .xls / .csv 格式<br />
+              1. 支持 .xlsx / .xls / .csv / .txt / .zip 格式<br />
               2. 请先在【账单配置】中维护该店铺的快手账单配置<br />
-              3. 账单日期格式：yyyy-MM（如 2026-07）<br />
-              4. 文件表头 A1 应为「商家ID」
+              3. 账单日期格式：yyyy-MM（如 2026-09）<br />
+              4. 订单流水导出文件表头 A1 应为「商家ID」；安心钱包账单表头 A1 应为「账务流水号」<br />
+              5. 安心钱包账单用于解析<b>运费险类</b>，不传则跳过；归档压缩包仅用于归档，不影响解析
             </div>
           }
           style={{ marginBottom: 16 }}
@@ -372,13 +415,38 @@ const KsBillPanel: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
-              账单文件 <span style={{ color: '#ff4d4f' }}>*</span>
+              订单流水导出文件 <span style={{ color: '#ff4d4f' }}>*</span>
             </span>
             <Upload {...uploadProps}>
               <Button icon={<UploadOutlined />} disabled={configLoading}>
                 选择文件
               </Button>
             </Upload>
+            <span style={{ fontSize: 12, color: '#999' }}>
+              表头 A1 为「商家ID」；可直接传「货款账单.zip」，后端会自动解出内部表格
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>安心钱包账单文件（选填）</span>
+            <Upload {...walletUploadProps}>
+              <Button icon={<UploadOutlined />} disabled={configLoading}>
+                选择文件
+              </Button>
+            </Upload>
+            <span style={{ fontSize: 12, color: '#999' }}>
+              表头 A1 为「账务流水号」；用于解析运费险类，不传则跳过
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>归档压缩包（选填）</span>
+            <Upload {...storeZipUploadProps}>
+              <Button icon={<UploadOutlined />} disabled={configLoading}>
+                选择文件
+              </Button>
+            </Upload>
+            <span style={{ fontSize: 12, color: '#999' }}>
+              仅用于归档（如「货款账单.zip」）；传入后打包下载拿到的即为该 zip
+            </span>
           </div>
         </div>
       </Modal>

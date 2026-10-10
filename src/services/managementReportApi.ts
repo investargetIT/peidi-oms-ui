@@ -562,7 +562,8 @@ export interface FinanceXhsBillUploadReq {
 /**
  * 上传快手账单请求
  * /oms/finance/ks-bill/upload
- * billDate / financeBillConfigId 走 query string，file 走 multipart body
+ * billDate / financeBillConfigId 走 query string，file / walletFile / storeZipFile 走 multipart body
+ * 快手由「单表上传」改为「双表上传」：订单流水导出(file) + 安心钱包账单(walletFile，可选)
  */
 export interface FinanceKsBillUploadReq {
   /**
@@ -574,9 +575,19 @@ export interface FinanceKsBillUploadReq {
    */
   financeBillConfigId: number;
   /**
-   * 订单流水导出文件（xlsx/csv，表头 A1 为"商家ID"）
+   * 订单流水导出文件，支持 xlsx/xls/csv/txt/zip（表头 A1 为"商家ID"）；
+   * 传 zip 时后端会解出内部表格再解析
    */
   file: File;
+  /**
+   * 安心钱包账单文件，支持 csv/txt/xlsx/xls/zip（表头 A1 为"账务流水号"）；
+   * 可选，不传则跳过运费险解析
+   */
+  walletFile?: File;
+  /**
+   * 归档用的原始压缩包（如"货款账单.zip"），可选；传入后下载链接即为该 zip
+   */
+  storeZipFile?: File;
   [property: string]: any;
 }
 
@@ -812,7 +823,9 @@ export class ManagementReportApi {
   /**
    * 上传快手账单
    * POST /oms/finance/ks-bill/upload（multipart/form-data）
-   * billDate / financeBillConfigId 走 query string，file 走 multipart body
+   * billDate / financeBillConfigId 走 query string，file / walletFile / storeZipFile 走 multipart body
+   * file = 订单流水导出（或含它的 zip）；walletFile = 安心钱包账单（可选，用于运费险解析）；
+   * storeZipFile = 归档原始压缩包（可选）
    * 后端解析账单比较耗时，单独把超时拉到 1 小时
    */
   static async uploadKsBill(
@@ -820,6 +833,12 @@ export class ManagementReportApi {
   ): Promise<ResponseData<FinanceChannelExtendCostImportVo>> {
     const formData = new FormData();
     formData.append('file', data.file);
+    if (data.walletFile) {
+      formData.append('walletFile', data.walletFile);
+    }
+    if (data.storeZipFile) {
+      formData.append('storeZipFile', data.storeZipFile);
+    }
     return billRequest.post('/finance/ks-bill/upload', formData, {
       params: {
         billDate: data.billDate,
