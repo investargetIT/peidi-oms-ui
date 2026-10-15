@@ -38,6 +38,7 @@ const JD1_CATEGORY_MAPPING: {
   { major: '平台费用', category: '佣金', desc: '佣金', sumDescs: ['佣金', '价保返佣'] },
   { major: '平台费用', category: '直营服务费', desc: '直营服务费' },
   { major: '平台费用', category: '运营服务费', desc: '运营服务费' },
+  { major: '平台费用', category: '中转履约服务费', desc: '中转履约服务费' },
   { major: '其他', category: '其他', desc: '货款' },
   { major: '平台费用', category: '运费险', desc: '运费保险服务费' },
   { major: '平台费用', category: '京豆', desc: '随单送的京豆' },
@@ -381,10 +382,10 @@ const JdExtendCostPanel: React.FC = () => {
     '运营服务费',
   ];
 
-  // 收款 = A + 中转履约服务费 − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
+  // 收款 = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
   // A = 京东账单收支计算列表(总计行)里 7 个业务描述的合计
   // 扣减项里 "直赔代扣/违约金/价保/售后/先行赔付/挽单补偿险" 来自京东钱包支出分类统计
-  // "中转履约服务费" 来自京东账单收支计算列表(总计行)对应业务描述列，作为 A 的加项
+  // 注："中转履约服务费" 原作为收款加项，现改为计入「本期费用」（见 EXPENSE_JD1_CATEGORIES）
   // 注："价保扣款" 当前后端 jd1CalculateStat 还没返回，写在这等后续补上后自动生效
   const COLLECTION_A_CATEGORIES = [
     '代收配送费',
@@ -403,13 +404,11 @@ const JdExtendCostPanel: React.FC = () => {
     '先行赔付',
     '挽单补偿险',
   ];
-  // 收款 A 里的加项：取 jd1 账单收支计算列表「总计行」对应业务描述列（如 中转履约服务费）
-  const COLLECTION_JD1_ADD_DESCS = ['中转履约服务费'];
 
   // 本期费用 = (代收白条网络推广技术服务费 + 交易服务费 + 随单送的京豆
   //           + 运费保险服务费 + 价保返佣 + 佣金 + 直营服务费
-  //           + 商品保险服务费 + 智能礼金新客推广费) − 京东联盟 − 运营服务费
-  // 前 9 项是 jd1（账单收支）"总计行"对应列的纵向合计，
+  //           + 商品保险服务费 + 智能礼金新客推广费 + 中转履约服务费) − 京东联盟 − 运营服务费
+  // 前 10 项是 jd1（账单收支）"总计行"对应列的纵向合计，
   // "京东联盟"/"运营服务费"末尾没有"总计的"前缀，按现有约定取 jd2 钱包支出分类里的单值
   const EXPENSE_JD1_CATEGORIES = [
     '代收白条网络推广技术服务费',
@@ -421,6 +420,7 @@ const JdExtendCostPanel: React.FC = () => {
     '直营服务费',
     '商品保险服务费',
     '智能礼金新客推广费',
+    '中转履约服务费',
   ];
   const EXPENSE_JD2_CATEGORIES = ['京东联盟', '运营服务费'];
 
@@ -521,14 +521,10 @@ const JdExtendCostPanel: React.FC = () => {
       (sum, cat) => sum + (typeof jd2Row[cat] === 'number' ? jd2Row[cat] : 0),
       0,
     );
-    // 收款 A 里的加项：取 jd1 账单收支总计行的（中转履约服务费）
-    const collectionJd1Add = COLLECTION_JD1_ADD_DESCS.reduce(
-      (sum, desc) => sum + (typeof jd1SummaryRow[desc] === 'number' ? jd1SummaryRow[desc] : 0),
-      0,
-    );
-    const collection = collectionA + collectionJd1Add - collectionDeduct;
+    // "中转履约服务费" 已从收款中移出，改计入本期费用（见 EXPENSE_JD1_CATEGORIES）
+    const collection = collectionA - collectionDeduct;
 
-    // 本期费用 = 6 项 jd1 总计列之和 - jd2 京东联盟
+    // 本期费用 = jd1 总计行各费用列（EXPENSE_JD1_CATEGORIES）之和 − jd2 京东联盟/运营服务费
     const expenseJd1Sum = EXPENSE_JD1_CATEGORIES.reduce(
       (sum, desc) => sum + (typeof jd1SummaryRow[desc] === 'number' ? jd1SummaryRow[desc] : 0),
       0,
@@ -781,13 +777,12 @@ const JdExtendCostPanel: React.FC = () => {
                       </div>
                     </div>
                     <div>
-                      <strong>收款</strong> = A + 中转履约服务费 − 直赔代扣 − 违约金 − 价保 − 售后 −
-                      先行赔付 − 挽单补偿险
+                      <strong>收款</strong> = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 −
+                      挽单补偿险
                     </div>
                     <div style={{ marginLeft: 16 }}>
-                      A = {COLLECTION_A_CATEGORIES.map((c) => `账单收支总计行的${c}`).join(' + ')}，
-                      再加 账单收支总计行的中转履约服务费（A + 中转履约服务费）− 扣减项里
-                      直赔代扣/违约金/价保/售后/先行赔付/挽单补偿险 取自钱包支出分类统计
+                      A = {COLLECTION_A_CATEGORIES.map((c) => `账单收支总计行的${c}`).join(' + ')}；
+                      扣减项里 直赔代扣/违约金/价保/售后/先行赔付/挽单补偿险 取自钱包支出分类统计
                     </div>
                     <div>
                       <strong>校验</strong> = 期末余额 − （上月余额 + 本期费用 + 收款 − 提现），
@@ -818,8 +813,8 @@ const JdExtendCostPanel: React.FC = () => {
                   取「京东账单收支计算列表」总计行每列的合计，按固定映射归类为
                   分类-管报名称-业务描述；其中「推广费-京东联盟-京东联盟」的金额取自
                   「京东钱包支出分类统计」的京东联盟分类；「佣金」= 总计的佣金 +
-                  总计的价保返佣（价保返佣不单独展示）；「直营服务费」「运营服务费」
-                  按 平台费用-直营服务费/运营服务费 归类。默认仅展示当月有对应业务描述的行；
+                  总计的价保返佣（价保返佣不单独展示）；「直营服务费」「运营服务费」「中转履约服务费」
+                  按 平台费用-直营服务费/运营服务费/中转履约服务费 归类。默认仅展示当月有对应业务描述的行；
                   交易服务费、直营服务费、运营服务费固定展示（无数据时金额显示 -）。
                   完整映射如下，可搜索 / 按分类、管报名称筛选：
                   <div style={{ marginTop: 8 }}>

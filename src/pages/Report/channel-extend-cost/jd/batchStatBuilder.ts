@@ -72,7 +72,7 @@ const DEDUCT_CATEGORIES = [
   '运营服务费',
 ];
 
-// 收款 = A + 中转履约服务费 − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
+// 收款 = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 − 挽单补偿险
 const COLLECTION_A_CATEGORIES = [
   '代收配送费',
   '货款',
@@ -83,10 +83,9 @@ const COLLECTION_A_CATEGORIES = [
   '综合违约金',
 ];
 const COLLECTION_DEDUCT_CATEGORIES = ['直赔代扣', '违约金', '价保', '售后', '先行赔付', '挽单补偿险'];
-// 收款 A 里的加项：取 jd1 账单收支计算列表「总计行」对应业务描述列（如 中转履约服务费）
-const COLLECTION_JD1_ADD_DESCS = ['中转履约服务费'];
 
-// 本期费用 = 9 项 jd1 总计列之和 − 钱包支出里的京东联盟、运营服务费
+// 本期费用 = jd1 总计列之和 − 钱包支出里的京东联盟、运营服务费
+// 注："中转履约服务费" 由原来的收款加项改为计入本期费用
 const EXPENSE_JD1_CATEGORIES = [
   '代收白条网络推广技术服务费',
   '交易服务费',
@@ -97,6 +96,7 @@ const EXPENSE_JD1_CATEGORIES = [
   '直营服务费',
   '商品保险服务费',
   '智能礼金新客推广费',
+  '中转履约服务费',
 ];
 const EXPENSE_JD2_CATEGORIES = ['京东联盟', '运营服务费'];
 
@@ -120,6 +120,7 @@ const JD1_CATEGORY_MAPPING: JdCategoryMapping[] = [
   { major: '平台费用', category: '佣金', desc: '佣金', sumDescs: ['佣金', '价保返佣'] },
   { major: '平台费用', category: '直营服务费', desc: '直营服务费' },
   { major: '平台费用', category: '运营服务费', desc: '运营服务费' },
+  { major: '平台费用', category: '中转履约服务费', desc: '中转履约服务费' },
   { major: '其他', category: '其他', desc: '货款' },
   { major: '平台费用', category: '运费险', desc: '运费保险服务费' },
   { major: '平台费用', category: '京豆', desc: '随单送的京豆' },
@@ -340,12 +341,8 @@ export function buildJdStat(args: BuildJdStatArgs): JdBatchStatResult {
     (sum, cat) => sum + num(jd2Row[cat]),
     0,
   );
-  // 收款 A 里的加项：取 jd1 账单收支总计行的（中转履约服务费）
-  const collectionJd1Add = COLLECTION_JD1_ADD_DESCS.reduce(
-    (sum, desc) => sum + num(jd1SummaryRow[desc]),
-    0,
-  );
-  const collection = collectionA + collectionJd1Add - collectionDeduct;
+  // "中转履约服务费" 已从收款中移出，改计入本期费用（见 EXPENSE_JD1_CATEGORIES）
+  const collection = collectionA - collectionDeduct;
 
   const expenseJd1Sum = EXPENSE_JD1_CATEGORIES.reduce(
     (sum, desc) => sum + num(jd1SummaryRow[desc]),
