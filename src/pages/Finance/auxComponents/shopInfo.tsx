@@ -15,6 +15,7 @@ const EXPORT_COLUMNS: { title: string; dataIndex: string }[] = [
   { title: 'ID', dataIndex: 'id' },
   { title: '店铺名称', dataIndex: 'shopName' },
   { title: '旺店通店铺名称', dataIndex: 'wdtName' },
+  { title: '别名', dataIndex: 'otherName' },
   { title: '渠道', dataIndex: 'channel' },
   { title: '平台', dataIndex: 'platform' },
   { title: '组织', dataIndex: 'org' },
@@ -267,6 +268,11 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       filterSearch: true,
     },
     {
+      title: '别名',
+      dataIndex: 'otherName',
+      key: 'otherName',
+    },
+    {
       title: '渠道',
       dataIndex: 'channel',
       key: 'channel',
@@ -390,6 +396,7 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       title: '操作',
       dataIndex: 'operation',
       key: 'operation',
+      fixed: 'right',
       render: (value: number, record: any) => (
         <>
           <Button type="link" size="small" onClick={() => handleShopInfoEdit(record)}>
@@ -399,6 +406,11 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
       ),
     },
   ];
+
+  // 表头不换行：列较多，避免表头文字折行（配合表格横向滚动）
+  columns.forEach((col: any) => {
+    col.onHeaderCell = () => ({ style: { whiteSpace: 'nowrap' } });
+  });
 
   useImperativeHandle(ref, () => ({
     handleShopInfoAdd,
@@ -414,6 +426,7 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
         columns={columns}
         pagination={false}
         rowKey="id"
+        scroll={{ x: 'max-content' }}
       />
 
       <Modal
@@ -452,6 +465,12 @@ const ShopInfo = (props: {}, ref: React.Ref<ShopInfoModalRef> | undefined) => {
             rules={[{ required: true, message: '请输入旺店通店铺名称' }]}
           >
             <Input />
+          </Form.Item>
+          <Form.Item<any>
+            label="别名"
+            name="otherName"
+          >
+            <Input placeholder="请输入别名" />
           </Form.Item>
           <Form.Item<any>
             label="渠道"

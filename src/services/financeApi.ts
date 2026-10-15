@@ -18,6 +18,7 @@ export interface ShopInfo {
   id?: string;
   shopName: string;
   wdtName: string;
+  otherName?: string;
   channel: string;
   platform: string;
   org: string;
