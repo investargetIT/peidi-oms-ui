@@ -160,7 +160,7 @@ function renderExpenseSummarySheet(workbook: ExcelJS.Workbook, result: DyBatchSt
   });
 
   // 合计行（末行，加粗 + 灰底，口径与弹窗「汇总费用」表 summary 一致：
-  // 合计 = 本表各行支出金额之和，只含 平台费用 / 推广费用）
+  // 合计 = 本表各行金额之和，只含 平台费用 / 推广费用）
   if (rows.length > 0) {
     const total = rows.reduce((acc, r) => acc + (typeof r.amount === 'number' ? r.amount : 0), 0);
     const sumValues: (string | number)[] = ['', '', '合计', round2(total)];

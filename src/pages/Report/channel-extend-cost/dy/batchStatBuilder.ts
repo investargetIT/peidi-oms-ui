@@ -19,7 +19,7 @@ export interface DyCategoryMeta {
    * orderNetIncome = 该分类在「订单净收入」列展示 / 汇总的有效值：
    *   小额打款 → 首层 value；
    *   纯收支分类 → 收入金额（入账）＝首层 value 为正的部分；
-   *   其余（含 提现）→ details 里「订单净收入」原值
+   *   其余（含 提现 / 评价有礼活动资金回退）→ details 里「订单净收入」原值
    */
   orderNetIncome: number;
 }
@@ -92,7 +92,7 @@ export function getDyDetailColumnNames(data: FinanceDyCostStatVo[]): string[] {
 }
 
 /**
- * 每个分类的「纯收支」元信息（业务描述（分类别）除 小额打款 / 提现 外判断）
+ * 每个分类的「纯收支」元信息（业务描述（分类别）除 小额打款 / 提现 / 评价有礼活动资金回退 外判断）
  */
 export function getDyCategoryMeta(
   data: FinanceDyCostStatVo[],
@@ -108,7 +108,9 @@ export function getDyCategoryMeta(
       });
       return;
     }
-    if (name === '提现') {
+    // 提现 / 评价有礼活动资金回退：按「其余分类」处理，
+    // 订单净收入取 details 里「订单净收入」原值（不按纯收支规则用「收入金额（入账）」替代）
+    if (name === '提现' || name === '评价有礼活动资金回退') {
       map.set(name, { pure: false, orderNetIncome: detailValue(cat, '订单净收入') });
       return;
     }
@@ -164,9 +166,10 @@ export function getDySummaryRow(
 /**
  * 汇总费用表（与弹窗 dyExpenseSummaryRows 完全同口径，只取 平台费用 / 推广费用 两类）：
  *   1) 首层分类行（业务描述（分类别）映射后属于 平台费用 / 推广费用）：
- *      支出金额 = 该分类「支出金额（出账）」＝ 首层 value 为负的部分（保留负号），非负计 0
+ *      金额 = 该分类首层 value（净额）＝ 支出金额（出账，为负）＋ 收入金额（入账，为正），
+ *      即「支出金额（出账）」为负的部分与「收入金额（入账）」为正的部分一并纳入
  *   2) 费用列行（动态明细列的费用分类属于 平台费用 / 推广费用）：
- *      支出金额 = 该列的纵向合计（当列总计，即 summaryRow 对应列的值）
+ *      金额 = 该列的纵向合计（当列总计，即 summaryRow 对应列的值）
  * 排序：平台费用 → 推广费用（组间固定顺序）；组内先首层分类行、后费用列行，保持出现顺序。
  */
 export function getDyExpenseSummaryRows(args: {
@@ -176,7 +179,7 @@ export function getDyExpenseSummaryRows(args: {
 }): DyExpenseRow[] {
   const { data, columnNames, summaryRow } = args;
   const rows: DyExpenseRow[] = [];
-  // 1) 首层分类行：行的数据取支出金额（出账）
+  // 1) 首层分类行：行的数据取首层 value 净额（支出为负 + 收入为正，即含「收入金额（入账）」）
   data.forEach((cat) => {
     const name = cat.name || '';
     if (!name) return;
@@ -188,7 +191,7 @@ export function getDyExpenseSummaryRows(args: {
       category: meta.category,
       mgmtName: meta.mgmtName,
       desc: name,
-      amount: v < 0 ? v : 0,
+      amount: v,
     });
   });
   // 2) 费用列行：列的数据取当列总计
@@ -212,7 +215,8 @@ export function getDyExpenseSummaryRows(args: {
  * 抖音余额对账（最上面的汇总表）：
  *   本期收款 = 订单净收入合计（小额打款取首层 value、纯收支分类取收入金额（入账）、其余取 details 原值）
  *   本期费用 = 平台服务费 + 佣金 + 服务商佣金 + 招商服务费 + 站外推广费（五列合计，保留负号）
- *              + 除 小额打款 / 提现 外各「纯收支」分类的支出金额（出账）
+ *              + 除 小额打款 / 提现 / 评价有礼活动资金回退 外各「纯收支」分类的支出金额（出账）
+ *              + 分类为 平台费用 / 推广费用 的各行 的收入金额（入账，首层 value 为正的部分，冲减）
  *              + 兼容：上门取件-支付快递费 / 退换货运费险 / 充值基础保证金 / 消费者赔付
  *                若未命中「纯收支」（罕见），仍单独把支出金额（出账）计入本期费用
  *   提现 = 「提现」分类行的支出金额（出账，首层 value 为负的部分）；结息 = 默认 0
@@ -276,6 +280,15 @@ export function getDyBalanceSummary(args: {
       }
     },
   );
+  // 分类为 平台费用 / 推广费用 的各行：其收入金额（入账，首层 value 为正的部分）计入本期费用（冲减）
+  data.forEach((cat) => {
+    const name = cat.name || '';
+    if (!name) return;
+    const category = dyBizDescOf(name).category;
+    if (category !== '平台费用' && category !== '推广费用') return;
+    const v = typeof cat.value === 'number' ? cat.value : 0;
+    if (v > 0) expenseTotal += v;
+  });
 
   const lastMonthBalance = safeNum(args.beginningBalance);
   const endBalance = safeNum(args.endingBalance);

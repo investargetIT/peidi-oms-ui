@@ -323,13 +323,13 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
     return names;
   }, [dyStatData]);
 
-  // 每个分类的“纯收支”元信息（业务描述（分类别）除 小额打款 / 提现 外判断）：
+  // 每个分类的“纯收支”元信息（业务描述（分类别）除 小额打款 / 提现 / 评价有礼活动资金回退 外判断）：
   //   pure = 除「收入金额（入账）/ 支出金额（出账）」外，其余明细列（含 订单净收入 及各费用列）均为 0，
   //          （“收入金额 / 支出金额 / 动账金额”明细项已被列名集过滤，不参与判断）
   //   orderNetIncome = 该分类在「订单净收入」列展示 / 汇总的有效值：
   //       小额打款 → 首层 value；
   //       纯收支分类 → 收入金额（入账）＝首层 value 为正的部分；
-  //       其余（含 提现）→ details 里「订单净收入」原值。
+  //       其余（含 提现 / 评价有礼活动资金回退）→ details 里「订单净收入」原值。
   const dyCategoryMeta = useMemo(() => {
     const map = new Map<string, { pure: boolean; orderNetIncome: number }>();
     const detailValue = (cat: FinanceDyCostStatVo, name: string) => {
@@ -345,7 +345,9 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         });
         return;
       }
-      if (name === '提现') {
+      // 提现 / 评价有礼活动资金回退：按「其余分类」处理，
+      // 订单净收入取 details 里「订单净收入」原值（不按纯收支规则用「收入金额（入账）」替代）
+      if (name === '提现' || name === '评价有礼活动资金回退') {
         map.set(name, { pure: false, orderNetIncome: detailValue(cat, '订单净收入') });
         return;
       }
@@ -508,11 +510,11 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   }, [dyStatData, dyCategoryMeta]);
 
   // 汇总费用表（只取 平台费用 / 推广费用 两类）：
-  // 行两类来源，行的数据取支出金额、列的数据取当列总计：
+  // 行两类来源，行的数据取金额、列的数据取当列总计：
   //   1) 首层分类（业务描述（分类别））映射后属于 平台费用 / 推广费用：
-  //      支出金额 = 该分类「支出金额（出账）」= 首层 value 为负的部分（保留负号），非负计 0
+  //      金额 = 该分类首层 value（净额）＝ 支出金额（出账，为负）＋ 收入金额（入账，为正）
   //   2) 动态明细费用列中费用分类（列维度映射）为 平台费用 / 推广费用：
-  //      支出金额 = 该列的纵向合计（当列总计，即合计行对应列的值）
+  //      金额 = 该列的纵向合计（当列总计，即合计行对应列的值）
   // 排序：平台费用 → 推广费用（组间固定顺序）；组内先首层分类行、后费用列行，保持出现顺序。
   const dyExpenseSummaryRows = useMemo(() => {
     const rows: {
@@ -522,7 +524,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
       desc: string;
       amount: number;
     }[] = [];
-    // 1) 首层分类行：行的数据取支出金额（出账）
+    // 1) 首层分类行：行的数据取首层 value 净额（支出为负 + 收入为正，即含「收入金额（入账）」）
     dyStatData.forEach((cat) => {
       const name = cat.name || '';
       if (!name) return;
@@ -534,7 +536,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         category: meta.category,
         mgmtName: meta.mgmtName,
         desc: name,
-        amount: v < 0 ? v : 0,
+        amount: v,
       });
     });
     // 2) 费用列行：列的数据取当列总计
@@ -581,8 +583,9 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   //   本期收款 = 订单净收入（details 中「订单净收入」项）各分类之和（订单净收入合计）
   //   本期费用 = 合计的平台服务费 + 合计的佣金 + 合计的服务商佣金 + 合计的招商服务费
   //             + 合计的站外推广费（均保留负号）
-  //             + 除 小额打款 / 提现 外的各「纯收支」分类（其余明细列均为 0）的
+  //             + 除 小额打款 / 提现 / 评价有礼活动资金回退 外的各「纯收支」分类（其余明细列均为 0）的
   //               支出金额（出账，首层 value 为负的部分，保留负号）
+  //             + 分类为 平台费用 / 推广费用 的各行 的收入金额（入账，首层 value 为正的部分，冲减）
   //   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
   //   提现 = 业务描述（分类别）为「提现」那一行的支出金额（出账）；结息 = 默认 0
   //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
@@ -612,7 +615,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
 
     // 本期费用：
     //   1) 五项费用列的纵向合计，均保留负号（平台服务费 / 佣金 / 服务商佣金 / 招商服务费 / 站外推广费）
-    //   2) 一般规则：除 小额打款 / 提现 外，「纯收支」分类（其余明细列均为 0）的
+    //   2) 一般规则：除 小额打款 / 提现 / 评价有礼活动资金回退 外，「纯收支」分类（其余明细列均为 0）的
     //      支出金额（出账）＝首层 value 为负的部分（保留负号）计入本期费用
     const asNegative = (n: number | undefined) => {
       if (typeof n !== 'number') return 0;
@@ -641,6 +644,15 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         }
       },
     );
+    //   4) 分类为 平台费用 / 推广费用 的各行：其收入金额（入账，首层 value 为正的部分）计入本期费用（冲减）
+    dyStatData.forEach((cat) => {
+      const name = cat.name || '';
+      if (!name) return;
+      const category = dyBizDescOf(name).category;
+      if (category !== '平台费用' && category !== '推广费用') return;
+      const v = typeof cat.value === 'number' ? cat.value : 0;
+      if (v > 0) expenseTotal += v;
+    });
 
     const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
     const lastMonthBalance = safeNum(beginningBalance);
@@ -1094,7 +1106,9 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                             ['上门取件-支付快递费', '平台费用', '运费争议赔付'],
                             ['消费者赔付', '平台费用', '赔付'],
                             ['退换货运费险', '平台费用', '运费险'],
+                            ['快递拦截费', '平台费用', '快递拦截费'],
                             ['评价有礼', '推广费用', '评价有礼'],
+                            ['评价有礼活动资金回退', '推广费用', '评价有礼'],
                             ['其他所有业务描述（兜底）', '其他', '其他'],
                           ].map((r) => (
                             <tr key={r[0]}>
@@ -1196,12 +1210,12 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                           里的值）；
                         </div>
                         <div>
-                          · <strong>纯收支分类</strong>（见第五点，除 小额打款 / 提现
-                          外）：订单净收入 = 收入金额（入账）；
+                          · <strong>纯收支分类</strong>（见第五点，除 小额打款 / 提现 /
+                          评价有礼活动资金回退 外）：订单净收入 = 收入金额（入账）；
                         </div>
                         <div>
-                          · <strong>其余分类（含 提现）</strong>：订单净收入 = details
-                          里「订单净收入」原值。
+                          · <strong>其余分类（含 提现 / 评价有礼活动资金回退）</strong>：订单净收入
+                          = details 里「订单净收入」原值。
                         </div>
                       </div>
                     </div>
@@ -1222,7 +1236,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
 
                 {/* 五、纯收支分类 */}
                 <li style={{ marginBottom: 6 }}>
-                  <strong>五、纯收支分类（除 小额打款 / 提现）</strong>
+                  <strong>五、纯收支分类（除 小额打款 / 提现 / 评价有礼活动资金回退）</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
                     <div>
                       定义：某分类除「收入金额（入账）/ 支出金额（出账）」外，其余明细列 （含
@@ -1250,8 +1264,9 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                     </div>
                     <div>
                       <strong>本期费用</strong> = 平台服务费 + 佣金 + 服务商佣金 + 招商服务费 +
-                      站外推广费（五列的合计，保留负号）+ 除 小额打款 / 提现
-                      外各「纯收支」分类的支出金额（出账）。
+                      站外推广费（五列的合计，保留负号）+ 除 小额打款 / 提现 / 评价有礼活动资金回退
+                      外各「纯收支」分类的支出金额（出账） + 分类为 平台费用 / 推广费用 的各行
+                      的收入金额（入账，冲减）。
                     </div>
                     <div>
                       <strong>上月余额</strong> = PDD_LAST_BALANCE.totalIncome；
@@ -1285,12 +1300,12 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
                     <div>
                       仅取 分类 为<strong>平台费用 / 推广费用</strong>
-                      的数据，行分两类来源（行的数据取支出金额，列的数据取当列总计）：
+                      的数据，行分两类来源（行的数据取金额，列的数据取当列总计）：
                     </div>
                     <div>
                       · <strong>首层分类行</strong>（业务描述（分类别）映射后属于平台费用 /
-                      推广费用）：支出金额 = 该分类「支出金额（出账）」＝ 首层 value
-                      为负的部分（保留负号）；
+                      推广费用）：金额 = 该分类首层 value（净额）＝「支出金额（出账）」（为负）
+                      ＋「收入金额（入账）」（为正），即出账与入账一并纳入；
                     </div>
                     <div>
                       · <strong>费用列行</strong>（动态明细列的费用分类属于平台费用 /
@@ -1302,8 +1317,9 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                       相同 分类 / 管报名称 的相邻单元格合并。
                     </div>
                     <div>
-                      <strong>合计</strong> = 本表各行支出金额之和（只含 平台费用 / 推广费用，
-                      不含 提现 等其他分类，与明细表「支出金额（出账）」列总计不同）。
+                      <strong>合计</strong> = 本表各行金额之和（首层分类行已含「收入金额（入账）」，
+                      只含 平台费用 / 推广费用，不含 提现 等其他分类，
+                      与明细表「支出金额（出账）」列总计不同）。
                     </div>
                   </div>
                 </li>
@@ -1312,12 +1328,12 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
           </Collapse.Panel>
         </Collapse>
 
-        {/* 汇总费用：只取 平台费用 / 推广费用；行取支出金额（出账）/ 费用列当列总计，合计 = 本表各行支出金额之和 */}
+        {/* 汇总费用：只取 平台费用 / 推广费用；行取金额（首层分类行含收入金额）/ 费用列当列总计，合计 = 本表各行金额之和 */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
           汇总费用
           <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
-            （仅含 平台费用 / 推广费用；首层分类行取「支出金额（出账）」，费用列行取「当列总计」；
-            合计 = 本表各行支出金额之和）
+            （仅含 平台费用 / 推广费用；首层分类行取「首层 value 净额（含收入金额（入账））」，
+            费用列行取「当列总计」； 合计 = 本表各行金额之和）
           </span>
         </div>
         <Table
@@ -1375,7 +1391,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
             dyExpenseSummaryRows.length > 0
               ? () => (
                   <Table.Summary.Row className="dy-stat-summary-row">
-                    {/* 合计：跨「分类 + 管报名称 + 业务描述（分类别）」三列；支出金额 = 本表各行支出金额之和 */}
+                    {/* 合计：跨「分类 + 管报名称 + 业务描述（分类别）」三列；金额 = 本表各行金额之和（含收入金额（入账）） */}
                     <Table.Summary.Cell index={0} align="left" colSpan={3}>
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>合计</span>
                     </Table.Summary.Cell>

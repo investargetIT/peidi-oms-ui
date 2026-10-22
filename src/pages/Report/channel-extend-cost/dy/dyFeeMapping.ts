@@ -24,7 +24,9 @@ const DY_BIZ_DESC_MAP: Record<string, DyBizDescMeta> = {
   '上门取件-支付快递费': { category: '平台费用', mgmtName: '运费争议赔付' },
   消费者赔付: { category: '平台费用', mgmtName: '赔付' },
   退换货运费险: { category: '平台费用', mgmtName: '运费险' },
+  快递拦截费: { category: '平台费用', mgmtName: '快递拦截费' },
   评价有礼: { category: '推广费用', mgmtName: '评价有礼' },
+  评价有礼活动资金回退: { category: '推广费用', mgmtName: '评价有礼' },
 };
 
 /** 取行业维度元信息（未映射兜底 其他/其他） */
