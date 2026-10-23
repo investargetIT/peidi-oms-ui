@@ -52,7 +52,7 @@ export interface ManagementReportQueryReq {
    */
   startMonth?: string;
   /**
-   * 数据类型：1-线上 2-线下 3-沃尔玛
+   * 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营
    */
   type?: number;
   [property: string]: any;
@@ -137,9 +137,130 @@ export interface WalmartRebateQueryVo {
 }
 
 /**
+ * 京东自营销售+成本返回对象（type=4）
+ */
+export interface JdSalesCostVo {
+  amountWithoutTax?: number;
+  brandName?: string | null;
+  created?: string;
+  /**
+   * 临期（字段待后端确认，缺失时展示空）
+   */
+  expiry?: string | null;
+  financeTotalCost?: number | null;
+  financeUnitCost?: number | null;
+  internalTransferTotalPrice?: number | null;
+  internalTransferUnitPrice?: number | null;
+  merchantCode?: string;
+  orderCustomer?: string;
+  own?: string | null;
+  productName?: string;
+  quantity?: number;
+  shopName?: string;
+  specNo?: string | null;
+  taxRate?: string;
+  totalWithTax?: number;
+  u9?: string;
+  unitPrice?: number;
+  [property: string]: any;
+}
+
+/**
+ * 京东自营费用子分类返回对象（type=4）
+ */
+export interface JdFeeVo {
+  /**
+   * 未税金额
+   */
+  amount?: number;
+  /**
+   * 费用类别：快递费 / 推广费用 / 平台费用 / 公共费用分摊
+   */
+  category?: string;
+  /**
+   * 子分类名称（如 京准通 / 促销服务费 / TC运费）
+   */
+  name?: string;
+  /**
+   * 税率（如 "0.06"）
+   */
+  taxRate?: string;
+  /**
+   * 价税合计
+   */
+  total?: number;
+  [property: string]: any;
+}
+
+/**
+ * 上传京东自营原始数据（U9 应收单）请求
+ */
+export interface JdRawUploadReq {
+  /**
+   * 数据类型，默认 京东自营
+   */
+  type?: string;
+  /**
+   * U9 应收单导出文件（xlsx）
+   */
+  file: File;
+}
+
+/**
+ * 京东自营费用保存明细项
+ */
+export interface JdFeeSaveItem {
+  /**
+   * 费用类别：快递费 / 推广费用 / 平台费用 / 公共费用分摊
+   */
+  category: string;
+  /**
+   * 子分类名称
+   */
+  name?: string;
+  /**
+   * 未税金额
+   */
+  amount?: number | null;
+  /**
+   * 税率（字符串，如 "0.09"）
+   */
+  taxRate?: string | null;
+  /**
+   * 价税合计
+   */
+  total?: number | null;
+}
+
+/**
+ * 京东自营费用保存 / 查询请求
+ */
+export interface JdFeeSaveReq {
+  /**
+   * 数据类型，默认 京东自营
+   */
+  type: string;
+  /**
+   * 结算日期 yyyy-MM-dd
+   */
+  dataDate: string;
+  /**
+   * 费用明细（按 type + dataDate 整份覆盖）
+   */
+  items: JdFeeSaveItem[];
+}
+
+export interface JdFeeQueryReq {
+  type: string;
+  dataDate: string;
+}
+
+/**
  * 管报数据查询返回对象
  */
 export interface ManagementReportQueryVo {
+  feeList?: JdFeeVo[];
+  jdList?: JdSalesCostVo[];
   offlineList?: SalesOutDetailsCostVo[];
   onlineList?: FinanceGoodsSalesSummaryAllCostVo[];
   walmartList?: WalmartRebateQueryVo[];
@@ -612,6 +733,51 @@ export class ManagementReportApi {
     return omsRequest.post('/management-report/query', params);
   }
 
+  /* ---- 京东自营原始数据 / 费用 ---- */
+  /**
+   * 上传京东自营原始数据（U9 应收单）
+   * POST /oms/finance/jd-raw/upload（multipart/form-data）
+   * 上传后服务端会重新富化该月份数据（同月份会覆盖旧数据）
+   */
+  static async uploadJdRaw(data: JdRawUploadReq): Promise<ResponseData<JdSalesCostVo[]>> {
+    const formData = new FormData();
+    if (data.type) {
+      formData.append('type', data.type);
+    }
+    formData.append('file', data.file);
+    return omsRequest.post('/finance/jd-raw/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      // 解析 + 成本匹配可能较慢，单独放宽超时
+      timeout: 1000 * 60 * 30,
+      showLoading: false,
+    });
+  }
+
+  /**
+   * 已有数据类型列表
+   * POST /oms/finance/jd-raw/types
+   */
+  static async getJdRawTypes(): Promise<ResponseData<string[]>> {
+    return omsRequest.post('/finance/jd-raw/types');
+  }
+
+  /**
+   * 保存 / 更新京东自营费用
+   * POST /oms/finance/jd-fee/save
+   * 按 type + dataDate 整份覆盖
+   */
+  static async saveJdFee(params: JdFeeSaveReq): Promise<ResponseData<JdFeeVo[]>> {
+    return omsRequest.post('/finance/jd-fee/save', params);
+  }
+
+  /**
+   * 精确查询京东自营费用
+   * POST /oms/finance/jd-fee/query
+   */
+  static async queryJdFee(params: JdFeeQueryReq): Promise<ResponseData<JdFeeVo[]>> {
+    return omsRequest.post('/finance/jd-fee/query', params);
+  }
+
   /* ---- 各渠道月账单 ---- */
   /**
    * 各渠道月账单 - 分页查询
@@ -624,8 +790,7 @@ export class ManagementReportApi {
     return billRequest.post('/finance/zfb-bill/page', {
       ...params,
       // channel 必传：优先取调用方显式传入的 channel；否则按映射（微信=wx、微盟=wm），其余渠道与 platform 一致
-      channel:
-        params.channel || (ZFB_BILL_CHANNEL_MAP[params.platform || ''] ?? params.platform),
+      channel: params.channel || (ZFB_BILL_CHANNEL_MAP[params.platform || ''] ?? params.platform),
     });
   }
   /**
