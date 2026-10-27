@@ -44,7 +44,7 @@ export interface InvoiceTaxNo {
   id: number;
   goodsName: string;
   taxNo: string;
-  taxRate: string;
+  taxRate: string | null;
   u9No: string;
 }
 
