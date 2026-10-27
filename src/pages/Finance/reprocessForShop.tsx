@@ -34,6 +34,7 @@ import {
 } from '@/pages/FinanceUtils/utils/excel';
 import dayjs from 'dayjs';
 import { financeObaPage } from '@/services/ant-design-pro/api';
+import { FINANCE_BASE_URL } from '@/services/financeApi';
 
 const { Dragger } = Upload;
 
@@ -157,7 +158,7 @@ const ReprocessForShop = () => {
   useEffect(() => {
     const fetchExecuteStatus = async () => {
       try {
-        const response = await axios.get(`${process.env.BASE_URL}/finance/oba/upload`, {
+        const response = await axios.get(`${FINANCE_BASE_URL}/finance/oba/upload`, {
           headers: { Authorization: localStorage.getItem('token') },
         });
         const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } =
@@ -178,7 +179,7 @@ const ReprocessForShop = () => {
   // 上传成功后调用的函数
   const handleUploadSuccess = async () => {
     try {
-      const response = await axios.get(`${process.env.BASE_URL}/finance/oba/upload`, {
+      const response = await axios.get(`${FINANCE_BASE_URL}/finance/oba/upload`, {
         headers: { Authorization: localStorage.getItem('token') },
       });
       const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } = response.data.data;
@@ -295,7 +296,7 @@ const ReprocessForShop = () => {
               <a
                 onClick={(e) => e.stopPropagation()}
                 style={{ fontSize: 12, marginLeft: 5 }}
-                href={`${process.env.BASE_URL}/finance/download?objectName=${
+                href={`${FINANCE_BASE_URL}/finance/download?objectName=${
                   url.split('&')[1]
                 }&authorization=${localStorage.getItem('token')}`}
               >
@@ -510,7 +511,7 @@ const ReprocessForShop = () => {
               username={initialState?.currentUser?.name || ''}
               org={org}
               title={`销售单_${org}`}
-              action={`${process.env.BASE_URL}/finance/oba/upload`}
+              action={`${FINANCE_BASE_URL}/finance/oba/upload`}
               fileList={dyFileList}
               setFileList={setDYFileList}
               percent={dyPercent}

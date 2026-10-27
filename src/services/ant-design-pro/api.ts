@@ -1,6 +1,7 @@
 // @ts-ignore
 /* eslint-disable */
 import { request } from '@umijs/max';
+import { FINANCE_BASE_URL } from '@/services/financeApi';
 
 /** 获取当前的用户 GET /api/currentUser */
 export async function currentUser(options?: { [key: string]: any }) {
@@ -176,12 +177,13 @@ export async function salesOutDetailsRepeatPage(params: API.PageParams) {
 /** 分页获取oba模板数据 GET /finance/oba/page **/
 export async function financeObaPage(params: { month: string, pageNo: number, pageSize: number, path:string }) {
   const { month, pageNo, pageSize, path } = params;
-  return await request(`/finance/oba/page?month=${month}&pageNo=${pageNo}&pageSize=${pageSize}&path=${path}`);
+  // 用绝对地址，跟随 FINANCE_BASE_URL 一起切换本地/生产
+  return await request(`${FINANCE_BASE_URL}/finance/oba/page?month=${month}&pageNo=${pageNo}&pageSize=${pageSize}&path=${path}`);
 }
 
 /** 修改oba模板 POST /finance/oba/update */
 export async function financeObaUpdate(options?: { [key: string]: any }) {
-   return await request(`/finance/oba/update`, {
+   return await request(`${FINANCE_BASE_URL}/finance/oba/update`, {
     method: 'POST',
     data:{
       ...(options || {}),
