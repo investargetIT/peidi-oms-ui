@@ -1,0 +1,11 @@
+patchedDependencies:
+  http-deceiver@1.2.7: patches/http-deceiver@1.2.7.patch
+
+# pnpm >= 10 blocks dependency build scripts by default, which made `pnpm install`
+# fail with ERR_PNPM_IGNORED_BUILDS. These two scripts are safe to run.
+allowBuilds:
+  core-js: false
+  core-js-pure: false
+  es5-ext: false
+  esbuild: true
+  puppeteer-core: true

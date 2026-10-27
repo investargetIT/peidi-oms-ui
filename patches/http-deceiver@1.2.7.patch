@@ -1,0 +1,28 @@
+diff --git a/lib/deceiver.js b/lib/deceiver.js
+index 33e14cbd6ed4f07df56f031676600b5fc1941344..59f8f224cbb2431158beb1a08079e91d48d4a9bd 100644
+--- a/lib/deceiver.js
++++ b/lib/deceiver.js
+@@ -19,12 +19,21 @@ var kOnHeadersComplete;
+ var kOnMessageComplete;
+ var kOnBody;
+ if (mode === 'normal' || mode === 'modern') {
+-  HTTPParser = process.binding('http_parser').HTTPParser;
++  // Node.js >= 24 removed the internal `http_parser` binding, the HTTPParser
++  // class (and its `methods` list) is still available from `_http_common`.
++  var httpParserBinding;
++  try {
++    httpParserBinding = process.binding('http_parser');
++  } catch (e) {
++    httpParserBinding = require('_http_common');
++  }
++
++  HTTPParser = httpParserBinding.HTTPParser;
+   methods = HTTPParser.methods;
+ 
+   // v6
+   if (!methods)
+-    methods = process.binding('http_parser').methods;
++    methods = httpParserBinding.methods;
+ 
+   reverseMethods = {};
+ 
