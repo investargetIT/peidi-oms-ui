@@ -52,7 +52,7 @@ export interface ManagementReportQueryReq {
    */
   startMonth?: string;
   /**
-   * 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营
+   * 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市
    */
   type?: number;
   [property: string]: any;
@@ -144,9 +144,9 @@ export interface JdSalesCostVo {
   brandName?: string | null;
   created?: string;
   /**
-   * 临期（字段待后端确认，缺失时展示空）
+   * 临期（无数据来源时为 null）
    */
-  expiry?: string | null;
+  nearExpiry?: string | null;
   financeTotalCost?: number | null;
   financeUnitCost?: number | null;
   internalTransferTotalPrice?: number | null;
@@ -166,7 +166,47 @@ export interface JdSalesCostVo {
 }
 
 /**
- * 京东自营费用子分类返回对象（type=4）
+ * 天猫超市销售+成本返回对象（type=5）
+ * 与京东自营共用同一套 16 个字段，另附天猫特有字段：backendGoodsCode / ticketDeduction / invoiceAmount / bizDate
+ */
+export interface TmcsSalesCostVo {
+  amountWithoutTax?: number | null;
+  brandName?: string | null;
+  financeTotalCost?: number | null;
+  financeUnitCost?: number | null;
+  internalTransferTotalPrice?: number | null;
+  internalTransferUnitPrice?: number | null;
+  merchantCode?: string;
+  orderCustomer?: string;
+  own?: string | null;
+  nearExpiry?: string | null;
+  productName?: string | null;
+  quantity?: number;
+  taxRate?: string | null;
+  totalWithTax?: number;
+  u9?: string | null;
+  unitPrice?: number;
+  /**
+   * 后端商品编码（天猫特有）
+   */
+  backendGoodsCode?: string;
+  /**
+   * 票扣（天猫特有）
+   */
+  ticketDeduction?: number;
+  /**
+   * 开票金额 = 含税金额 + 票扣（天猫特有）
+   */
+  invoiceAmount?: number;
+  /**
+   * 账单月份 yyyy-MM-dd（天猫特有）
+   */
+  bizDate?: string;
+  [property: string]: any;
+}
+
+/**
+ * 京东自营费用子分类返回对象（type=4 / type=5）
  */
 export interface JdFeeVo {
   /**
@@ -237,9 +277,9 @@ export interface JdFeeSaveItem {
  */
 export interface JdFeeSaveReq {
   /**
-   * 数据类型，默认 京东自营
+   * 数据类型：4-京东自营 5-天猫超市
    */
-  type: string;
+  type: number;
   /**
    * 结算日期 yyyy-MM-dd
    */
@@ -251,8 +291,65 @@ export interface JdFeeSaveReq {
 }
 
 export interface JdFeeQueryReq {
-  type: string;
+  /**
+   * 数据类型：4-京东自营 5-天猫超市
+   */
+  type: number;
   dataDate: string;
+}
+
+/**
+ * 追加 / 更新一条其他费用（按 type + dataDate + category + name upsert，不影响其它费用）
+ */
+export interface JdFeeAddReq {
+  /**
+   * 数据类型：4-京东自营 5-天猫超市
+   */
+  type: number;
+  /**
+   * 结算日期 yyyy-MM-dd
+   */
+  dataDate: string;
+  /**
+   * 费用类别：快递费 / 推广费用 / 平台费用 / 公共费用分摊
+   */
+  category: string;
+  name: string;
+  /**
+   * 未税金额
+   */
+  amount?: number | null;
+  /**
+   * 税率（字符串，如 "0.09"）
+   */
+  taxRate?: string | null;
+  /**
+   * 价税合计
+   */
+  total?: number | null;
+}
+
+/**
+ * 上传天猫超市账单请求
+ * POST /oms/finance/tmcs/upload（multipart/form-data）
+ */
+export interface TmcsUploadReq {
+  /**
+   * 账单明细（含 sheet「账单明细-寄售」）
+   */
+  billFile: File;
+  /**
+   * 货品数据（可选）
+   */
+  goodsFile?: File;
+  /**
+   * 数据类型，默认 5
+   */
+  type?: number;
+  /**
+   * 账单月份 yyyy-MM
+   */
+  month: string;
 }
 
 /**
@@ -263,6 +360,7 @@ export interface ManagementReportQueryVo {
   jdList?: JdSalesCostVo[];
   offlineList?: SalesOutDetailsCostVo[];
   onlineList?: FinanceGoodsSalesSummaryAllCostVo[];
+  tmcsList?: TmcsSalesCostVo[];
   walmartList?: WalmartRebateQueryVo[];
   [property: string]: any;
 }
@@ -762,20 +860,61 @@ export class ManagementReportApi {
   }
 
   /**
+   * 追加 / 更新一条费用（推荐）
+   * POST /oms/finance/jd-fee/add
+   * 按 type + dataDate + category + name upsert，不影响同 type+日期的其它费用
+   */
+  static async addJdFee(params: JdFeeAddReq): Promise<ResponseData<JdFeeVo>> {
+    return omsRequest.post('/finance/jd-fee/add', params);
+  }
+
+  /**
    * 保存 / 更新京东自营费用
    * POST /oms/finance/jd-fee/save
-   * 按 type + dataDate 整份覆盖
+   * 按 type + dataDate 整份覆盖（会先删除该日期全部费用）
    */
   static async saveJdFee(params: JdFeeSaveReq): Promise<ResponseData<JdFeeVo[]>> {
     return omsRequest.post('/finance/jd-fee/save', params);
   }
 
   /**
-   * 精确查询京东自营费用
+   * 精确查询京东自营 / 天猫超市费用
    * POST /oms/finance/jd-fee/query
    */
   static async queryJdFee(params: JdFeeQueryReq): Promise<ResponseData<JdFeeVo[]>> {
     return omsRequest.post('/finance/jd-fee/query', params);
+  }
+
+  /* ---- 天猫超市账单 ---- */
+  /**
+   * 上传天猫超市账单
+   * POST /oms/finance/tmcs/upload（multipart/form-data）
+   * 同 type + 月份重传会硬删覆盖；上传时自动写入平台费用
+   */
+  static async uploadTmcs(data: TmcsUploadReq): Promise<ResponseData<TmcsSalesCostVo[]>> {
+    const formData = new FormData();
+    formData.append('billFile', data.billFile);
+    if (data.goodsFile) {
+      formData.append('goodsFile', data.goodsFile);
+    }
+    formData.append('type', String(data.type ?? 5));
+    formData.append('month', data.month);
+    return omsRequest.post('/finance/tmcs/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      // 账单约 10MB，解析 + 成本匹配较慢，单独放宽超时
+      timeout: 1000 * 60 * 30,
+      showLoading: false,
+    });
+  }
+
+  /**
+   * 查询天猫超市账单数据
+   * POST /oms/finance/tmcs/query
+   */
+  static async queryTmcs(
+    params: ManagementReportQueryReq,
+  ): Promise<ResponseData<TmcsSalesCostVo[]>> {
+    return omsRequest.post('/finance/tmcs/query', params);
   }
 
   /* ---- 各渠道月账单 ---- */

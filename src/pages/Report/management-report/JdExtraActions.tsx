@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   AutoComplete,
@@ -20,8 +20,15 @@ import ManagementReportApi, { type JdFeeVo } from '@/services/managementReportAp
 
 const DEFAULT_JD_TYPE = '京东自营';
 const FEE_CATEGORIES = ['快递费', '推广费用', '平台费用', '公共费用分摊'];
+// 费用 / 管报数据类型统一用数字（4-京东自营 5-天猫超市）
+const FEE_TYPE_OPTIONS = [
+  { label: '京东自营', value: 4 },
+  { label: '天猫超市', value: 5 },
+];
 
 interface JdExtraActionsProps {
+  /** 当前管报数据类型：4-京东自营 5-天猫超市 */
+  reportType: number;
   /** 主页面当前选择的销售月份，用于默认结算日期 */
   month: Dayjs | null;
   /** 上传 / 保存成功后刷新主表 */
@@ -40,12 +47,13 @@ interface FeeItemRow {
 const getDefaultDate = (month: Dayjs | null) =>
   (month || dayjs().subtract(1, 'month')).endOf('month');
 
-const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => {
+const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onChanged }) => {
   const keyRef = useRef(0);
   const nextKey = (prefix: string) => `${prefix}-${Date.now()}-${keyRef.current++}`;
 
+  const isJd = reportType === 4;
+
   const [types, setTypes] = useState<string[]>([DEFAULT_JD_TYPE]);
-  const [typesLoading, setTypesLoading] = useState(false);
 
   /* ---- 上传京东自营数据 ---- */
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -53,17 +61,28 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  /* ---- 上传天猫超市账单 ---- */
+  const [tmcsOpen, setTmcsOpen] = useState(false);
+  const [tmcsMonth, setTmcsMonth] = useState<Dayjs | null>(getDefaultDate(month));
+  const [tmcsBillFile, setTmcsBillFile] = useState<File | null>(null);
+  const [tmcsGoodsFile, setTmcsGoodsFile] = useState<File | null>(null);
+  const [tmcsUploading, setTmcsUploading] = useState(false);
+
   /* ---- 费用录入 ---- */
   const [feeOpen, setFeeOpen] = useState(false);
-  const [feeType, setFeeType] = useState(DEFAULT_JD_TYPE);
+  const [feeType, setFeeType] = useState<number>(reportType);
   const [feeDate, setFeeDate] = useState<Dayjs | null>(getDefaultDate(month));
   const [feeItems, setFeeItems] = useState<FeeItemRow[]>([]);
   const [feeLoading, setFeeLoading] = useState(false);
   const [feeSaving, setFeeSaving] = useState(false);
 
+  // 主页面切换数据类型时，费用弹窗的默认类型跟着走
+  useEffect(() => {
+    setFeeType(reportType);
+  }, [reportType]);
+
   // 拉取已有数据类型（失败时回退到「京东自营」）
   const loadTypes = async () => {
-    setTypesLoading(true);
     try {
       const res = await ManagementReportApi.getJdRawTypes();
       if (res.code === 200) {
@@ -75,8 +94,6 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
       }
     } catch (error) {
       console.error('获取京东自营数据类型失败:', error);
-    } finally {
-      setTypesLoading(false);
     }
     return types.length ? types : [DEFAULT_JD_TYPE];
   };
@@ -132,8 +149,84 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
     }
   };
 
+  /* ---- 上传天猫超市账单 ---- */
+  const openTmcsUpload = () => {
+    setTmcsOpen(true);
+    setTmcsMonth(getDefaultDate(month));
+    setTmcsBillFile(null);
+    setTmcsGoodsFile(null);
+  };
+
+  const tmcsBillProps: UploadProps = {
+    accept: '.xlsx,.xls',
+    maxCount: 1,
+    beforeUpload: (file) => {
+      if (!/\.(xlsx|xls)$/i.test(file.name)) {
+        message.error('请上传 .xlsx / .xls 格式的天猫账单明细');
+        return Upload.LIST_IGNORE;
+      }
+      setTmcsBillFile(file);
+      return false;
+    },
+    fileList: tmcsBillFile
+      ? [{ uid: 'tmcs-bill-file', name: tmcsBillFile.name, status: 'done' as const }]
+      : [],
+    onRemove: () => setTmcsBillFile(null),
+  };
+
+  const tmcsGoodsProps: UploadProps = {
+    accept: '.xlsx,.xls',
+    maxCount: 1,
+    beforeUpload: (file) => {
+      if (!/\.(xlsx|xls)$/i.test(file.name)) {
+        message.error('请上传 .xlsx / .xls 格式的货品数据');
+        return Upload.LIST_IGNORE;
+      }
+      setTmcsGoodsFile(file);
+      return false;
+    },
+    fileList: tmcsGoodsFile
+      ? [{ uid: 'tmcs-goods-file', name: tmcsGoodsFile.name, status: 'done' as const }]
+      : [],
+    onRemove: () => setTmcsGoodsFile(null),
+  };
+
+  const handleTmcsUpload = async () => {
+    if (!tmcsBillFile) {
+      message.error('请选择天猫账单明细文件');
+      return;
+    }
+    if (!tmcsMonth) {
+      message.error('请选择账单月份');
+      return;
+    }
+    setTmcsUploading(true);
+    try {
+      const res = await ManagementReportApi.uploadTmcs({
+        billFile: tmcsBillFile,
+        goodsFile: tmcsGoodsFile || undefined,
+        type: 5,
+        month: tmcsMonth.format('YYYY-MM'),
+      });
+      if (res.code === 200 && res.success !== false) {
+        message.success('天猫超市账单上传成功');
+        setTmcsOpen(false);
+        setTmcsBillFile(null);
+        setTmcsGoodsFile(null);
+        onChanged();
+      } else {
+        message.error(typeof res.data === 'string' ? res.data : res.msg || '上传失败');
+      }
+    } catch (error) {
+      console.error('上传天猫超市账单失败:', error);
+      message.error('上传天猫超市账单失败');
+    } finally {
+      setTmcsUploading(false);
+    }
+  };
+
   /* ---- 费用录入 ---- */
-  const loadFeeItems = async (type: string, date: Dayjs | null) => {
+  const loadFeeItems = async (type: number, date: Dayjs | null) => {
     if (!type || !date) {
       return;
     }
@@ -171,13 +264,11 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
     setFeeOpen(true);
     setFeeDate(defaultDate);
     setFeeItems([]);
-    const list = await loadTypes();
-    const nextType = list.includes(feeType) ? feeType : list[0] || DEFAULT_JD_TYPE;
-    setFeeType(nextType);
-    await loadFeeItems(nextType, defaultDate);
+    setFeeType(reportType);
+    await loadFeeItems(reportType, defaultDate);
   };
 
-  const handleFeeTypeChange = (value: string) => {
+  const handleFeeTypeChange = (value: number) => {
     setFeeType(value);
     loadFeeItems(value, feeDate);
   };
@@ -216,10 +307,6 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
 
   const addFeeItem = () => {
     setFeeItems((prev) => [...prev, { key: nextKey('fee'), category: FEE_CATEGORIES[0] }]);
-  };
-
-  const removeFeeItem = (key: string) => {
-    setFeeItems((prev) => prev.filter((item) => item.key !== key));
   };
 
   const feeColumns: TableColumnsType<FeeItemRow> = [
@@ -288,15 +375,6 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
         />
       ),
     },
-    {
-      title: '操作',
-      width: 80,
-      render: (_value, record) => (
-        <Button type="link" danger size="small" onClick={() => removeFeeItem(record.key)}>
-          删除
-        </Button>
-      ),
-    },
   ];
 
   const handleSaveFee = async () => {
@@ -309,33 +387,45 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
       return;
     }
 
-    const items = feeItems
-      .map((item) => ({
-        category: item.category,
-        name: item.name?.trim() || undefined,
-        amount: item.amount === undefined || item.amount === null ? null : Number(item.amount),
-        taxRate: item.taxRate?.trim() || null,
-        total: item.total === undefined || item.total === null ? null : Number(item.total),
-      }))
-      .filter((item) => item.name || item.amount !== null || item.total !== null);
+    // 逐条新增 / 更新（同 type+日期+类别+名称 覆盖），不会删除该日期下的其它费用
+    const items = feeItems.filter((item) => (item.name || '').trim());
+
+    if (!items.length) {
+      message.error('请至少填写一条费用（子分类名称必填）');
+      return;
+    }
 
     setFeeSaving(true);
+    let saved = 0;
     try {
-      const res = await ManagementReportApi.saveJdFee({
-        type: feeType,
-        dataDate: feeDate.format('YYYY-MM-DD'),
-        items,
-      });
-      if (res.code === 200 && res.success !== false) {
-        message.success('京东自营费用保存成功');
+      for (const item of items) {
+        const res = await ManagementReportApi.addJdFee({
+          type: feeType,
+          dataDate: feeDate.format('YYYY-MM-DD'),
+          category: item.category,
+          name: (item.name || '').trim(),
+          amount: item.amount === undefined || item.amount === null ? null : Number(item.amount),
+          taxRate: item.taxRate?.trim() || null,
+          total: item.total === undefined || item.total === null ? null : Number(item.total),
+        });
+        if (res.code === 200 && res.success !== false) {
+          saved += 1;
+        } else {
+          message.error(
+            `「${item.name}」保存失败：${
+              typeof res.data === 'string' ? res.data : res.msg || '保存失败'
+            }`,
+          );
+        }
+      }
+      if (saved > 0) {
+        message.success(`已保存 ${saved} 条费用`);
         setFeeOpen(false);
         onChanged();
-      } else {
-        message.error(typeof res.data === 'string' ? res.data : res.msg || '保存失败');
       }
     } catch (error) {
-      console.error('保存京东自营费用失败:', error);
-      message.error('保存京东自营费用失败');
+      console.error('保存费用失败:', error);
+      message.error('保存费用失败');
     } finally {
       setFeeSaving(false);
     }
@@ -344,9 +434,15 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
   return (
     <>
       <Space>
-        <Button type="primary" icon={<UploadOutlined />} onClick={openUpload}>
-          上传京东数据
-        </Button>
+        {isJd ? (
+          <Button type="primary" icon={<UploadOutlined />} onClick={openUpload}>
+            上传京东数据
+          </Button>
+        ) : (
+          <Button type="primary" icon={<UploadOutlined />} onClick={openTmcsUpload}>
+            上传天猫账单
+          </Button>
+        )}
         <Button type="primary" icon={<EditOutlined />} onClick={openFeeModal}>
           费用录入
         </Button>
@@ -402,9 +498,69 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
         </div>
       </Modal>
 
-      {/* 京东自营费用录入 */}
+      {/* 上传天猫超市账单 */}
       <Modal
-        title="京东自营费用录入"
+        title="上传天猫超市账单"
+        open={tmcsOpen}
+        onCancel={() => setTmcsOpen(false)}
+        onOk={handleTmcsUpload}
+        okText="开始上传"
+        cancelText="取消"
+        width={620}
+        destroyOnClose
+        confirmLoading={tmcsUploading}
+      >
+        <Alert
+          type="info"
+          showIcon
+          message="上传说明"
+          description={
+            <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+              1. 账单明细：批量账单明细-*.xlsx，需包含 sheet「账单明细-寄售」
+              <br />
+              2. 货品数据：货品数据*.xlsx（可选，用于补充货号 / 品名 / 后端商品编码）
+              <br />
+              3. 同一账单月份重传会覆盖该月份旧数据
+              <br />
+              4. 上传时会自动把「供应商违规处罚、消费者退款赔付」写入其他费用（平台费用）
+            </div>
+          }
+          style={{ marginBottom: 16 }}
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              账单月份 <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <DatePicker.MonthPicker
+              style={{ width: '100%' }}
+              value={tmcsMonth}
+              format="YYYY-MM"
+              placeholder="请选择账单月份"
+              onChange={(date) => setTmcsMonth(date)}
+              allowClear
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>
+              账单明细文件 <span style={{ color: '#ff4d4f' }}>*</span>
+            </span>
+            <Upload {...tmcsBillProps}>
+              <Button icon={<UploadOutlined />}>选择文件</Button>
+            </Upload>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, color: '#666' }}>货品数据文件（可选）</span>
+            <Upload {...tmcsGoodsProps}>
+              <Button icon={<UploadOutlined />}>选择文件</Button>
+            </Upload>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 费用录入（京东自营 / 天猫超市共用） */}
+      <Modal
+        title="费用录入"
         open={feeOpen}
         onCancel={() => setFeeOpen(false)}
         onOk={handleSaveFee}
@@ -417,12 +573,14 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
         <Alert
           type="warning"
           showIcon
-          message="保存时会按「数据类型 + 结算日期」整份覆盖该日期的费用明细"
+          message="保存时按「数据类型 + 结算日期 + 费用类别 + 子分类名称」逐条新增或更新"
           description={
             <div style={{ fontSize: 12, lineHeight: 1.7 }}>
-              费用类别可选：快递费 / 推广费用 / 平台费用 / 公共费用分摊；同一类别可添加多行子分类。
+              1. 只影响本次填写的费用，不会删除该日期下其它已存在的费用（如上传自动生成的平台费用）
               <br />
-              修改未税金额或税率时会自动计算价税合计（价税合计 = 未税金额 × (1 + 税率)）。
+              2. 费用类别可选：快递费 / 推广费用 / 平台费用 / 公共费用分摊；同一类别可添加多行子分类
+              <br />
+              3. 修改未税金额或税率时会自动计算价税合计（价税合计 = 未税金额 × (1 + 税率)）
             </div>
           }
           style={{ marginBottom: 16 }}
@@ -436,9 +594,8 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ month, onChanged }) => 
             <Select
               value={feeType}
               style={{ width: '100%' }}
-              loading={typesLoading}
               placeholder="请选择数据类型"
-              options={types.map((type) => ({ label: type, value: type }))}
+              options={FEE_TYPE_OPTIONS}
               onChange={handleFeeTypeChange}
             />
           </div>

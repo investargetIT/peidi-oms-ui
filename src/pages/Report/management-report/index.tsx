@@ -9,6 +9,7 @@ import ManagementReportApi, {
   type SalesOutDetailsCostVo,
   type WalmartRebateQueryVo,
   type JdSalesCostVo,
+  type TmcsSalesCostVo,
   type JdFeeVo,
 } from '@/services/managementReportApi';
 import JdExtraActions from './JdExtraActions';
@@ -42,7 +43,7 @@ const formatJdMoney = (v?: number | null) =>
   v === null || v === undefined ? '' : Number(v).toFixed(2);
 
 const ManagementReportTab: React.FC = () => {
-  // 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营
+  // 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市
   const [mrType, setMrType] = useState<number>(1);
   // 销售月份（单月选择，起止都用同一个值）
   const [mrStartMonth, setMrStartMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
@@ -53,7 +54,14 @@ const ManagementReportTab: React.FC = () => {
   const [mrWalmartList, setMrWalmartList] = useState<WalmartRebateQueryVo[]>([]);
   // 京东自营：销售 + 费用（费用子类按类别分组，覆盖到前几行）
   const [mrJdList, setMrJdList] = useState<JdSalesCostVo[]>([]);
+  // 天猫超市：销售（一行一个后端商品编码）
+  const [mrTmcsList, setMrTmcsList] = useState<TmcsSalesCostVo[]>([]);
+  // 其他费用明细（type=4/5 共用）
   const [mrFeeList, setMrFeeList] = useState<JdFeeVo[]>([]);
+
+  // 京东自营 / 天猫超市：是否展示费用相关区域
+  const isFeeType = mrType === 4 || mrType === 5;
+  const feeTypeLabel = mrType === 5 ? '天猫超市' : '京东自营';
 
   // 京东自营表格数据：
   // 与「京东自营9月份数据.xlsx」保持一致——费用子类不再单独占行，
@@ -111,6 +119,7 @@ const ManagementReportTab: React.FC = () => {
         setMrOfflineList(data.offlineList || []);
         setMrWalmartList(data.walmartList || []);
         setMrJdList(data.jdList || []);
+        setMrTmcsList(data.tmcsList || []);
         setMrFeeList(data.feeList || []);
         message.success('查询成功');
       } else if (res.code === 500) {
@@ -136,6 +145,7 @@ const ManagementReportTab: React.FC = () => {
     setMrOfflineList([]);
     setMrWalmartList([]);
     setMrJdList([]);
+    setMrTmcsList([]);
     setMrFeeList([]);
     fetchManagementReport({
       type: mrType,
@@ -478,8 +488,15 @@ const ManagementReportTab: React.FC = () => {
   ];
 
   // 管报数据查询 - 京东自营表格列（type=4）
-  // 表头名称/数量与「京东自营9月份数据.xlsx」保持一致：销售 16 列 + 费用 4 组 × 4 列 = 32 列
+  // 表头名称/数量与「京东自营9月份数据.xlsx」保持一致：销售列 + 费用 4 组 × 4 列
   const mrJdColumns = [
+    {
+      title: '立账日期',
+      dataIndex: 'created',
+      key: 'created',
+      width: 120,
+      fixed: 'left' as const,
+    },
     {
       title: '订货客户',
       dataIndex: 'orderCustomer',
@@ -519,8 +536,8 @@ const ManagementReportTab: React.FC = () => {
     },
     {
       title: '临期',
-      dataIndex: 'expiry',
-      key: 'expiry',
+      dataIndex: 'nearExpiry',
+      key: 'nearExpiry',
       width: 90,
     },
     {
@@ -618,7 +635,143 @@ const ManagementReportTab: React.FC = () => {
     }),
   ];
 
-  // 京东自营费用明细（单独表格展示，避免费用列太靠右看不到）
+  // 管报数据查询 - 天猫超市表格列（type=5）
+  // 与京东自营共用 16 个字段，另附天猫特有：后端商品编码 / 票扣 / 开票金额 / 账单月份
+  const mrTmcsColumns = [
+    {
+      title: '账单月份',
+      dataIndex: 'bizDate',
+      key: 'bizDate',
+      width: 120,
+      fixed: 'left' as const,
+    },
+    {
+      title: '订货客户',
+      dataIndex: 'orderCustomer',
+      key: 'orderCustomer',
+      width: 140,
+      fixed: 'left' as const,
+    },
+    {
+      title: '货号',
+      dataIndex: 'merchantCode',
+      key: 'merchantCode',
+      width: 140,
+    },
+    {
+      title: '料号',
+      dataIndex: 'u9',
+      key: 'u9',
+      width: 120,
+    },
+    {
+      title: '品名',
+      dataIndex: 'productName',
+      key: 'productName',
+      width: 200,
+    },
+    {
+      title: '品牌',
+      dataIndex: 'brandName',
+      key: 'brandName',
+      width: 100,
+    },
+    {
+      title: '自有/外采',
+      dataIndex: 'own',
+      key: 'own',
+      width: 90,
+    },
+    {
+      title: '临期',
+      dataIndex: 'nearExpiry',
+      key: 'nearExpiry',
+      width: 90,
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 90,
+    },
+    {
+      title: '单价',
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: 100,
+      render: formatJdMoney,
+    },
+    {
+      title: '价税合计',
+      dataIndex: 'totalWithTax',
+      key: 'totalWithTax',
+      width: 120,
+      render: formatJdMoney,
+    },
+    {
+      title: '税率',
+      dataIndex: 'taxRate',
+      key: 'taxRate',
+      width: 80,
+    },
+    {
+      title: '不含税金额',
+      dataIndex: 'amountWithoutTax',
+      key: 'amountWithoutTax',
+      width: 120,
+      render: formatJdMoney,
+    },
+    {
+      title: '财务单位成本',
+      dataIndex: 'financeUnitCost',
+      key: 'financeUnitCost',
+      width: 120,
+      render: formatJdMoney,
+    },
+    {
+      title: '财务总成本',
+      dataIndex: 'financeTotalCost',
+      key: 'financeTotalCost',
+      width: 120,
+      render: formatJdMoney,
+    },
+    {
+      title: '内部转移单价',
+      dataIndex: 'internalTransferUnitPrice',
+      key: 'internalTransferUnitPrice',
+      width: 120,
+      render: formatJdMoney,
+    },
+    {
+      title: '内部转移总价',
+      dataIndex: 'internalTransferTotalPrice',
+      key: 'internalTransferTotalPrice',
+      width: 120,
+      render: formatJdMoney,
+    },
+    {
+      title: '后端商品编码',
+      dataIndex: 'backendGoodsCode',
+      key: 'backendGoodsCode',
+      width: 160,
+    },
+    {
+      title: '票扣',
+      dataIndex: 'ticketDeduction',
+      key: 'ticketDeduction',
+      width: 100,
+      render: formatJdMoney,
+    },
+    {
+      title: '开票金额',
+      dataIndex: 'invoiceAmount',
+      key: 'invoiceAmount',
+      width: 120,
+      render: formatJdMoney,
+    },
+  ];
+
+  // 京东自营 / 天猫超市费用明细（单独表格展示，避免费用列太靠右看不到）
   const jdFeeDetailColumns = [
     {
       title: '费用类别',
@@ -671,6 +824,9 @@ const ManagementReportTab: React.FC = () => {
     } else if (mrType === 4) {
       dataList = mrJdTableData;
       columns = mrJdColumns;
+    } else if (mrType === 5) {
+      dataList = mrTmcsList;
+      columns = mrTmcsColumns;
     }
 
     if (!dataList.length) {
@@ -679,7 +835,15 @@ const ManagementReportTab: React.FC = () => {
     }
 
     const typeLabel =
-      mrType === 1 ? '线上' : mrType === 2 ? '线下' : mrType === 3 ? '沃尔玛' : '京东自营';
+      mrType === 1
+        ? '线上'
+        : mrType === 2
+        ? '线下'
+        : mrType === 3
+        ? '沃尔玛'
+        : mrType === 5
+        ? '天猫超市'
+        : '京东自营';
     const monthLabel = (mrStartMonth || dayjs().subtract(1, 'month')).format('YYYY-MM');
 
     try {
@@ -771,6 +935,7 @@ const ManagementReportTab: React.FC = () => {
                 { label: '线下', value: 2 },
                 { label: '沃尔玛', value: 3 },
                 { label: '京东自营', value: 4 },
+                { label: '天猫超市', value: 5 },
               ]}
             />
           </div>
@@ -814,19 +979,23 @@ const ManagementReportTab: React.FC = () => {
                 下载
               </Button>
               <Button onClick={handleMrReset}>重置</Button>
-              {mrType === 4 && (
-                <JdExtraActions month={mrStartMonth} onChanged={() => fetchManagementReport()} />
+              {isFeeType && (
+                <JdExtraActions
+                  reportType={mrType}
+                  month={mrStartMonth}
+                  onChanged={() => fetchManagementReport()}
+                />
               )}
             </Space>
           </div>
         </div>
       </div>
 
-      {/* 京东自营费用明细：单独展示 feeList，避免宽表里费用列太靠右看不到 */}
-      {mrType === 4 && (
+      {/* 费用明细：单独展示 feeList（type=4/5），避免宽表里费用列太靠右看不到 */}
+      {isFeeType && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, marginBottom: 8 }}>
-            京东自营费用明细（共 {mrFeeList.length} 项）
+            {feeTypeLabel}费用明细（共 {mrFeeList.length} 项）
           </div>
           <Table
             columns={jdFeeDetailColumns}
@@ -896,7 +1065,23 @@ const ManagementReportTab: React.FC = () => {
           rowKey={(record) => record.__key}
           loading={mrLoading}
           size="small"
-          scroll={{ x: 3800 }}
+          scroll={{ x: 4000 }}
+          pagination={{
+            showSizeChanger: true,
+            showQuickJumper: true,
+            pageSizeOptions: [10, 20, 50, 100],
+            showTotal: (total) => `共 ${total} 条记录`,
+          }}
+        />
+      )}
+      {mrType === 5 && (
+        <Table
+          columns={mrTmcsColumns}
+          dataSource={mrTmcsList}
+          rowKey={(_record, index) => `tmcs-${index ?? 0}`}
+          loading={mrLoading}
+          size="small"
+          scroll={{ x: 2600 }}
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,
