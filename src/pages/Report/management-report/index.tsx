@@ -10,6 +10,7 @@ import ManagementReportApi, {
   type WalmartRebateQueryVo,
   type JdSalesCostVo,
   type TmcsSalesCostVo,
+  type TmallFlashSaleVo,
   type JdFeeVo,
 } from '@/services/managementReportApi';
 import JdExtraActions from './JdExtraActions';
@@ -42,8 +43,29 @@ const JD_FEE_GROUPS = [
 const formatJdMoney = (v?: number | null) =>
   v === null || v === undefined ? '' : Number(v).toFixed(2);
 
+// 金额格式化：空值展示 '-'
+const formatMoneyDash = (v?: number | null) =>
+  v === null || v === undefined ? '-' : Number(v).toFixed(2);
+
+// 税率格式化：type=6 的税率是数字（0.09 表示 9%），按百分比展示；未匹配到税率（null）展示 '-'
+const formatTaxRatePercent = (v?: number | null) => {
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return '-';
+  const percent = Number(v) * 100;
+  return `${Number.isInteger(percent) ? percent : Number(percent.toFixed(2))}%`;
+};
+
+// 数据类型 -> 展示名（下载文件名等场景使用）
+const MR_TYPE_LABELS: Record<number, string> = {
+  1: '线上',
+  2: '线下',
+  3: '沃尔玛',
+  4: '京东自营',
+  5: '天猫超市',
+  6: '天猫闪购',
+};
+
 const ManagementReportTab: React.FC = () => {
-  // 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市
+  // 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市 6-天猫闪购
   const [mrType, setMrType] = useState<number>(1);
   // 销售月份（单月选择，起止都用同一个值）
   const [mrStartMonth, setMrStartMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
@@ -56,6 +78,8 @@ const ManagementReportTab: React.FC = () => {
   const [mrJdList, setMrJdList] = useState<JdSalesCostVo[]>([]);
   // 天猫超市：销售（一行一个后端商品编码）
   const [mrTmcsList, setMrTmcsList] = useState<TmcsSalesCostVo[]>([]);
+  // 天猫闪购：货品×仓库收入汇总（两个闪购仓已合并，一行一个货品）
+  const [mrWarehouseList, setMrWarehouseList] = useState<TmallFlashSaleVo[]>([]);
   // 其他费用明细（type=4/5 共用）
   const [mrFeeList, setMrFeeList] = useState<JdFeeVo[]>([]);
 
@@ -121,6 +145,7 @@ const ManagementReportTab: React.FC = () => {
         setMrJdList(data.jdList || []);
         setMrTmcsList(data.tmcsList || []);
         setMrFeeList(data.feeList || []);
+        setMrWarehouseList(data.warehouseList || []);
         message.success('查询成功');
       } else if (res.code === 500) {
         message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
@@ -147,6 +172,7 @@ const ManagementReportTab: React.FC = () => {
     setMrJdList([]);
     setMrTmcsList([]);
     setMrFeeList([]);
+    setMrWarehouseList([]);
     fetchManagementReport({
       type: mrType,
       startMonth: defaultMonth,
@@ -771,6 +797,125 @@ const ManagementReportTab: React.FC = () => {
     },
   ];
 
+  // 管报数据查询 - 天猫闪购表格列（type=6）
+  // 一行 = 一个货品在该月的汇总（嘉兴闪购仓 + 东莞闪购仓已合并，接口不返回仓库字段）
+  const mrWarehouseColumns = [
+    {
+      title: '订货客户',
+      dataIndex: 'orderCustomer',
+      key: 'orderCustomer',
+      width: 140,
+      fixed: 'left' as const,
+    },
+    {
+      title: '货号',
+      dataIndex: 'merchantCode',
+      key: 'merchantCode',
+      width: 140,
+    },
+    {
+      title: '料号',
+      dataIndex: 'u9',
+      key: 'u9',
+      width: 120,
+    },
+    {
+      title: '品名',
+      dataIndex: 'productName',
+      key: 'productName',
+      width: 200,
+    },
+    {
+      title: '品牌',
+      dataIndex: 'brandName',
+      key: 'brandName',
+      width: 100,
+    },
+    {
+      title: '自有/外采',
+      dataIndex: 'own',
+      key: 'own',
+      width: 90,
+      render: (v?: string | null) => v ?? '-',
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 90,
+    },
+    {
+      title: '单价',
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: 100,
+      render: formatMoneyDash,
+    },
+    {
+      title: '退款金额',
+      dataIndex: 'refundAmount',
+      key: 'refundAmount',
+      width: 100,
+      render: formatMoneyDash,
+    },
+    {
+      title: '价税合计',
+      dataIndex: 'totalWithTax',
+      key: 'totalWithTax',
+      width: 120,
+      render: formatMoneyDash,
+    },
+    {
+      title: '税率',
+      dataIndex: 'taxRate',
+      key: 'taxRate',
+      width: 80,
+      // 本类型税率为数字（0.09），展示成 9%
+      render: formatTaxRatePercent,
+    },
+    {
+      title: '不含税金额',
+      dataIndex: 'amountWithoutTax',
+      key: 'amountWithoutTax',
+      width: 120,
+      render: formatMoneyDash,
+    },
+    {
+      title: '财务单位成本',
+      dataIndex: 'financeUnitCost',
+      key: 'financeUnitCost',
+      width: 120,
+      render: formatMoneyDash,
+    },
+    {
+      title: '财务总成本',
+      dataIndex: 'financeTotalCost',
+      key: 'financeTotalCost',
+      width: 120,
+      render: formatMoneyDash,
+    },
+    {
+      title: '内部转移单价',
+      dataIndex: 'internalTransferUnitPrice',
+      key: 'internalTransferUnitPrice',
+      width: 120,
+      render: formatMoneyDash,
+    },
+    {
+      title: '内部转移总价',
+      dataIndex: 'internalTransferTotalPrice',
+      key: 'internalTransferTotalPrice',
+      width: 120,
+      render: formatMoneyDash,
+    },
+    {
+      title: '成本匹配来源',
+      dataIndex: 'costMatchSource',
+      key: 'costMatchSource',
+      width: 140,
+    },
+  ];
+
   // 京东自营 / 天猫超市费用明细（单独表格展示，避免费用列太靠右看不到）
   const jdFeeDetailColumns = [
     {
@@ -827,6 +972,9 @@ const ManagementReportTab: React.FC = () => {
     } else if (mrType === 5) {
       dataList = mrTmcsList;
       columns = mrTmcsColumns;
+    } else if (mrType === 6) {
+      dataList = mrWarehouseList;
+      columns = mrWarehouseColumns;
     }
 
     if (!dataList.length) {
@@ -834,16 +982,7 @@ const ManagementReportTab: React.FC = () => {
       return;
     }
 
-    const typeLabel =
-      mrType === 1
-        ? '线上'
-        : mrType === 2
-        ? '线下'
-        : mrType === 3
-        ? '沃尔玛'
-        : mrType === 5
-        ? '天猫超市'
-        : '京东自营';
+    const typeLabel = MR_TYPE_LABELS[mrType] || '管报';
     const monthLabel = (mrStartMonth || dayjs().subtract(1, 'month')).format('YYYY-MM');
 
     try {
@@ -936,6 +1075,7 @@ const ManagementReportTab: React.FC = () => {
                 { label: '沃尔玛', value: 3 },
                 { label: '京东自营', value: 4 },
                 { label: '天猫超市', value: 5 },
+                { label: '天猫闪购', value: 6 },
               ]}
             />
           </div>
@@ -1082,6 +1222,22 @@ const ManagementReportTab: React.FC = () => {
           loading={mrLoading}
           size="small"
           scroll={{ x: 2600 }}
+          pagination={{
+            showSizeChanger: true,
+            showQuickJumper: true,
+            pageSizeOptions: [10, 20, 50, 100],
+            showTotal: (total) => `共 ${total} 条记录`,
+          }}
+        />
+      )}
+      {mrType === 6 && (
+        <Table
+          columns={mrWarehouseColumns}
+          dataSource={mrWarehouseList}
+          rowKey={(_record, index) => `warehouse-${index ?? 0}`}
+          loading={mrLoading}
+          size="small"
+          scroll={{ x: 2100 }}
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,

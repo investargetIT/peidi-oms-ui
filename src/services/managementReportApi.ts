@@ -52,7 +52,8 @@ export interface ManagementReportQueryReq {
    */
   startMonth?: string;
   /**
-   * 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市
+   * 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市 6-天猫闪购
+   * 注：type=6 必须整月查询（startDate 为当月 1 号、endDate 为当月最后一天）
    */
   type?: number;
   [property: string]: any;
@@ -202,6 +203,71 @@ export interface TmcsSalesCostVo {
    * 账单月份 yyyy-MM-dd（天猫特有）
    */
   bizDate?: string;
+  [property: string]: any;
+}
+
+/**
+ * 天猫闪购货品×仓库收入汇总返回对象（type=6）
+ * 一行 = 一个货品在该月的汇总（嘉兴闪购仓 + 东莞闪购仓已合并，不返回仓库字段）
+ * 注意：本类型的 taxRate 是**数字**（0.09 表示 9%），与 type=4/5 的字符串税率不同
+ */
+export interface TmallFlashSaleVo {
+  /**
+   * 订货客户，固定「天猫闪购」
+   */
+  orderCustomer?: string;
+  merchantCode?: string;
+  /**
+   * 料号
+   */
+  u9?: string | null;
+  productName?: string | null;
+  brandName?: string | null;
+  /**
+   * 自有/外采（匹配到成本表才有，否则为 null）
+   */
+  own?: string | null;
+  /**
+   * 数量 = 实际销售量 + 系统发货但平台退款量
+   */
+  quantity?: number;
+  /**
+   * 单价 = 实际销售额 ÷ 实际销售量（实际销售量为 0 时为 null）
+   */
+  unitPrice?: number | null;
+  /**
+   * 恒为 0（保留字段，平台退款量/额已并入 quantity、totalWithTax）
+   */
+  refundAmount?: number;
+  /**
+   * 价税合计 = 实际销售额 + 系统发货但平台退款金额 + 邮费
+   */
+  totalWithTax?: number;
+  /**
+   * 税率（数字，0.09 表示 9%）；匹配不到为 null
+   */
+  taxRate?: number | null;
+  /**
+   * 不含税金额 = 价税合计 ÷ (1 + 税率)；税率为 null 时等于价税合计
+   */
+  amountWithoutTax?: number;
+  /**
+   * 财务单位成本（成本快照日 = startDate）
+   */
+  financeUnitCost?: number | null;
+  /**
+   * 财务总成本 = 财务单位成本 × quantity（含退款量）
+   */
+  financeTotalCost?: number | null;
+  internalTransferUnitPrice?: number | null;
+  /**
+   * 内部转移总价 = 内部转移单价 × quantity（含退款量）
+   */
+  internalTransferTotalPrice?: number | null;
+  /**
+   * 成本匹配来源：精确-智创（已匹配）/ 未匹配
+   */
+  costMatchSource?: string;
   [property: string]: any;
 }
 
@@ -362,6 +428,10 @@ export interface ManagementReportQueryVo {
   onlineList?: FinanceGoodsSalesSummaryAllCostVo[];
   tmcsList?: TmcsSalesCostVo[];
   walmartList?: WalmartRebateQueryVo[];
+  /**
+   * 天猫闪购（type=6）：只有该列表有值，其余列表为 null；无数据时为 []
+   */
+  warehouseList?: TmallFlashSaleVo[];
   [property: string]: any;
 }
 
