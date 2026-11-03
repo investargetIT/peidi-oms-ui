@@ -280,17 +280,18 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
           return item;
         }
         const next = { ...item, ...patch };
-        // 修改未税金额 / 税率时自动重算价税合计（可再手工修改 total）
-        if (('amount' in patch || 'taxRate' in patch) && !('total' in patch)) {
+        // 修改价税合计 / 税率时自动重算未税金额（未税金额 = 价税合计 / (1 + 税率)），可再手工修改未税金额
+        if (('total' in patch || 'taxRate' in patch) && !('amount' in patch)) {
           const rate = Number(next.taxRate);
           if (
-            next.amount !== undefined &&
-            next.amount !== null &&
+            next.total !== undefined &&
+            next.total !== null &&
             next.taxRate !== undefined &&
             next.taxRate !== '' &&
-            !Number.isNaN(rate)
+            !Number.isNaN(rate) &&
+            1 + rate !== 0
           ) {
-            next.total = Number((next.amount * (1 + rate)).toFixed(2));
+            next.amount = Number((next.total / (1 + rate)).toFixed(2));
           }
         }
         return next;
@@ -576,6 +577,8 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
               1. 只影响本次填写的费用，不会删除该日期下其它已存在的费用（如上传自动生成的平台费用）
               <br />
               2. 费用类别可选：快递费 / 推广费用 / 平台费用 / 公共费用分摊；同一类别可添加多行子分类
+              <br />
+              3. 修改价税合计或税率时会自动计算未税金额（未税金额 = 价税合计 ÷ (1 + 税率)）
             </div>
           }
           style={{ marginBottom: 16 }}
