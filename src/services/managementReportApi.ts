@@ -53,7 +53,9 @@ export interface ManagementReportQueryReq {
   startMonth?: string;
   /**
    * 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市 6-天猫闪购
-   * 注：type=6 必须整月查询（startDate 为当月 1 号、endDate 为当月最后一天）
+   * 7-招行内购 8-宁波银行 9-天猫国际 10-亚马逊
+   * 注：type=6 必须整月查询（startDate 为当月 1 号、endDate 为当月最后一天）；
+   * type=9/10 复用 jdList（不返回 feeList），type=7/8 返回 zhaohangList / ningboList
    */
   type?: number;
   [property: string]: any;
@@ -299,18 +301,25 @@ export interface JdFeeVo {
 }
 
 /**
- * 上传京东自营原始数据（U9 应收单）请求
+ * 上传 U9 应收单请求（京东自营 / 天猫国际 / 亚马逊 共用）
  */
-export interface JdRawUploadReq {
+export interface U9ReceivableUploadReq {
   /**
-   * 数据类型，默认 京东自营
+   * 数据类型：京东自营（默认）/ 天猫国际 / 亚马逊
    */
-  type?: string;
+  type?: U9ReceivableType;
   /**
-   * U9 应收单导出文件（xlsx）
+   * U9 应收单导出文件（xlsx / xls）
    */
   file: File;
 }
+
+/**
+ * U9 应收单支持的数据类型（中文，按 UTF-8 传）
+ * 对应管报 type：京东自营=4、天猫国际=9、亚马逊=10
+ */
+export const U9_RECEIVABLE_TYPES = ['京东自营', '天猫国际', '亚马逊'] as const;
+export type U9ReceivableType = (typeof U9_RECEIVABLE_TYPES)[number];
 
 /**
  * 京东自营费用保存明细项
@@ -423,6 +432,9 @@ export interface TmcsUploadReq {
  */
 export interface ManagementReportQueryVo {
   feeList?: JdFeeVo[];
+  /**
+   * 京东自营（type=4）/ 天猫国际（type=9）/ 亚马逊（type=10）共用
+   */
   jdList?: JdSalesCostVo[];
   offlineList?: SalesOutDetailsCostVo[];
   onlineList?: FinanceGoodsSalesSummaryAllCostVo[];
@@ -432,6 +444,14 @@ export interface ManagementReportQueryVo {
    * 天猫闪购（type=6）：只有该列表有值，其余列表为 null；无数据时为 []
    */
   warehouseList?: TmallFlashSaleVo[];
+  /**
+   * 招行内购（type=7）：字段同 jdList
+   */
+  zhaohangList?: JdSalesCostVo[];
+  /**
+   * 宁波银行（type=8）：字段同 jdList
+   */
+  ningboList?: JdSalesCostVo[];
   [property: string]: any;
 }
 
@@ -901,19 +921,22 @@ export class ManagementReportApi {
     return omsRequest.post('/management-report/query', params);
   }
 
-  /* ---- 京东自营原始数据 / 费用 ---- */
+  /* ---- U9 应收单（京东自营 / 天猫国际 / 亚马逊） ---- */
   /**
-   * 上传京东自营原始数据（U9 应收单）
-   * POST /oms/finance/jd-raw/upload（multipart/form-data）
+   * 上传 U9 应收单原始数据
+   * POST /oms/finance/u9-receivable/upload（multipart/form-data）
+   * type 支持：京东自营（默认）/ 天猫国际 / 亚马逊，中文按 UTF-8 传
    * 上传后服务端会重新富化该月份数据（同月份会覆盖旧数据）
    */
-  static async uploadJdRaw(data: JdRawUploadReq): Promise<ResponseData<JdSalesCostVo[]>> {
+  static async uploadU9Receivable(
+    data: U9ReceivableUploadReq,
+  ): Promise<ResponseData<JdSalesCostVo[]>> {
     const formData = new FormData();
     if (data.type) {
       formData.append('type', data.type);
     }
     formData.append('file', data.file);
-    return omsRequest.post('/finance/jd-raw/upload', formData, {
+    return omsRequest.post('/finance/u9-receivable/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 解析 + 成本匹配可能较慢，单独放宽超时
       timeout: 1000 * 60 * 30,
@@ -922,11 +945,11 @@ export class ManagementReportApi {
   }
 
   /**
-   * 已有数据类型列表
-   * POST /oms/finance/jd-raw/types
+   * 已入库的数据类型列表
+   * POST /oms/finance/u9-receivable/types
    */
-  static async getJdRawTypes(): Promise<ResponseData<string[]>> {
-    return omsRequest.post('/finance/jd-raw/types');
+  static async getU9ReceivableTypes(): Promise<ResponseData<string[]>> {
+    return omsRequest.post('/finance/u9-receivable/types');
   }
 
   /**

@@ -47,12 +47,23 @@ const formatJdMoney = (v?: number | null) =>
 const formatMoneyDash = (v?: number | null) =>
   v === null || v === undefined ? '-' : Number(v).toFixed(2);
 
-// 税率格式化：type=6 的税率是数字（0.09 表示 9%），按百分比展示；未匹配到税率（null）展示 '-'
+// 税率格式化：type=6/7/8 的税率是数字（0.09 表示 9%），按百分比展示；未匹配到税率（null）展示 '-'
 const formatTaxRatePercent = (v?: number | null) => {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return '-';
   const percent = Number(v) * 100;
   return `${Number.isInteger(percent) ? percent : Number(percent.toFixed(2))}%`;
 };
+
+// 税率格式化（京东系表格共用）：
+// type=4/9/10 为字符串（"0.09" 表示 9%），原样展示；type=7/8 为数字（0.09），转百分比展示
+const formatTaxRateMixed = (v?: number | string | null) => {
+  if (v === null || v === undefined || v === '') return '-';
+  if (typeof v === 'number') return formatTaxRatePercent(v);
+  return String(v);
+};
+
+// 自有/外采：空值表示文件里该行未填，展示为 '-'
+const formatOwn = (v?: string | null) => (v ? v : '-');
 
 // 数据类型 -> 展示名（下载文件名等场景使用）
 const MR_TYPE_LABELS: Record<number, string> = {
@@ -62,10 +73,15 @@ const MR_TYPE_LABELS: Record<number, string> = {
   4: '京东自营',
   5: '天猫超市',
   6: '天猫闪购',
+  7: '招行内购',
+  8: '宁波银行',
+  9: '天猫国际',
+  10: '亚马逊',
 };
 
 const ManagementReportTab: React.FC = () => {
   // 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市 6-天猫闪购
+  // 7-招行内购 8-宁波银行 9-天猫国际 10-亚马逊
   const [mrType, setMrType] = useState<number>(1);
   // 销售月份（单月选择，起止都用同一个值）
   const [mrStartMonth, setMrStartMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
@@ -80,12 +96,17 @@ const ManagementReportTab: React.FC = () => {
   const [mrTmcsList, setMrTmcsList] = useState<TmcsSalesCostVo[]>([]);
   // 天猫闪购：货品×仓库收入汇总（两个闪购仓已合并，一行一个货品）
   const [mrWarehouseList, setMrWarehouseList] = useState<TmallFlashSaleVo[]>([]);
+  // 招行内购（type=7）/ 宁波银行（type=8）：字段同 jdList
+  const [mrZhaohangList, setMrZhaohangList] = useState<JdSalesCostVo[]>([]);
+  const [mrNingboList, setMrNingboList] = useState<JdSalesCostVo[]>([]);
   // 其他费用明细（type=4/5 共用）
   const [mrFeeList, setMrFeeList] = useState<JdFeeVo[]>([]);
 
   // 京东自营 / 天猫超市：是否展示费用相关区域
   const isFeeType = mrType === 4 || mrType === 5;
   const feeTypeLabel = mrType === 5 ? '天猫超市' : '京东自营';
+  // U9 应收单相关类型（4-京东自营 9-天猫国际 10-亚马逊）：展示上传按钮
+  const isU9Type = mrType === 4 || mrType === 9 || mrType === 10;
 
   // 京东自营表格数据：
   // 与「京东自营9月份数据.xlsx」保持一致——费用子类不再单独占行，
@@ -146,6 +167,8 @@ const ManagementReportTab: React.FC = () => {
         setMrTmcsList(data.tmcsList || []);
         setMrFeeList(data.feeList || []);
         setMrWarehouseList(data.warehouseList || []);
+        setMrZhaohangList(data.zhaohangList || []);
+        setMrNingboList(data.ningboList || []);
         message.success('查询成功');
       } else if (res.code === 500) {
         message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
@@ -173,6 +196,8 @@ const ManagementReportTab: React.FC = () => {
     setMrTmcsList([]);
     setMrFeeList([]);
     setMrWarehouseList([]);
+    setMrZhaohangList([]);
+    setMrNingboList([]);
     fetchManagementReport({
       type: mrType,
       startMonth: defaultMonth,
@@ -513,9 +538,9 @@ const ManagementReportTab: React.FC = () => {
     },
   ];
 
-  // 管报数据查询 - 京东自营表格列（type=4）
-  // 表头名称/数量与「京东自营9月份数据.xlsx」保持一致：销售列 + 费用 4 组 × 4 列
-  const mrJdColumns = [
+  // 管报数据查询 - 京东系表格列（京东自营 4 / 天猫国际 9 / 亚马逊 10 / 招行内购 7 / 宁波银行 8 共用）
+  // 表头名称/数量与「京东自营9月份数据.xlsx」保持一致；费用 4 组仅 type=4 追加
+  const mrJdBaseColumns = [
     {
       title: '立账日期',
       dataIndex: 'created',
@@ -559,6 +584,7 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'own',
       key: 'own',
       width: 80,
+      render: formatOwn,
     },
     {
       title: '临期',
@@ -591,6 +617,8 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'taxRate',
       key: 'taxRate',
       width: 80,
+      // 4/9/10 为字符串、7/8 为数字，统一格式化（数字转百分比，字符串原样）
+      render: formatTaxRateMixed,
     },
     {
       title: '不含税金额',
@@ -627,6 +655,11 @@ const ManagementReportTab: React.FC = () => {
       width: 120,
       render: formatJdMoney,
     },
+  ];
+
+  // 管报数据查询 - 京东自营表格列（type=4）：销售列 + 费用 4 组 × 4 列
+  const mrJdColumns = [
+    ...mrJdBaseColumns,
     // 费用 4 组：类别、未税金额、税率、价税合计
     ...JD_FEE_GROUPS.flatMap((group, index) => {
       const suffix = index + 1;
@@ -975,6 +1008,20 @@ const ManagementReportTab: React.FC = () => {
     } else if (mrType === 6) {
       dataList = mrWarehouseList;
       columns = mrWarehouseColumns;
+    } else if (mrType === 7) {
+      dataList = mrZhaohangList;
+      columns = mrJdBaseColumns;
+    } else if (mrType === 8) {
+      dataList = mrNingboList;
+      columns = mrJdBaseColumns;
+    } else if (mrType === 9) {
+      // 天猫国际：列与京东自营一致，接口不返回费用，导出时不带费用列
+      dataList = mrJdList;
+      columns = mrJdBaseColumns;
+    } else if (mrType === 10) {
+      // 亚马逊：同天猫国际
+      dataList = mrJdList;
+      columns = mrJdBaseColumns;
     }
 
     if (!dataList.length) {
@@ -1076,6 +1123,10 @@ const ManagementReportTab: React.FC = () => {
                 { label: '京东自营', value: 4 },
                 { label: '天猫超市', value: 5 },
                 { label: '天猫闪购', value: 6 },
+                { label: '招行内购', value: 7 },
+                { label: '宁波银行', value: 8 },
+                { label: '天猫国际', value: 9 },
+                { label: '亚马逊', value: 10 },
               ]}
             />
           </div>
@@ -1119,7 +1170,8 @@ const ManagementReportTab: React.FC = () => {
                 下载
               </Button>
               <Button onClick={handleMrReset}>重置</Button>
-              {isFeeType && (
+              {/* 京东自营 / 天猫国际 / 亚马逊 共用 U9 应收单上传；天猫超市单独上传账单 */}
+              {(isU9Type || mrType === 5) && (
                 <JdExtraActions
                   reportType={mrType}
                   month={mrStartMonth}
@@ -1238,6 +1290,40 @@ const ManagementReportTab: React.FC = () => {
           loading={mrLoading}
           size="small"
           scroll={{ x: 2100 }}
+          pagination={{
+            showSizeChanger: true,
+            showQuickJumper: true,
+            pageSizeOptions: [10, 20, 50, 100],
+            showTotal: (total) => `共 ${total} 条记录`,
+          }}
+        />
+      )}
+      {/* 招行内购 / 宁波银行：字段同 jdList，无费用列 */}
+      {(mrType === 7 || mrType === 8) && (
+        <Table
+          columns={mrJdBaseColumns}
+          dataSource={mrType === 7 ? mrZhaohangList : mrNingboList}
+          rowKey={(_record, index) => `${mrType === 7 ? 'zhaohang' : 'ningbo'}-${index ?? 0}`}
+          loading={mrLoading}
+          size="small"
+          scroll={{ x: 2000 }}
+          pagination={{
+            showSizeChanger: true,
+            showQuickJumper: true,
+            pageSizeOptions: [10, 20, 50, 100],
+            showTotal: (total) => `共 ${total} 条记录`,
+          }}
+        />
+      )}
+      {/* 天猫国际 / 亚马逊：复用京东自营表格（jdList），接口不返回 feeList，不展示费用列 */}
+      {(mrType === 9 || mrType === 10) && (
+        <Table
+          columns={mrJdBaseColumns}
+          dataSource={mrJdTableData}
+          rowKey={(record) => record.__key}
+          loading={mrLoading}
+          size="small"
+          scroll={{ x: 2000 }}
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  AutoComplete,
   Button,
   DatePicker,
   Input,
@@ -16,18 +15,28 @@ import {
 import { EditOutlined, UploadOutlined } from '@ant-design/icons';
 import type { TableColumnsType, UploadProps } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
-import ManagementReportApi, { type JdFeeVo } from '@/services/managementReportApi';
+import ManagementReportApi, {
+  U9_RECEIVABLE_TYPES,
+  type JdFeeVo,
+  type U9ReceivableType,
+} from '@/services/managementReportApi';
 
-const DEFAULT_JD_TYPE = '京东自营';
+const DEFAULT_JD_TYPE: U9ReceivableType = '京东自营';
 const FEE_CATEGORIES = ['快递费', '推广费用', '平台费用', '公共费用分摊'];
 // 费用 / 管报数据类型统一用数字（4-京东自营 5-天猫超市）
 const FEE_TYPE_OPTIONS = [
   { label: '京东自营', value: 4 },
   { label: '天猫超市', value: 5 },
 ];
+// 管报数据类型 -> U9 应收单上传 type（4-京东自营 9-天猫国际 10-亚马逊）
+const REPORT_TYPE_UPLOAD_TYPE: Record<number, U9ReceivableType> = {
+  4: '京东自营',
+  9: '天猫国际',
+  10: '亚马逊',
+};
 
 interface JdExtraActionsProps {
-  /** 当前管报数据类型：4-京东自营 5-天猫超市 */
+  /** 当前管报数据类型：4-京东自营 5-天猫超市 9-天猫国际 10-亚马逊 */
   reportType: number;
   /** 主页面当前选择的销售月份，用于默认结算日期 */
   month: Dayjs | null;
@@ -51,13 +60,13 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
   const keyRef = useRef(0);
   const nextKey = (prefix: string) => `${prefix}-${Date.now()}-${keyRef.current++}`;
 
-  const isJd = reportType === 4;
+  // 4/9/10 → 上传 U9 应收单；4/5 → 费用录入
+  const isU9Type = reportType === 4 || reportType === 9 || reportType === 10;
+  const isFeeType = reportType === 4 || reportType === 5;
 
-  const [types, setTypes] = useState<string[]>([DEFAULT_JD_TYPE]);
-
-  /* ---- 上传京东自营数据 ---- */
+  /* ---- 上传 U9 应收单（京东自营 / 天猫国际 / 亚马逊） ---- */
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploadType, setUploadType] = useState(DEFAULT_JD_TYPE);
+  const [uploadType, setUploadType] = useState<U9ReceivableType>(DEFAULT_JD_TYPE);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -81,27 +90,11 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
     setFeeType(reportType);
   }, [reportType]);
 
-  // 拉取已有数据类型（失败时回退到「京东自营」）
-  const loadTypes = async () => {
-    try {
-      const res = await ManagementReportApi.getJdRawTypes();
-      if (res.code === 200) {
-        const list = (res.data || []).filter(Boolean);
-        if (list.length) {
-          setTypes(list);
-          return list;
-        }
-      }
-    } catch (error) {
-      console.error('获取京东自营数据类型失败:', error);
-    }
-    return types.length ? types : [DEFAULT_JD_TYPE];
-  };
-
-  const openUpload = async () => {
+  const openUpload = () => {
     setUploadOpen(true);
     setUploadFile(null);
-    await loadTypes();
+    // 默认按当前管报类型选中的渠道（4-京东自营 9-天猫国际 10-亚马逊）
+    setUploadType(REPORT_TYPE_UPLOAD_TYPE[reportType] || DEFAULT_JD_TYPE);
   };
 
   const uploadProps: UploadProps = {
@@ -117,7 +110,7 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
       return false;
     },
     fileList: uploadFile
-      ? [{ uid: 'jd-raw-file', name: uploadFile.name, status: 'done' as const }]
+      ? [{ uid: 'u9-receivable-file', name: uploadFile.name, status: 'done' as const }]
       : [],
     onRemove: () => setUploadFile(null),
   };
@@ -129,12 +122,12 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
     }
     setUploading(true);
     try {
-      const res = await ManagementReportApi.uploadJdRaw({
-        type: uploadType.trim() || DEFAULT_JD_TYPE,
+      const res = await ManagementReportApi.uploadU9Receivable({
+        type: uploadType,
         file: uploadFile,
       });
       if (res.code === 200 && res.success !== false) {
-        message.success('京东自营数据上传成功');
+        message.success(`${uploadType}数据上传成功`);
         setUploadOpen(false);
         setUploadFile(null);
         onChanged();
@@ -142,8 +135,8 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
         message.error(typeof res.data === 'string' ? res.data : res.msg || '上传失败');
       }
     } catch (error) {
-      console.error('上传京东自营数据失败:', error);
-      message.error('上传京东自营数据失败');
+      console.error('上传 U9 应收单失败:', error);
+      message.error('上传 U9 应收单失败');
     } finally {
       setUploading(false);
     }
@@ -434,23 +427,26 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
   return (
     <>
       <Space>
-        {isJd ? (
+        {isU9Type && (
           <Button type="primary" icon={<UploadOutlined />} onClick={openUpload}>
-            上传京东数据
+            上传U9应收单
           </Button>
-        ) : (
+        )}
+        {reportType === 5 && (
           <Button type="primary" icon={<UploadOutlined />} onClick={openTmcsUpload}>
             上传天猫账单
           </Button>
         )}
-        <Button type="primary" icon={<EditOutlined />} onClick={openFeeModal}>
-          费用录入
-        </Button>
+        {isFeeType && (
+          <Button type="primary" icon={<EditOutlined />} onClick={openFeeModal}>
+            费用录入
+          </Button>
+        )}
       </Space>
 
-      {/* 上传京东自营原始数据 */}
+      {/* 上传 U9 应收单（京东自营 / 天猫国际 / 亚马逊） */}
       <Modal
-        title="上传京东自营数据"
+        title="上传U9应收单"
         open={uploadOpen}
         onCancel={() => setUploadOpen(false)}
         onOk={handleUpload}
@@ -468,7 +464,8 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
             <div style={{ fontSize: 12, lineHeight: 1.7 }}>
               1. 请上传 U9 应收单导出文件（.xlsx / .xls）
               <br />
-              2. 服务端仅取「摘要备注 = 销售商品（京东自营店）」且货号非空的行
+              2. 支持京东自营 / 天猫国际 / 亚马逊 三个渠道，三个渠道导出文件列顺序/列名可能不同，
+              服务端按表头名匹配，直接上传对应月份的文件即可
               <br />
               3. 重新上传同月份会覆盖该月份旧数据
               <br />
@@ -480,11 +477,11 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>数据类型</span>
-            <AutoComplete
+            <Select
               value={uploadType}
+              style={{ width: '100%' }}
               onChange={(value) => setUploadType(value)}
-              options={types.map((type) => ({ label: type, value: type }))}
-              placeholder="默认京东自营，可输入新的平行平台名称"
+              options={U9_RECEIVABLE_TYPES.map((type) => ({ label: type, value: type }))}
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
