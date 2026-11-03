@@ -576,8 +576,6 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
               1. 只影响本次填写的费用，不会删除该日期下其它已存在的费用（如上传自动生成的平台费用）
               <br />
               2. 费用类别可选：快递费 / 推广费用 / 平台费用 / 公共费用分摊；同一类别可添加多行子分类
-              <br />
-              3. 修改未税金额或税率时会自动计算价税合计（价税合计 = 未税金额 × (1 + 税率)）
             </div>
           }
           style={{ marginBottom: 16 }}
