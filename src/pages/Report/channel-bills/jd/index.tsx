@@ -24,6 +24,7 @@ import ManagementReportApi, {
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
 import ExportAllBillsButton from '../common/ExportAllBillsButton';
+import BalanceFields from '../common/BalanceFields';
 
 const JdBillPanel: React.FC = () => {
   const { addTask, updateTask } = useUploadTasks();
@@ -43,6 +44,9 @@ const JdBillPanel: React.FC = () => {
   // 京东上传需要 2 个文件：财务汇总表(file1) + 月账单(file2)
   const [uploadFile1, setUploadFile1] = useState<File | null>(null);
   const [uploadFile2, setUploadFile2] = useState<File | null>(null);
+  // 期初 / 期末余额：null 表示不填，不填则不传该字段（后端沿用库中已有余额）
+  const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
+  const [endingBalance, setEndingBalance] = useState<number | null>(null);
   // 上传走异步任务模式：弹窗关掉后由 UploadTaskDrawer 跟踪，无需在面板内阻塞 UI
 
   const fetchBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
@@ -115,6 +119,8 @@ const JdBillPanel: React.FC = () => {
     setSelectedConfigId(undefined);
     setUploadFile1(null);
     setUploadFile2(null);
+    setBeginningBalance(null);
+    setEndingBalance(null);
     setConfigList([]);
     await fetchConfigList();
   };
@@ -176,6 +182,8 @@ const JdBillPanel: React.FC = () => {
     setUploadFile1(null);
     setUploadFile2(null);
     setSelectedConfigId(undefined);
+    setBeginningBalance(null);
+    setEndingBalance(null);
 
     // 2. 创建任务（后端请求异步进行中，不阻塞 UI）
     const taskId = addTask({
@@ -193,6 +201,9 @@ const JdBillPanel: React.FC = () => {
       financeBillConfigId: selectedConfigId,
       file1: uploadFile1,
       file2: uploadFile2,
+      // 不填则不传（undefined），后端沿用库里已有余额
+      beginningBalance: beginningBalance ?? undefined,
+      endingBalance: endingBalance ?? undefined,
     })
       .then((res) => {
         const result: FinanceChannelExtendCostImportVo =
@@ -398,6 +409,12 @@ const JdBillPanel: React.FC = () => {
               }))}
             />
           </div>
+          <BalanceFields
+            beginningBalance={beginningBalance}
+            endingBalance={endingBalance}
+            onBeginningBalanceChange={setBeginningBalance}
+            onEndingBalanceChange={setEndingBalance}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
               财务汇总表文件（file1） <span style={{ color: '#ff4d4f' }}>*</span>

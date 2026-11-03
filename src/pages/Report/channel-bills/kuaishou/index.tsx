@@ -25,6 +25,7 @@ import ManagementReportApi, {
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
 import ExportAllBillsButton from '../common/ExportAllBillsButton';
+import BalanceFields from '../common/BalanceFields';
 
 const KsBillPanel: React.FC = () => {
   const { addTask, updateTask } = useUploadTasks();
@@ -48,6 +49,9 @@ const KsBillPanel: React.FC = () => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadWalletFile, setUploadWalletFile] = useState<File | null>(null);
   const [uploadStoreZipFile, setUploadStoreZipFile] = useState<File | null>(null);
+  // 期初 / 期末余额：null 表示不填，不填则不传该字段（后端沿用库中已有余额）
+  const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
+  const [endingBalance, setEndingBalance] = useState<number | null>(null);
   // 上传走异步任务模式：弹窗关掉后由 UploadTaskDrawer 跟踪，无需在面板内阻塞 UI
 
   const fetchBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
@@ -119,6 +123,8 @@ const KsBillPanel: React.FC = () => {
     setUploadFile(null);
     setUploadWalletFile(null);
     setUploadStoreZipFile(null);
+    setBeginningBalance(null);
+    setEndingBalance(null);
     setConfigList([]);
     await fetchConfigList();
   };
@@ -192,6 +198,8 @@ const KsBillPanel: React.FC = () => {
     setUploadWalletFile(null);
     setUploadStoreZipFile(null);
     setSelectedConfigId(undefined);
+    setBeginningBalance(null);
+    setEndingBalance(null);
 
     // 2. 创建任务（后端请求异步进行中，不阻塞 UI）
     const taskId = addTask({
@@ -209,6 +217,9 @@ const KsBillPanel: React.FC = () => {
       file: uploadFile,
       walletFile: uploadWalletFile || undefined,
       storeZipFile: uploadStoreZipFile || undefined,
+      // 不填则不传（undefined），后端沿用库里已有余额
+      beginningBalance: beginningBalance ?? undefined,
+      endingBalance: endingBalance ?? undefined,
     } as FinanceKsBillUploadReq)
       .then((res) => {
         const result: FinanceChannelExtendCostImportVo =
@@ -413,6 +424,12 @@ const KsBillPanel: React.FC = () => {
               }))}
             />
           </div>
+          <BalanceFields
+            beginningBalance={beginningBalance}
+            endingBalance={endingBalance}
+            onBeginningBalanceChange={setBeginningBalance}
+            onEndingBalanceChange={setEndingBalance}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
               订单流水导出文件 <span style={{ color: '#ff4d4f' }}>*</span>

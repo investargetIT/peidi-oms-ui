@@ -27,6 +27,7 @@ import ManagementReportApi, {
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
 import ExportAllBillsButton from '../common/ExportAllBillsButton';
+import BalanceFields from '../common/BalanceFields';
 
 const WechatBillPanel: React.FC = () => {
   const { addTask, updateTask } = useUploadTasks();
@@ -44,6 +45,9 @@ const WechatBillPanel: React.FC = () => {
   const [configLoading, setConfigLoading] = useState(false);
   const [selectedConfigId, setSelectedConfigId] = useState<number | undefined>(undefined);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  // 期初 / 期末余额：null 表示不填，不填则不传该字段（后端沿用库中已有余额）
+  const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
+  const [endingBalance, setEndingBalance] = useState<number | null>(null);
 
   const fetchBill = async (params: Partial<FinanceZfbBillInfoPageReq> = {}) => {
     setBillLoading(true);
@@ -113,6 +117,8 @@ const WechatBillPanel: React.FC = () => {
     setUploadDate(dayjs().subtract(1, 'month'));
     setSelectedConfigId(undefined);
     setUploadFile(null);
+    setBeginningBalance(null);
+    setEndingBalance(null);
     setConfigList([]);
     await fetchConfigList();
   };
@@ -154,6 +160,8 @@ const WechatBillPanel: React.FC = () => {
     setUploadModalOpen(false);
     setUploadFile(null);
     setSelectedConfigId(undefined);
+    setBeginningBalance(null);
+    setEndingBalance(null);
 
     // 2. 创建任务（后端请求异步进行中，不阻塞 UI）
     const taskId = addTask({
@@ -169,6 +177,9 @@ const WechatBillPanel: React.FC = () => {
       billDate: billDateStr,
       financeBillConfigId: selectedConfigId,
       file: uploadFile,
+      // 不填则不传（undefined），后端沿用库里已有余额
+      beginningBalance: beginningBalance ?? undefined,
+      endingBalance: endingBalance ?? undefined,
     })
       .then((res) => {
         const result: FinanceLedgerBillUploadVo =
@@ -350,6 +361,12 @@ const WechatBillPanel: React.FC = () => {
               }))}
             />
           </div>
+          <BalanceFields
+            beginningBalance={beginningBalance}
+            endingBalance={endingBalance}
+            onBeginningBalanceChange={setBeginningBalance}
+            onEndingBalanceChange={setEndingBalance}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>
               账单文件 <span style={{ color: '#ff4d4f' }}>*</span>

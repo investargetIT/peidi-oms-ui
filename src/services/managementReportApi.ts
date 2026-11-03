@@ -702,6 +702,14 @@ export interface FinanceWxWmBillUploadReq {
    * 流水文件（xlsx/csv，表头第1列"记账时间"）
    */
   file: File;
+  /**
+   * 期初余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  beginningBalance?: number | string | null;
+  /**
+   * 期末余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  endingBalance?: number | string | null;
   [property: string]: any;
 }
 
@@ -725,6 +733,14 @@ export interface FinanceTmBillUploadReq {
    * 账单文件（Excel/CSV）
    */
   file: File;
+  /**
+   * 期初余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  beginningBalance?: number | string | null;
+  /**
+   * 期末余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  endingBalance?: number | string | null;
   [property: string]: any;
 }
 
@@ -748,6 +764,14 @@ export interface FinancePddBillUploadReq {
    * 账单文件（Excel/CSV）
    */
   file: File;
+  /**
+   * 期初余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  beginningBalance?: number | string | null;
+  /**
+   * 期末余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  endingBalance?: number | string | null;
   [property: string]: any;
 }
 
@@ -771,6 +795,14 @@ export interface FinanceDyBillUploadReq {
    * 账单文件（Excel/CSV）
    */
   file: File;
+  /**
+   * 期初余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  beginningBalance?: number | string | null;
+  /**
+   * 期末余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  endingBalance?: number | string | null;
   [property: string]: any;
 }
 
@@ -819,6 +851,14 @@ export interface FinanceJdBillUploadReq {
    * 财务汇总表文件（Excel/CSV）
    */
   file2: File;
+  /**
+   * 期初余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  beginningBalance?: number | string | null;
+  /**
+   * 期末余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  endingBalance?: number | string | null;
   [property: string]: any;
 }
 
@@ -865,6 +905,14 @@ export interface FinanceXhsBillUploadReq {
    * 订单结算明细文件（csv/excel，A1为"订单号"）
    */
   file2: File;
+  /**
+   * 期初余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  beginningBalance?: number | string | null;
+  /**
+   * 期末余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  endingBalance?: number | string | null;
   [property: string]: any;
 }
 
@@ -897,6 +945,14 @@ export interface FinanceKsBillUploadReq {
    * 归档用的原始压缩包（如"货款账单.zip"），可选；传入后下载链接即为该 zip
    */
   storeZipFile?: File;
+  /**
+   * 期初余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  beginningBalance?: number | string | null;
+  /**
+   * 期末余额（元）。不传/空串则沿用库中已有值，首次新建且不传记 0
+   */
+  endingBalance?: number | string | null;
   [property: string]: any;
 }
 
@@ -909,6 +965,31 @@ export const ZFB_BILL_CHANNEL_MAP: Record<string, string> = {
   微信: '微信',
   微盟: '微盟',
 };
+
+/**
+ * 余额字段（期初 / 期末）入参
+ */
+export interface BillBalanceFields {
+  beginningBalance?: number | string | null;
+  endingBalance?: number | string | null;
+}
+
+/**
+ * 把期初 / 期末余额追加到 multipart 表单。
+ * 规则（与后端一致）：传了（非空）就覆盖库中值；没传 / 空串 -> 不追加该字段，
+ * 后端沿用库中已有余额（首次新建且未传记 0）。显式传 0 表示把余额改成 0，所以 0 必须传。
+ */
+function appendBalanceFields(formData: FormData, data: BillBalanceFields) {
+  const append = (key: 'beginningBalance' | 'endingBalance', value?: number | string | null) => {
+    if (value === undefined || value === null) return;
+    const str = String(value).trim();
+    if (str === '') return;
+    if (typeof value === 'number' && Number.isNaN(value)) return;
+    formData.append(key, str);
+  };
+  append('beginningBalance', data.beginningBalance);
+  append('endingBalance', data.endingBalance);
+}
 
 /**
  * 报表 API（管报数据 + 各渠道月账单）
@@ -1101,6 +1182,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
+    appendBalanceFields(formData, data);
     return billRequest.post('/finance/tm-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
@@ -1122,6 +1204,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
+    appendBalanceFields(formData, data);
     return billRequest.post('/finance/dy-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
@@ -1145,6 +1228,7 @@ export class ManagementReportApi {
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file1', data.file1);
     formData.append('file2', data.file2);
+    appendBalanceFields(formData, data);
     return billRequest.post('/finance/jd-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // 单接口覆盖：1 小时超时（默认实例只有 1 分钟）
@@ -1187,6 +1271,7 @@ export class ManagementReportApi {
     const formData = new FormData();
     formData.append('file1', data.file1);
     formData.append('file2', data.file2);
+    appendBalanceFields(formData, data);
     return billRequest.post('/finance/xhs-bill/upload', formData, {
       params: {
         billDate: data.billDate,
@@ -1211,6 +1296,7 @@ export class ManagementReportApi {
     formData.append('date', data.date);
     formData.append('financeBillConfigId', String(data.financeBillConfigId));
     formData.append('file', data.file);
+    appendBalanceFields(formData, data);
     return billRequest.post('/finance/pdd-bill/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 1000 * 60 * 60,
@@ -1236,6 +1322,7 @@ export class ManagementReportApi {
     if (data.storeZipFile) {
       formData.append('storeZipFile', data.storeZipFile);
     }
+    appendBalanceFields(formData, data);
     return billRequest.post('/finance/ks-bill/upload', formData, {
       params: {
         billDate: data.billDate,
@@ -1257,6 +1344,7 @@ export class ManagementReportApi {
   ): Promise<ResponseData<FinanceLedgerBillUploadVo>> {
     const formData = new FormData();
     formData.append('file', data.file);
+    appendBalanceFields(formData, data);
     return billRequest.post('/finance/wx-bill/upload', formData, {
       params: {
         billDate: data.billDate,
@@ -1278,6 +1366,7 @@ export class ManagementReportApi {
   ): Promise<ResponseData<FinanceLedgerBillUploadVo>> {
     const formData = new FormData();
     formData.append('file', data.file);
+    appendBalanceFields(formData, data);
     return billRequest.post('/finance/wm-bill/upload', formData, {
       params: {
         billDate: data.billDate,
