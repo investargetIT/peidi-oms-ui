@@ -10,6 +10,7 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
+import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import { ZFB_FEE_TYPE_GROUPS, ZFB_FEE_TYPE_MAP } from './batchStatBuilder';
 
 // 「费用分类」映射（分类 → 推广费用 / 平台费用 / 其他）已抽到 batchStatBuilder
@@ -175,68 +176,15 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
       }
       setZfbStatData(res.data);
 
-      // —— 余额对账：老接口 /cost-category-stat 只取余额（参考抖音/共享 Base）——
-      if (shopId === undefined || shopId === null) {
-        console.warn('该店铺没有 ID，无法查询余额对账');
-        return;
-      }
-      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
-      if (costRes.code === 200) {
-        const rawData = costRes.data || [];
-        // 余额项：PDD_BALANCE = 本月期末余额，PDD_LAST_BALANCE = 上月余额（本月期初）
-        const balanceItem = rawData.find((it) => it.businessCode === 'PDD_BALANCE');
-        const lastBalanceItem = rawData.find((it) => it.businessCode === 'PDD_LAST_BALANCE');
-        const hasInlineBalance = !!balanceItem || !!lastBalanceItem;
-
-        if (hasInlineBalance) {
-          if (
-            lastBalanceItem &&
-            lastBalanceItem.totalIncome !== undefined &&
-            lastBalanceItem.totalIncome !== null
-          ) {
-            setBeginningBalance(lastBalanceItem.totalIncome);
-          } else {
-            console.warn('cost-category-stat 未返回上月余额（PDD_LAST_BALANCE）');
-          }
-          if (
-            balanceItem &&
-            balanceItem.totalIncome !== undefined &&
-            balanceItem.totalIncome !== null
-          ) {
-            setEndingBalance(balanceItem.totalIncome);
-          } else {
-            console.warn('cost-category-stat 未返回本月期末余额（PDD_BALANCE）');
-          }
-        } else {
-          // 回退：queryEndingBalance 取「上月末 = 期初」和「本月末」（与共享 Base 策略一致）
-          const [py, pm] = yearMonth.split('-').map(Number);
-          const prevYear = pm === 1 ? py - 1 : py;
-          const prevMonth = pm === 1 ? 12 : pm - 1;
-          const prevYearMonth = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-          const [beginRes, endRes] = await Promise.all([
-            ChannelExtendCostApi.queryEndingBalance({
-              accountType: '期末余额',
-              shopId,
-              yearMonth: prevYearMonth,
-            }),
-            ChannelExtendCostApi.queryEndingBalance({
-              accountType: '期末余额',
-              shopId,
-              yearMonth,
-            }),
-          ]);
-          if (beginRes.code === 200 && beginRes.data && beginRes.data.incomeAmount !== undefined) {
-            setBeginningBalance(beginRes.data.incomeAmount);
-          } else {
-            console.warn('获取上月余额失败或数据为空');
-          }
-          if (endRes.code === 200 && endRes.data && endRes.data.incomeAmount !== undefined) {
-            setEndingBalance(endRes.data.incomeAmount);
-          } else {
-            console.warn('获取本月期末余额失败或数据为空');
-          }
-        }
-      }
+      // —— 余额对账：取「各渠道月账单」的期初（上月余额）/ 期末余额 ——
+      const balances = await fetchBillBalances({
+        yearMonth,
+        channel,
+        shopId,
+        financeBillConfigId,
+      });
+      setBeginningBalance(balances.beginningBalance);
+      setEndingBalance(balances.endingBalance);
     } catch (error) {
       console.error('获取支付宝统计数据失败:', error);
       message.error('获取支付宝统计数据失败');
@@ -290,7 +238,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
   //     提现     = "提现" 分类的收入金额 + 支出金额
   //     结息     = "结息" 分类的收入金额 + 支出金额
   //     本期费用 = 移除 收款 / 提现 / 结息 后，其余分类的收入金额 + 支出金额 之和
-  //   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
+  //   期末余额 / 上月余额 = 各渠道月账单的 endingBalance / beginningBalance
   //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
   //   校验     = 计算余额 - 期末余额
   const zfbSummary = useMemo(() => {
@@ -743,9 +691,8 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
                       支出金额 之和。
                     </div>
                     <div>
-                      <strong>上月余额</strong> = PDD_LAST_BALANCE.totalIncome；
-                      <strong>期末余额</strong> = PDD_BALANCE.totalIncome（无则回退
-                      queryEndingBalance）。
+                      <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）；
+                      <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）。
                     </div>
                   </div>
                 </li>

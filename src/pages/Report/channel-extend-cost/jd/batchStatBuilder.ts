@@ -53,6 +53,10 @@ export interface BuildJdStatArgs {
   jd1CalculateStat: FinanceJd1CalculateStatVo[];
   lastMonthJd1CalculateStat: FinanceJd1CalculateStatVo[];
   lastMonthEndingBalance: number | null;
+  /** 各渠道月账单 - 期初余额（= 上月余额）；取不到为 null */
+  billBeginningBalance?: number | null;
+  /** 各渠道月账单 - 期末余额；取不到为 null */
+  billEndingBalance?: number | null;
   yearMonth: string;
   shopName: string;
 }
@@ -268,7 +272,8 @@ export function buildJdStat(args: BuildJdStatArgs): JdBatchStatResult {
     jd2ExpenseStat,
     jd1CalculateStat,
     lastMonthJd1CalculateStat,
-    lastMonthEndingBalance,
+    billBeginningBalance,
+    billEndingBalance,
     yearMonth,
   } = args;
 
@@ -354,8 +359,9 @@ export function buildJdStat(args: BuildJdStatArgs): JdBatchStatResult {
   );
   const currentPeriodExpense = expenseJd1Sum - expenseJd2Value;
 
-  const lastMonthBalanceValue = num(lastMonthEndingBalance);
-  const endingBalanceValue = lastMonthBalanceValue + currentMonthIn;
+  // 上月余额 / 期末余额：取「各渠道月账单」的期初 / 期末（取不到为 0，Excel 中展示 0.00）
+  const lastMonthBalanceValue = num(billBeginningBalance);
+  const endingBalanceValue = num(billEndingBalance);
   const withdrawValue = num(jd2Row['提现']);
 
   const checkSum =

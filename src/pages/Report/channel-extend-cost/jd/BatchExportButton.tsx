@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import ChannelExtendCostApi, { type ShopVo } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
 import { getMonthRange, buildJdStat } from './batchStatBuilder';
+import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import { renderJdStatExcel } from './batchExcelRenderer';
 
 const { Text } = Typography;
@@ -131,11 +132,15 @@ const BatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) => {
           throw new Error('getJdCostStat 返回非 200');
         }
         const data = res.data || ({} as any);
+        // 余额取「各渠道月账单」的期初 / 期末（与弹窗口径一致）
+        const balances = await fetchBillBalances({ yearMonth, channel: '京东', shopId });
         const statResult = buildJdStat({
           jd2ExpenseStat: data.jd2ExpenseStat || [],
           jd1CalculateStat: data.jd1CalculateStat || [],
           lastMonthJd1CalculateStat: data.lastMonthJd1CalculateStat || [],
           lastMonthEndingBalance: data.lastMonthEndingBalance ?? null,
+          billBeginningBalance: balances.beginningBalance,
+          billEndingBalance: balances.endingBalance,
           yearMonth,
           shopName,
         });

@@ -19,6 +19,7 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
+import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import { buildKuaishouStat } from './batchStatBuilder';
 
 export interface KuaishouExtendCostBaseProps {
@@ -152,67 +153,15 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
       }
       setKuaishouStatData(statRes.data || []);
 
-      // —— 余额对账：老接口 /cost-category-stat 只取余额（与抖音 / 共享 Base 一致）——
-      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
-      if (costRes.code !== 200) {
-        message.error(typeof costRes.data === 'string' ? costRes.data : '获取统计数据失败');
-        return;
-      }
-      const rawData = costRes.data || [];
-
-      // 余额项：PDD_BALANCE = 本月期末余额，PDD_LAST_BALANCE = 上月余额（本月期初）
-      const balanceItem = rawData.find((it) => it.businessCode === 'PDD_BALANCE');
-      const lastBalanceItem = rawData.find((it) => it.businessCode === 'PDD_LAST_BALANCE');
-      const hasInlineBalance = !!balanceItem || !!lastBalanceItem;
-
-      if (hasInlineBalance) {
-        if (
-          lastBalanceItem &&
-          lastBalanceItem.totalIncome !== undefined &&
-          lastBalanceItem.totalIncome !== null
-        ) {
-          setBeginningBalance(lastBalanceItem.totalIncome);
-        } else {
-          console.warn('cost-category-stat 未返回上月余额（PDD_LAST_BALANCE）');
-        }
-        if (
-          balanceItem &&
-          balanceItem.totalIncome !== undefined &&
-          balanceItem.totalIncome !== null
-        ) {
-          setEndingBalance(balanceItem.totalIncome);
-        } else {
-          console.warn('cost-category-stat 未返回本月期末余额（PDD_BALANCE）');
-        }
-      } else {
-        // 回退：queryEndingBalance 取「上月末 = 期初」和「本月末」（与抖音 / 共享 Base 策略一致）
-        const [py, pm] = yearMonth.split('-').map(Number);
-        const prevYear = pm === 1 ? py - 1 : py;
-        const prevMonth = pm === 1 ? 12 : pm - 1;
-        const prevYearMonth = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-        const [beginRes, endRes] = await Promise.all([
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId,
-            yearMonth: prevYearMonth,
-          }),
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId,
-            yearMonth,
-          }),
-        ]);
-        if (beginRes.code === 200 && beginRes.data && beginRes.data.incomeAmount !== undefined) {
-          setBeginningBalance(beginRes.data.incomeAmount);
-        } else {
-          console.warn('获取上月余额失败或数据为空');
-        }
-        if (endRes.code === 200 && endRes.data && endRes.data.incomeAmount !== undefined) {
-          setEndingBalance(endRes.data.incomeAmount);
-        } else {
-          console.warn('获取本月期末余额失败或数据为空');
-        }
-      }
+      // —— 余额对账：取「各渠道月账单」的期初（上月余额）/ 期末余额 ——
+      const balances = await fetchBillBalances({
+        yearMonth,
+        channel,
+        shopId,
+        financeBillConfigId: record.financeBillConfigId,
+      });
+      setBeginningBalance(balances.beginningBalance);
+      setEndingBalance(balances.endingBalance);
     } catch (error) {
       console.error('获取快手费用统计数据失败:', error);
       message.error('获取快手费用统计数据失败');
@@ -582,9 +531,9 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                       返回 <code>name / type / value</code>，金额含正负号）；
                     </div>
                     <div>
-                      ② 余额（上月余额 / 期末余额）= 老接口 <code>GET /cost-category-stat</code>，取
-                      <code>PDD_LAST_BALANCE</code>（上月/期初）和 <code>PDD_BALANCE</code>（本月期末）两条的
-                      <code>totalIncome</code>；接口未返回时回退 <code>queryEndingBalance</code>。
+                      ② 余额（上月余额 / 期末余额）= 各渠道月账单 <code>POST /finance/zfb-bill/page</code> 的
+                      <code>beginningBalance</code>（上月/期初）和 <code>endingBalance</code>（本月期末）；
+                      账单未生成 / 未填余额时显示空值。
                     </div>
                   </div>
                 </li>
@@ -633,8 +582,8 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>六、余额对账表字段</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>期末余额 / 上月余额</strong> = <code>cost-category-stat</code> 内联余额项
-                      （<code>PDD_BALANCE</code> / <code>PDD_LAST_BALANCE</code>），无则回退 <code>queryEndingBalance</code>；</div>
+                    <div><strong>期末余额 / 上月余额</strong> = 各渠道月账单（<code>/finance/zfb-bill/page</code>）的
+                      <code>endingBalance</code> / <code>beginningBalance</code>；</div>
                     <div><strong>本期收款</strong> = 收入列之和；</div>
                     <div><strong>本期费用</strong> = 支出列之和（保留负号）；</div>
                     <div><strong>提现</strong> / <strong>结息</strong>：当前默认 0。</div>

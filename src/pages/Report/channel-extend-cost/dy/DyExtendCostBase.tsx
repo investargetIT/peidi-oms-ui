@@ -20,6 +20,7 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
+import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import { dyBizDescOf, dyColumnMetaOf, sortDyRowsByCategory } from './dyFeeMapping';
 
 /**
@@ -196,7 +197,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   //   1) 抖音费用明细（按业务分类）：新接口 GET /dy-cost-stat，返回 { shopId, yearMonth }
   //   2) 抖音余额对账：与共享 Base / 天猫一致——
   //        本期收款 / 本期费用 / 提现 = 老接口 GET /cost-category-stat 按业务编码汇总
-  //        期末 / 上月余额        = 老接口 queryEndingBalance
+  //        期末 / 上月余额        = 各渠道月账单 endingBalance / beginningBalance
   const openStatModal = async (record: FinanceChannelExtendCostItemVo) => {
     const wdtName = record.wdtName;
     const yearMonth = record.yearMonth;
@@ -228,68 +229,15 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
       }
       setDyStatData(statRes.data || []);
 
-      // —— 余额对账表：老接口 /cost-category-stat 只取余额（参考天猫/共享 Base）——
-      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
-      if (costRes.code !== 200) {
-        message.error(typeof costRes.data === 'string' ? costRes.data : '获取统计数据失败');
-        return;
-      }
-      const rawData = costRes.data || [];
-
-      // 余额项：PDD_BALANCE = 本月期末余额，PDD_LAST_BALANCE = 上月余额（本月期初）
-      const balanceItem = rawData.find((it) => it.businessCode === 'PDD_BALANCE');
-      const lastBalanceItem = rawData.find((it) => it.businessCode === 'PDD_LAST_BALANCE');
-      const hasInlineBalance = !!balanceItem || !!lastBalanceItem;
-
-      if (hasInlineBalance) {
-        // 与共享 Base / 天猫一致：直接从 cost-category-stat 返回里取余额
-        if (
-          lastBalanceItem &&
-          lastBalanceItem.totalIncome !== undefined &&
-          lastBalanceItem.totalIncome !== null
-        ) {
-          setBeginningBalance(lastBalanceItem.totalIncome);
-        } else {
-          console.warn('cost-category-stat 未返回上月余额（PDD_LAST_BALANCE）');
-        }
-        if (
-          balanceItem &&
-          balanceItem.totalIncome !== undefined &&
-          balanceItem.totalIncome !== null
-        ) {
-          setEndingBalance(balanceItem.totalIncome);
-        } else {
-          console.warn('cost-category-stat 未返回本月期末余额（PDD_BALANCE）');
-        }
-      } else {
-        // 回退：queryEndingBalance 取「上月末 = 期初」和「本月末」（与共享 Base 策略一致）
-        const [py, pm] = yearMonth.split('-').map(Number);
-        const prevYear = pm === 1 ? py - 1 : py;
-        const prevMonth = pm === 1 ? 12 : pm - 1;
-        const prevYearMonth = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-        const [beginRes, endRes] = await Promise.all([
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId,
-            yearMonth: prevYearMonth,
-          }),
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId,
-            yearMonth,
-          }),
-        ]);
-        if (beginRes.code === 200 && beginRes.data && beginRes.data.incomeAmount !== undefined) {
-          setBeginningBalance(beginRes.data.incomeAmount);
-        } else {
-          console.warn('获取上月余额失败或数据为空');
-        }
-        if (endRes.code === 200 && endRes.data && endRes.data.incomeAmount !== undefined) {
-          setEndingBalance(endRes.data.incomeAmount);
-        } else {
-          console.warn('获取本月期末余额失败或数据为空');
-        }
-      }
+      // —— 余额对账：取「各渠道月账单」的期初（上月余额）/ 期末余额 ——
+      const balances = await fetchBillBalances({
+        yearMonth,
+        channel,
+        shopId,
+        financeBillConfigId: record.financeBillConfigId,
+      });
+      setBeginningBalance(balances.beginningBalance);
+      setEndingBalance(balances.endingBalance);
     } catch (error) {
       console.error('获取抖音费用统计数据失败:', error);
       message.error('获取抖音费用统计数据失败');
@@ -586,7 +534,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   //             + 除 小额打款 / 提现 / 评价有礼活动资金回退 外的各「纯收支」分类（其余明细列均为 0）的
   //               支出金额（出账，首层 value 为负的部分，保留负号）
   //             + 分类为 平台费用 / 推广费用 的各行 的收入金额（入账，首层 value 为正的部分，冲减）
-  //   期末余额 / 上月余额 = 老接口 cost-category-stat 内联余额项（无则回退 queryEndingBalance）
+  //   期末余额 / 上月余额 = 各渠道月账单的 endingBalance / beginningBalance
   //   提现 = 业务描述（分类别）为「提现」那一行的支出金额（出账）；结息 = 默认 0
   //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
   //   校验     = 计算余额 - 期末余额
@@ -1060,11 +1008,9 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                       ）；
                     </div>
                     <div>
-                      ② 余额（上月余额 / 期末余额）= 老接口 <code>GET /cost-category-stat</code>
-                      ，只取
-                      <code>PDD_LAST_BALANCE</code>（上月/期初）和 <code>PDD_BALANCE</code>
-                      （本月期末）两条的
-                      <code>totalIncome</code>；接口未返回时回退 <code>queryEndingBalance</code>。
+                      ② 余额（上月余额 / 期末余额）= 各渠道月账单 <code>POST /finance/zfb-bill/page</code> 的
+                      <code>beginningBalance</code>（上月/期初）和 <code>endingBalance</code>（本月期末）；
+                      账单未生成 / 未填余额时显示空值。
                     </div>
                   </div>
                 </li>
@@ -1269,9 +1215,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                       的收入金额（入账，冲减）。
                     </div>
                     <div>
-                      <strong>上月余额</strong> = PDD_LAST_BALANCE.totalIncome；
-                      <strong>期末余额</strong> = PDD_BALANCE.totalIncome（无则回退
-                      queryEndingBalance）。
+                      <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）；
+                      <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）。
                     </div>
                     <div>
                       <strong>提现</strong> = 「提现」分类行的支出金额（出账）；

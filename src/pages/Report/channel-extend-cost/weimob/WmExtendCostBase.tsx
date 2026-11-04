@@ -19,6 +19,7 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
+import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import { WX_WM_MAPPING_ROWS } from '../common/wxWmCategoryConfig';
 import { buildWmStat } from './batchStatBuilder';
 
@@ -158,68 +159,15 @@ const WmExtendCostBase: React.FC<WmExtendCostBaseProps> = ({
       }
       setWmStatData(statRes.data || []);
 
-      // —— 余额对账：老接口 /cost-category-stat 只取余额（与抖音 / 共享 Base 一致）——
-      // channel 本地联调按后端排期传中文「微盟」（原 wm/编码），后端调整后可改回 channelCode
-      const costRes = await ChannelExtendCostApi.getCostCategoryStat({ shopId, yearMonth, channel });
-      if (costRes.code !== 200) {
-        message.error(typeof costRes.data === 'string' ? costRes.data : '获取统计数据失败');
-        return;
-      }
-      const rawData = costRes.data || [];
-
-      // 余额项：PDD_BALANCE = 本月期末余额，PDD_LAST_BALANCE = 上月余额（本月期初）
-      const balanceItem = rawData.find((it) => it.businessCode === 'PDD_BALANCE');
-      const lastBalanceItem = rawData.find((it) => it.businessCode === 'PDD_LAST_BALANCE');
-      const hasInlineBalance = !!balanceItem || !!lastBalanceItem;
-
-      if (hasInlineBalance) {
-        if (
-          lastBalanceItem &&
-          lastBalanceItem.totalIncome !== undefined &&
-          lastBalanceItem.totalIncome !== null
-        ) {
-          setBeginningBalance(lastBalanceItem.totalIncome);
-        } else {
-          console.warn('cost-category-stat 未返回上月余额（PDD_LAST_BALANCE）');
-        }
-        if (
-          balanceItem &&
-          balanceItem.totalIncome !== undefined &&
-          balanceItem.totalIncome !== null
-        ) {
-          setEndingBalance(balanceItem.totalIncome);
-        } else {
-          console.warn('cost-category-stat 未返回本月期末余额（PDD_BALANCE）');
-        }
-      } else {
-        // 回退：queryEndingBalance 取「上月末 = 期初」和「本月末」（与抖音 / 共享 Base 策略一致）
-        const [py, pm] = yearMonth.split('-').map(Number);
-        const prevYear = pm === 1 ? py - 1 : py;
-        const prevMonth = pm === 1 ? 12 : pm - 1;
-        const prevYearMonth = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
-        const [beginRes, endRes] = await Promise.all([
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId,
-            yearMonth: prevYearMonth,
-          }),
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId,
-            yearMonth,
-          }),
-        ]);
-        if (beginRes.code === 200 && beginRes.data && beginRes.data.incomeAmount !== undefined) {
-          setBeginningBalance(beginRes.data.incomeAmount);
-        } else {
-          console.warn('获取上月余额失败或数据为空');
-        }
-        if (endRes.code === 200 && endRes.data && endRes.data.incomeAmount !== undefined) {
-          setEndingBalance(endRes.data.incomeAmount);
-        } else {
-          console.warn('获取本月期末余额失败或数据为空');
-        }
-      }
+      // —— 余额对账：取「各渠道月账单」的期初（上月余额）/ 期末余额 ——
+      const balances = await fetchBillBalances({
+        yearMonth,
+        channel,
+        shopId,
+        financeBillConfigId: record.financeBillConfigId,
+      });
+      setBeginningBalance(balances.beginningBalance);
+      setEndingBalance(balances.endingBalance);
     } catch (error) {
       console.error('获取微盟费用统计数据失败:', error);
       message.error('获取微盟费用统计数据失败');
@@ -671,7 +619,7 @@ const WmExtendCostBase: React.FC<WmExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 8 }}>
                   <strong>四、微盟余额对账</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>期末余额</strong>（本月末）/ <strong>上月余额</strong>（期初）均来自系统余额返回；</div>
+                    <div><strong>期末余额</strong>（本月末）/ <strong>上月余额</strong>（期初）均取「各渠道月账单」的 endingBalance / beginningBalance；</div>
                     <div><strong>本期收款</strong> = 明细里 分类=收款 的收入与支出之和（收入为正、支出为负）；</div>
                     <div><strong>本期费用</strong> = 明细里 分类≠收款 且 分类≠提现 的收入与支出之和（收入为正、支出为负）；</div>
                     <div><strong>提现</strong> = 明细里 分类=提现 的收入与支出之和（收入为正、支出为负）；</div>

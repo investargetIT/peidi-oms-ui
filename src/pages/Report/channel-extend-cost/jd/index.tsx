@@ -9,6 +9,7 @@ import ChannelExtendCostApi, {
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
 import ChannelExtendCostBase from '../shared/ChannelExtendCostBase';
+import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import JdBatchExportButton from './BatchExportButton';
 
 /**
@@ -97,12 +98,13 @@ const JdExtendCostPanel: React.FC = () => {
   const [modalLoading, setModalLoading] = useState(false);
   const [jd2Data, setJd2Data] = useState<FinanceJd2ExpenseStatVo[]>([]);
   const [jd1Data, setJd1Data] = useState<FinanceJd1CalculateStatVo[]>([]);
-  // 新增：上月末日明细（6/30 之类的结转凭证）、上月期初/期末余额
+  // 新增：上月末日明细（6/30 之类的结转凭证）
   const [lastMonthJd1CalculateStat, setLastMonthJd1CalculateStat] = useState<
     FinanceJd1CalculateStatVo[]
   >([]);
-  const [lastMonthBeginningBalance, setLastMonthBeginningBalance] = useState<number | null>(null);
-  const [lastMonthEndingBalance, setLastMonthEndingBalance] = useState<number | null>(null);
+  // 各渠道月账单余额：上月余额 = 期初（beginningBalance），期末余额 = endingBalance
+  const [billBeginningBalance, setBillBeginningBalance] = useState<number | null>(null);
+  const [billEndingBalance, setBillEndingBalance] = useState<number | null>(null);
   // 计算逻辑说明「费用分类统计映射」表格的搜索关键字
   const [jd1MappingSearch, setJd1MappingSearch] = useState('');
 
@@ -129,8 +131,11 @@ const JdExtendCostPanel: React.FC = () => {
         setJd2Data(data.jd2ExpenseStat || []);
         setJd1Data(data.jd1CalculateStat || []);
         setLastMonthJd1CalculateStat(data.lastMonthJd1CalculateStat || []);
-        setLastMonthBeginningBalance(data.lastMonthBeginningBalance ?? null);
-        setLastMonthEndingBalance(data.lastMonthEndingBalance ?? null);
+
+        // 余额对账改取「各渠道月账单」：期初 = 上月余额，期末 = 本月期末余额
+        const balances = await fetchBillBalances({ yearMonth, channel: '京东', shopId });
+        setBillBeginningBalance(balances.beginningBalance);
+        setBillEndingBalance(balances.endingBalance);
       } else if (res.code === 500) {
         message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
       } else {
@@ -164,8 +169,8 @@ const JdExtendCostPanel: React.FC = () => {
     setJd1Data([]);
     setJd2Data([]);
     setLastMonthJd1CalculateStat([]);
-    setLastMonthBeginningBalance(null);
-    setLastMonthEndingBalance(null);
+    setBillBeginningBalance(null);
+    setBillEndingBalance(null);
     setModalVisible(true);
     fetchJdStat(params.shopId, params.yearMonth);
     return true; // 已处理，Base 不再弹默认统计弹窗
@@ -176,8 +181,8 @@ const JdExtendCostPanel: React.FC = () => {
     setJd1Data([]);
     setJd2Data([]);
     setLastMonthJd1CalculateStat([]);
-    setLastMonthBeginningBalance(null);
-    setLastMonthEndingBalance(null);
+    setBillBeginningBalance(null);
+    setBillEndingBalance(null);
   };
 
   // 金额统一渲染：右对齐、12px 字号、保留 2 位小数
@@ -535,12 +540,12 @@ const JdExtendCostPanel: React.FC = () => {
     );
     const currentPeriodExpense = expenseJd1Sum - expenseJd2Value;
 
-    // 上月余额 = API 的 lastMonthEndingBalance（即"上月末"余额）
-    // 期末余额 = 上月余额 + 本月入账
-    // API 的 lastMonthBeginningBalance 不再使用
+    // 上月余额 = 各渠道月账单的期初余额（beginningBalance）
+    // 期末余额 = 各渠道月账单的期末余额（endingBalance）
+    // 取不到即为 null（表格显示 -），不再用「上月余额 + 本月入账」推算
     const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
-    const lastMonthBalanceValue = lastMonthEndingBalance;
-    const endingBalanceValue = safeNum(lastMonthEndingBalance) + currentMonthIn;
+    const lastMonthBalanceValue = billBeginningBalance;
+    const endingBalanceValue = billEndingBalance;
     const withdrawValue = typeof jd2Row['提现'] === 'number' ? jd2Row['提现'] : 0;
 
     // 校验 = 期末余额 − （上月余额 + 本期费用 + 收款 − 提现）
@@ -564,7 +569,14 @@ const JdExtendCostPanel: React.FC = () => {
         currentMonthIn,
       },
     ];
-  }, [pivotedJd2Data, jd1SummaryRow, lastMonthEndingBalance, currentYearMonth, currentShopName]);
+  }, [
+    pivotedJd2Data,
+    jd1SummaryRow,
+    billBeginningBalance,
+    billEndingBalance,
+    currentYearMonth,
+    currentShopName,
+  ]);
 
   // 校验列渲染：参考拼多多，|值| < 0.001 绿色 0.00，否则红色实际值
   const renderCheckSum = (value: number) => {
@@ -756,11 +768,10 @@ const JdExtendCostPanel: React.FC = () => {
                   <strong>京东余额对账：</strong>
                   <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
                     <div>
-                      <strong>上月余额</strong> =
-                      京东接口返回的上月末账户余额（lastMonthEndingBalance）
+                      <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）
                     </div>
                     <div>
-                      <strong>期末余额</strong> = 上月余额 + 本月入账
+                      <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）
                     </div>
                     <div>
                       <strong>本月入账</strong> = 京东账单收支计算列表的合计 −

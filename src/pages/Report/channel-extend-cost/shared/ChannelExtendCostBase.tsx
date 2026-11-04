@@ -19,6 +19,7 @@ import ChannelExtendCostApi, {
   type ShopVo,
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
+import { fetchBillBalances } from './billBalanceFetcher';
 import {
   summaryGroups,
   getFeeCategory,
@@ -159,10 +160,8 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
   };
 
   // 打开费用分类统计弹窗
-  // 余额获取策略：
-  //   1. 若 getCostCategoryStat 返回的数据末尾包含 PDD_BALANCE / PDD_LAST_BALANCE，
-  //      直接从 stat 数据里提取期末/上月余额，不再额外调用 queryEndingBalance；
-  //   2. 否则走老逻辑：调两次 queryEndingBalance（上月 / 当月）分别取期初和期末。
+  // 余额获取：统一取「各渠道月账单」的期初（beginningBalance）/ 期末（endingBalance）；
+  // getCostCategoryStat 只用于本期收款 / 本期费用 / 提现等明细汇总。
   const openStatModal = async (record: FinanceChannelExtendCostItemVo) => {
     const wdtName = record.wdtName;
     const yearMonth = record.yearMonth;
@@ -190,77 +189,22 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
         return;
       }
 
-      const rawData = statRes.data || [];
-
-      // 尝试从 stat 数据中提取余额项（拼多多等渠道后端已内置在返回末尾）
-      const balanceItem = rawData.find((it) => it.businessCode === 'PDD_BALANCE');
-      const lastBalanceItem = rawData.find((it) => it.businessCode === 'PDD_LAST_BALANCE');
-      const hasInlineBalance = !!balanceItem || !!lastBalanceItem;
-
-      // 过滤掉余额项，剩下的才是业务编码明细
-      const detailData = rawData.filter(
+      // 过滤掉旧接口内联的余额项（PDD_BALANCE / PDD_LAST_BALANCE），余额改由月账单接口提供
+      const detailData = (statRes.data || []).filter(
         (it) => it.businessCode !== 'PDD_BALANCE' && it.businessCode !== 'PDD_LAST_BALANCE',
       );
 
-      let beginningVal: number | null = null;
-      let endingVal: number | null = null;
-
-      if (hasInlineBalance) {
-        // —— 策略 1：从 stat 数据里直接拿余额 ——
-        if (lastBalanceItem && lastBalanceItem.totalIncome !== undefined && lastBalanceItem.totalIncome !== null) {
-          beginningVal = lastBalanceItem.totalIncome;
-        }
-        if (balanceItem && balanceItem.totalIncome !== undefined && balanceItem.totalIncome !== null) {
-          endingVal = balanceItem.totalIncome;
-        }
-      } else {
-        // —— 策略 2：老逻辑，调 queryEndingBalance 两次 ——
-        const [year, month] = yearMonth!.split('-').map(Number);
-        let prevYear = year;
-        let prevMonth = month - 1;
-        if (prevMonth === 0) {
-          prevYear = year - 1;
-          prevMonth = 12;
-        }
-        const prevYearMonth = `${prevYear}-${prevMonth.toString().padStart(2, '0')}`;
-
-        const [beginningBalanceRes, endingBalanceRes] = await Promise.all([
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId: shopId!,
-            yearMonth: prevYearMonth,
-          }),
-          ChannelExtendCostApi.queryEndingBalance({
-            accountType: '期末余额',
-            shopId: shopId!,
-            yearMonth: yearMonth!,
-          }),
-        ]);
-
-        if (
-          beginningBalanceRes.code === 200 &&
-          beginningBalanceRes.data &&
-          beginningBalanceRes.data.incomeAmount !== undefined
-        ) {
-          beginningVal = beginningBalanceRes.data.incomeAmount;
-        } else {
-          console.warn('获取期初余额失败或数据为空');
-        }
-
-        if (
-          endingBalanceRes.code === 200 &&
-          endingBalanceRes.data &&
-          endingBalanceRes.data.incomeAmount !== undefined
-        ) {
-          endingVal = endingBalanceRes.data.incomeAmount;
-        } else {
-          console.warn('获取本月期末余额失败或数据为空');
-        }
-      }
-
-      setBeginningBalance(beginningVal);
-      setEndingBalance(endingVal);
+      // —— 余额对账：取「各渠道月账单」的期初（上月余额）/ 期末余额 ——
+      const balances = await fetchBillBalances({
+        yearMonth,
+        channel,
+        shopId,
+        financeBillConfigId: record.financeBillConfigId,
+      });
+      setBeginningBalance(balances.beginningBalance);
+      setEndingBalance(balances.endingBalance);
       setStatDataSource(detailData);
+
     } catch (error) {
       console.error('获取统计数据失败:', error);
       message.error('获取统计数据失败');
@@ -630,8 +574,8 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 2 }}><strong>账单月份：</strong>当前统计的月份</li>
                 <li style={{ marginBottom: 2 }}><strong>平台：</strong>当前统计的渠道</li>
                 <li style={{ marginBottom: 2 }}><strong>账户名称：</strong>店铺名称</li>
-                <li style={{ marginBottom: 2 }}><strong>期末余额：</strong>系统查询到的本月实际期末余额</li>
-                <li style={{ marginBottom: 2 }}><strong>上月余额：</strong>上个月末的账户余额，作为本月期初</li>
+                <li style={{ marginBottom: 2 }}><strong>期末余额：</strong>取「各渠道月账单」该店铺该月的期末余额（endingBalance）</li>
+                <li style={{ marginBottom: 2 }}><strong>上月余额：</strong>取「各渠道月账单」该店铺该月的期初余额（beginningBalance）</li>
                 <li style={{ marginBottom: 2 }}>
                   <strong>本期收款：</strong>本月所有收款类业务编码汇总，收款业务编码包括：
                   {summaryGroups[0].codes.join(', ')}

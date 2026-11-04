@@ -22,7 +22,7 @@ export interface SummaryRow {
   platform: string;
   /** 店铺名称（已走 displayShopName） */
   accountName: string;
-  /** 本月期末余额（来自 queryEndingBalance） */
+  /** 本月期末余额（来自各渠道月账单 endingBalance） */
   endBalance: number;
   /** 上月期末余额 = 本月期初余额 */
   lastMonthBalance: number;
