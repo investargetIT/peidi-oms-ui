@@ -6,13 +6,37 @@ export default function access(
 ) {
   const { currentUser, ddUserInfo, parentByUser } = initialState ?? {};
   // console.log('#################', initialState);
-  // 尝试从currentUser中获取部门ID列表
-  const userId = currentUser?.id || '';
+  // 钉钉用户ID可能落在不同字段（不同登录方式返回不一致），统一收集后按字符串比较
+  const userIds = [
+    currentUser?.id,
+    currentUser?.userId,
+    currentUser?.userid,
+    currentUser?.dingId,
+    currentUser?.dingUserId,
+    ddUserInfo?.userid,
+  ]
+    .filter((id) => id !== undefined && id !== null && id !== '')
+    .map((id) => String(id));
+  const isUser = (...ids: string[]) => ids.some((id) => userIds.includes(id));
   // 尝试从ddUserInfo中获取部门ID列表
   const ddDeptIds = ddUserInfo?.dept_id_list || [];
   // 尝试从parentByUser中获取部门ID列表
   const parentDeptIds = parentByUser?.parent_list?.[0]?.parent_dept_id_list || [];
   // console.log('parentDeptIds', parentDeptIds);
+
+  // 完整财务权限
+  const canFinance =
+    parentDeptIds.includes(939900386) ||
+    parentDeptIds.includes(981619927) ||
+    isUser('1848656573381541890') || // 方云
+    isUser('1926449443739598860') || // 徐滨梅
+    isUser('1926449443739598859') || // 庄严
+    isUser('1874004550054621185') || // 孙舒欣
+    isUser('1926449443739601515') || // 黄文豪
+    isUser('1874730426438299649') || // 付阳
+    isUser('1926449443739601651') || // 毛若羽
+    isUser('1926449443739601710'); // 黄贞媚
+
   return {
     canAdmin: currentUser && currentUser.access === 'admin',
     // 934791329在ddDeptIds就没权限，部门ID列表为空也没权限，开发环境下需要权限
@@ -27,22 +51,12 @@ export default function access(
       parentDeptIds.includes(939900386) ||
       parentDeptIds.includes(981619927) ||
       // 方云
-      userId === '1848656573381541890' ||
+      isUser('1848656573381541890') ||
       // 徐滨梅
-      userId === '1926449443739598860' ||
+      isUser('1926449443739598860') ||
       // 庄严
-      userId === '1926449443739598859',
-    canOutboundPrint: parentDeptIds.includes(939900386) || userId === '1888122836086206465', // 孟丽丹
-    canFinance:
-      parentDeptIds.includes(939900386) ||
-      parentDeptIds.includes(981619927) ||
-      userId === '1848656573381541890' || // 方云
-      userId === '1926449443739598860' || // 徐滨梅
-      userId === '1926449443739598859' || // 庄严
-      userId === '1874004550054621185' || // 孙舒欣
-      userId === '1926449443739601515' || // 黄文豪
-      userId === '1874730426438299649' || // 付阳
-      userId === '1926449443739601651' || // 毛若羽
-      userId === '1875104738458513409', // 陈金池
+      isUser('1926449443739598859'),
+    canOutboundPrint: parentDeptIds.includes(939900386) || isUser('1888122836086206465'), // 孟丽丹
+    canFinance,
   };
 }
