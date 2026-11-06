@@ -1,38 +1,23 @@
-import { createRequest, ResponseData } from './axiosRequest';
+import { createRequest } from './axiosRequest';
+import { getOmsBaseUrl } from './apiTarget';
 
-// ==================== 本地/生产环境切换 ====================
-// 创建渠道推广费用的request实例
-// 生产环境使用
+// ==================== 本地/生产/本地2 环境切换 ====================
+// 渠道推广费用接口地址由 apiTarget.ts 统一管理，支持运行时切换：
+// window.__api.set('local1' | 'local2' | 'prod')
 const channelExtendCostRequest = createRequest(
-  `${process.env.BASE_URL}/finance/channel-extend-cost`,
+  () => `${getOmsBaseUrl()}/finance/channel-extend-cost`,
   {
     timeout: 1000 * 60,
   },
 );
-// 测试环境使用
-// const channelExtendCostRequest = createRequest(
-//   `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
-//   {
-//     timeout: 1000 * 60,
-//   },
-// );
-// ==================== 切换代码结束 ====================
 
-// ==================== 分类统计-本地测试环境切换 ====================
-// GET /cost-category-stat 分渠道推广费用分类统计接口，生产环境使用（本地联调时再改为 12.18）
+// 分渠道推广费用分类统计接口：同样跟随 apiTarget 切换
 const costCategoryStatLocalRequest = createRequest(
-  `${process.env.BASE_URL}/finance/channel-extend-cost`,
+  () => `${getOmsBaseUrl()}/finance/channel-extend-cost`,
   {
     timeout: 1000 * 60,
   },
 );
-// 测试环境使用
-// const costCategoryStatLocalRequest = createRequest(
-//   `http://12.18.1.36:8085/oms/finance/channel-extend-cost`,
-//   {
-//     timeout: 1000 * 60,
-//   },
-// );
 // ==================== 切换代码结束 ====================
 
 export interface PageRequest {

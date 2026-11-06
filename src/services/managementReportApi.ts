@@ -1,28 +1,19 @@
 import { createRequest, ResponseData } from './axiosRequest';
+import { getOmsBaseUrl } from './apiTarget';
 
-// ==================== 本地/生产环境切换 ====================
+// ==================== 本地/生产/本地2 环境切换 ====================
 // 统一 OMS 服务 request 实例：本文件所有接口（管报 / 各渠道月账单 / 各渠道上传账单等）
 // 都挂在同一个 OMS 服务上，共用这一个实例，路由在各方法里写完整（含 /management-report、/finance 前缀）。
-// 切换本地 / 生产只需改这一处即可。
-// 生产环境使用
-const omsRequest = createRequest(`${process.env.BASE_URL}`, {
+// 地址不再写死：由 apiTarget.ts 统一管理，支持运行时切换（见该文件顶部说明）。
+// 默认生产；本地联调控制台执行：window.__api.set('local1' | 'local2')
+const omsRequest = createRequest(() => getOmsBaseUrl(), {
   timeout: 1000 * 60,
 });
-// 测试环境使用
-// const omsRequest = createRequest(`http://12.18.1.36:8085/oms`, {
-//   timeout: 1000 * 60,
-// });
-// ==================== 切换代码结束 ====================
 
-// ==================== 各渠道月账单-本地测试环境切换 ====================
-// 各渠道月账单接口，生产环境使用（本地联调时再改为 12.18）
-const billRequest = createRequest(`${process.env.BASE_URL}`, {
+// 各渠道月账单接口：同样跟随 apiTarget 切换
+const billRequest = createRequest(() => getOmsBaseUrl(), {
   timeout: 1000 * 60,
 });
-// 测试环境使用
-// const billRequest = createRequest(`http://12.18.1.36:8085/oms`, {
-//   timeout: 1000 * 60,
-// });
 // ==================== 切换代码结束 ====================
 
 /* ==================== 管报数据查询 ==================== */
@@ -53,9 +44,10 @@ export interface ManagementReportQueryReq {
   startMonth?: string;
   /**
    * 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市 6-天猫闪购
-   * 7-招行内购 8-宁波银行 9-天猫国际 10-亚马逊
+   * 7-招行内购 8-宁波银行 9-天猫国际 10-亚马逊 11-沃尔玛山姆
    * 注：type=6 必须整月查询（startDate 为当月 1 号、endDate 为当月最后一天）；
-   * type=9/10 复用 jdList（不返回 feeList），type=7/8 返回 zhaohangList / ningboList
+   * type=9/10 复用 jdList（不返回 feeList），type=7/8 返回 zhaohangList / ningboList；
+   * type=11 返回 walmartDetailList（明细表）+ walmartProfitList（利润表）
    */
   type?: number;
   [property: string]: any;
@@ -404,6 +396,193 @@ export interface JdFeeAddReq {
   total?: number | null;
 }
 
+/* ==================== 沃尔玛山姆（type=11） ==================== */
+
+/**
+ * 管报明细表：沃尔玛山姆明细（出货单 + 退回单，逐行；退货不合并负数）
+ * type=11 返回 walmartDetailList
+ */
+export interface WalmartDetailVo {
+  /** 订货客户 = 渠道（山姆 / 沃尔玛） */
+  orderCustomer?: string;
+  /** 渠道：山姆 / 沃尔玛 */
+  channel?: string;
+  /** 单据类型：出货单 / 退回单 */
+  docType?: string;
+  /** 单据编号 */
+  docNo?: string;
+  /** 货号 */
+  merchantCode?: string;
+  /** 料号 */
+  u9?: string;
+  /** 品名 */
+  productName?: string;
+  /** 品牌 */
+  brandName?: string | null;
+  /** 自有/外采（固定「自有」） */
+  own?: string;
+  /** 数量（出货单=出库数量；退回单=可开票数量） */
+  quantity?: number;
+  /** 单价（最终价） */
+  unitPrice?: number;
+  /** 价税合计 */
+  totalWithTax?: number;
+  /** 税率（数字，0.09 表示 9%；按料号取，匹配不到为 null） */
+  taxRate?: number | null;
+  /** 不含税金额 = 价税合计 / (1 + 税率) */
+  amountWithoutTax?: number;
+  /** 成本 = 该月成本单价 × 实际出货量；该料号当月无成本单价时为 null */
+  costAmount?: number | null;
+  /** 单据日期 yyyy-MM-dd */
+  created?: string;
+  [property: string]: any;
+}
+
+/**
+ * 管报利润表：沃尔玛山姆利润（固定「山姆 / 沃尔玛 / 合计」三行）
+ * type=11 返回 walmartProfitList
+ */
+export interface WalmartProfitVo {
+  /** 渠道：山姆 / 沃尔玛 / 合计 */
+  channel?: string;
+  /** 月份 yyyy-MM */
+  month?: string;
+  /** 订单金额 */
+  orderAmount?: number;
+  /** 销售收入 */
+  salesRevenue?: number;
+  /** 未税收入 */
+  noTaxRevenue?: number;
+  /** 含税收入 */
+  revenueWithTax?: number;
+  /** 不含税收入 */
+  revenueWithoutTax?: number;
+  /** 返利（含预计年返） */
+  rebate?: number;
+  /** 商品成本（含包材） */
+  goodsCost?: number;
+  /** 物流 */
+  logistics?: number;
+  /** 毛利 */
+  grossProfit?: number;
+  /** 毛利率（小数，0.059 表示 5.90%） */
+  grossMargin?: number;
+  /** 营业税金及附加 */
+  taxSurcharge?: number;
+  /** 仓储 */
+  storage?: number;
+  /** 人工（装 PDQ 人工） */
+  labor?: number;
+  /** 货损 */
+  loss?: number;
+  /** 净利润 */
+  netProfit?: number;
+  /** 净利率（小数，0.033342 表示 3.3342%） */
+  netMargin?: number;
+  [property: string]: any;
+}
+
+/**
+ * 沃尔玛山姆月度成本单价 / 物流费行（同一张表，kind 区分）
+ */
+export interface WalmartCostVo {
+  id?: number;
+  /** 年月 yyyy-MM */
+  month?: string;
+  /** 料号（物流费行为 null） */
+  materialNo?: string | null;
+  /** 品名 */
+  goodsName?: string | null;
+  /** 渠道：成本单价行=该料号的渠道；物流费行=该行渠道（山姆/沃尔玛） */
+  channel?: string | null;
+  /** 类型：成本单价 / 物流费 */
+  kind?: string;
+  /** 成本单价；物流费行=当月物流费（含税） */
+  costPrice?: number | null;
+  /** 包材单价（仅展示，不参与计算） */
+  packagingPrice?: number | null;
+  [property: string]: any;
+}
+
+/**
+ * 查询沃尔玛山姆月度成本单价 + 物流费
+ * POST /oms/finance/walmart-cost/list
+ */
+export interface WalmartCostListReq {
+  /** 年月 yyyy-MM */
+  month: string;
+  /** 料号 / 品名关键字 */
+  keyword?: string;
+}
+
+/**
+ * 新增 / 更新单条成本单价（channel 同时维护渠道）
+ * POST /oms/finance/walmart-cost/save
+ */
+export interface WalmartCostSaveReq {
+  /** 年月 yyyy-MM */
+  month: string;
+  /** 料号 */
+  materialNo?: string | null;
+  /** 成本单价（物流费行时为含税物流费） */
+  costPrice?: number | null;
+  /** 品名 */
+  goodsName?: string | null;
+  /** 渠道：山姆 / 沃尔玛 */
+  channel?: string | null;
+  /** 类型：成本单价 / 物流费（不传默认成本单价） */
+  kind?: string;
+}
+
+/**
+ * 批量新增到新月份（只复制 kind=成本单价 行，物流费不复制）
+ * POST /oms/finance/walmart-cost/copy
+ */
+export interface WalmartCostCopyReq {
+  /** 被复制的月份 yyyy-MM */
+  sourceMonth: string;
+  /** 新配置月份 yyyy-MM */
+  targetMonth: string;
+}
+
+/**
+ * 删除成本单价 / 物流费
+ * POST /oms/finance/walmart-cost/delete
+ */
+export interface WalmartCostDeleteReq {
+  id?: number;
+  month?: string;
+  materialNo?: string;
+}
+
+/**
+ * 录入 / 更新某月某渠道物流费（含税）
+ * POST /oms/finance/walmart-cost/logistics-save
+ */
+export interface WalmartLogisticsSaveReq {
+  /** 年月 yyyy-MM */
+  month: string;
+  /** 渠道：山姆 / 沃尔玛 */
+  channel: string;
+  /** 当月物流费（含税） */
+  amount: number;
+}
+
+/**
+ * 上传沃尔玛山姆三份原始单（三个文件均可选，同类型同月覆盖）
+ * POST /oms/finance/walmart-sam/upload（multipart/form-data）
+ */
+export interface WalmartSamUploadReq {
+  /** 账单月份 yyyy-MM */
+  month: string;
+  /** 出货单 */
+  chuhuoFile?: File;
+  /** 退回单（不是每月都有） */
+  tuihuiFile?: File;
+  /** 销售订单 */
+  orderFile?: File;
+}
+
 /**
  * 上传天猫超市账单请求
  * POST /oms/finance/tmcs/upload（multipart/form-data）
@@ -452,6 +631,14 @@ export interface ManagementReportQueryVo {
    * 宁波银行（type=8）：字段同 jdList
    */
   ningboList?: JdSalesCostVo[];
+  /**
+   * 沃尔玛山姆（type=11）明细表：出货单 + 退回单明细（逐行）
+   */
+  walmartDetailList?: WalmartDetailVo[];
+  /**
+   * 沃尔玛山姆（type=11）利润表：山姆 / 沃尔玛 / 合计 三行利润
+   */
+  walmartProfitList?: WalmartProfitVo[];
   [property: string]: any;
 }
 
@@ -1089,6 +1276,99 @@ export class ManagementReportApi {
     params: ManagementReportQueryReq,
   ): Promise<ResponseData<TmcsSalesCostVo[]>> {
     return omsRequest.post('/finance/tmcs/query', params);
+  }
+
+  /* ---- 沃尔玛山姆（type=11）：月度成本单价 / 物流费 ---- */
+  /**
+   * 上传某月成本单价 Excel
+   * POST /oms/finance/walmart-cost/upload?month=yyyy-MM（multipart/form-data）
+   * month 走 query，file 走 multipart body
+   * Excel 需含「料号」+「2026」（成品单价）+「包材」+「渠道」列；同月覆盖
+   */
+  static async uploadWalmartCost(data: {
+    month: string;
+    file: File;
+  }): Promise<ResponseData<number>> {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    return omsRequest.post('/finance/walmart-cost/upload', formData, {
+      params: { month: data.month },
+      headers: { 'Content-Type': 'multipart/form-data' },
+      // Excel 解析可能较慢，单独放宽超时
+      timeout: 1000 * 60 * 30,
+      showLoading: false,
+    });
+  }
+
+  /**
+   * 查询某月成本单价 + 物流费行
+   * POST /oms/finance/walmart-cost/list?month=yyyy-MM&keyword=xxx（参数走 query）
+   */
+  static async getWalmartCostList(
+    params: WalmartCostListReq,
+  ): Promise<ResponseData<WalmartCostVo[]>> {
+    return omsRequest.post('/finance/walmart-cost/list', undefined, { params });
+  }
+
+  /**
+   * 新增 / 更新单条成本单价（channel 同时维护渠道）
+   * POST /oms/finance/walmart-cost/save?month=&materialNo=&costPrice=&goodsName=&channel=（参数走 query）
+   */
+  static async saveWalmartCost(params: WalmartCostSaveReq): Promise<ResponseData<WalmartCostVo>> {
+    return omsRequest.post('/finance/walmart-cost/save', undefined, { params });
+  }
+
+  /**
+   * 批量新增到新月份：只复制 kind=成本单价 行，targetMonth 已存在的料号跳过
+   * POST /oms/finance/walmart-cost/copy?sourceMonth=&targetMonth=（参数走 query）
+   * 返回本次新增条数
+   */
+  static async copyWalmartCost(params: WalmartCostCopyReq): Promise<ResponseData<number>> {
+    return omsRequest.post('/finance/walmart-cost/copy', undefined, { params });
+  }
+
+  /**
+   * 删除成本单价 / 物流费（id 或 month + materialNo）
+   * POST /oms/finance/walmart-cost/delete?id=&month=&materialNo=（参数走 query）
+   */
+  static async deleteWalmartCost(params: WalmartCostDeleteReq): Promise<ResponseData<boolean>> {
+    return omsRequest.post('/finance/walmart-cost/delete', undefined, { params });
+  }
+
+  /**
+   * 录入 / 更新某月某渠道物流费（含税）
+   * POST /oms/finance/walmart-cost/logistics-save?month=&channel=&amount=（参数走 query）
+   */
+  static async saveWalmartLogistics(
+    params: WalmartLogisticsSaveReq,
+  ): Promise<ResponseData<WalmartCostVo>> {
+    return omsRequest.post('/finance/walmart-cost/logistics-save', undefined, { params });
+  }
+
+  /* ---- 沃尔玛山姆（type=11）：三份原始单上传 ---- */
+  /**
+   * 上传出货 / 退回 / 销售订单三份原始单
+   * POST /oms/finance/walmart-sam/upload（multipart/form-data）
+   * 三个文件均可选，同类型同月覆盖重传；返回入库行数
+   */
+  static async uploadWalmartSamFiles(data: WalmartSamUploadReq): Promise<ResponseData<number>> {
+    const formData = new FormData();
+    formData.append('month', data.month);
+    if (data.chuhuoFile) {
+      formData.append('chuhuoFile', data.chuhuoFile);
+    }
+    if (data.tuihuiFile) {
+      formData.append('tuihuiFile', data.tuihuiFile);
+    }
+    if (data.orderFile) {
+      formData.append('orderFile', data.orderFile);
+    }
+    return omsRequest.post('/finance/walmart-sam/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      // 三份 Excel 解析 + 成本匹配较慢，单独放宽超时
+      timeout: 1000 * 60 * 30,
+      showLoading: false,
+    });
   }
 
   /* ---- 各渠道月账单 ---- */

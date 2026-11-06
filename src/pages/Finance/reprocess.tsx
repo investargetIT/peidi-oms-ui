@@ -6,7 +6,7 @@ import { Button, message, Upload, Progress, Card, Row, Col, Typography, Tabs } f
 import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import { financeObaPage } from '@/services/ant-design-pro/api';
-import { FINANCE_BASE_URL } from '@/services/financeApi';
+import { getFinanceBaseUrl } from '@/services/financeApi';
 import dayjs from 'dayjs';
 import {
   handleFormData,
@@ -140,7 +140,7 @@ const Reprocess: FC = () => {
   useEffect(() => {
     const fetchExecuteStatus = async () => {
       try {
-        const response = await axios.get(`${FINANCE_BASE_URL}/finance/oba/upload`, {
+        const response = await axios.get(`${getFinanceBaseUrl()}/finance/oba/upload`, {
           headers: { Authorization: localStorage.getItem('token') },
         });
         const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } =
@@ -161,7 +161,7 @@ const Reprocess: FC = () => {
   // 上传成功后调用的函数
   const handleUploadSuccess = async () => {
     try {
-      const response = await axios.get(`${FINANCE_BASE_URL}/finance/oba/upload`, {
+      const response = await axios.get(`${getFinanceBaseUrl()}/finance/oba/upload`, {
         headers: { Authorization: localStorage.getItem('token') },
       });
       const { uploadFileNames, executeStatus } = response.data.data;
@@ -177,7 +177,7 @@ const Reprocess: FC = () => {
   const execute = async () => {
     try {
       //   await axios.post(
-      //     `${FINANCE_BASE_URL}/finance/oba/upload`,
+      //     `${getFinanceBaseUrl()}/finance/oba/upload`,
       //     {},
       //     {
       //       headers: { Authorization: localStorage.getItem('token') },
@@ -294,9 +294,7 @@ const Reprocess: FC = () => {
                   uploadFileNames.map((fileName, index) => (
                     <li key={index}>
                       <a
-                        href={`${
-                          FINANCE_BASE_URL
-                        }/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
+                        href={`${getFinanceBaseUrl()}/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
                           'token',
                         )}`}
                       >
@@ -327,7 +325,7 @@ const Reprocess: FC = () => {
                     <li key={index}>
                       <a
                         href={`${
-                          FINANCE_BASE_URL
+                          getFinanceBaseUrl()
                         }/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
                           'token',
                         )}`}
@@ -349,7 +347,7 @@ const Reprocess: FC = () => {
             <UploadComponent
               org="智创"
               title="销售单_智创"
-              action={`${FINANCE_BASE_URL}/finance/oba/upload`}
+              action={`${getFinanceBaseUrl()}/finance/oba/upload`}
               fileList={dyFileList}
               setFileList={setDYFileList}
               percent={dyPercent}
@@ -363,7 +361,7 @@ const Reprocess: FC = () => {
             <UploadComponent
               org="哈宠"
               title="销售单_哈宠"
-              action={`${FINANCE_BASE_URL}/finance/oba/upload`}
+              action={`${getFinanceBaseUrl()}/finance/oba/upload`}
               fileList={pddFileList}
               setFileList={setPddFileList}
               percent={pddPercent}
@@ -379,7 +377,7 @@ const Reprocess: FC = () => {
             <UploadComponent
               org="旺妙"
               title="销售单_旺妙"
-              action={`${FINANCE_BASE_URL}/finance/oba/upload`}
+              action={`${getFinanceBaseUrl()}/finance/oba/upload`}
               fileList={jdFileList}
               setFileList={setJdFileList}
               percent={jdPercent}
@@ -393,7 +391,7 @@ const Reprocess: FC = () => {
             <UploadComponent
               org="宠珍"
               title="销售单_宠珍"
-              action={`${FINANCE_BASE_URL}/finance/oba/upload`}
+              action={`${getFinanceBaseUrl()}/finance/oba/upload`}
               fileList={tmFileList}
               setFileList={setTmFileList}
               percent={tmPercent}

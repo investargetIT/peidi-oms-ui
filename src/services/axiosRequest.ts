@@ -12,6 +12,12 @@ export interface RequestConfig extends AxiosRequestConfig {
   showErrorMessage?: boolean;
 }
 
+/**
+ * 接口根地址：可以是字符串，也可以是「每次请求时求值」的函数。
+ * 传函数时支持运行时切换（见 apiTarget.ts 的 getOmsBaseUrl）。
+ */
+export type BaseURLInput = string | (() => string);
+
 // 响应数据格式接口
 export interface ResponseData<T = any> {
   code: number;
@@ -41,12 +47,12 @@ const getProgressFunctions = () => {
  */
 export class AxiosRequest {
   private instance: AxiosInstance;
-  private baseURL: string;
+  private baseURL: BaseURLInput;
 
-  constructor(baseURL?: string, config?: RequestConfig) {
+  constructor(baseURL?: BaseURLInput, config?: RequestConfig) {
     this.baseURL = baseURL || '';
     this.instance = axios.create({
-      baseURL: this.baseURL,
+      baseURL: typeof baseURL === 'function' ? baseURL() : baseURL || '',
       timeout: 1000 * 60,
       headers: {
         'Content-Type': 'application/json',
@@ -64,6 +70,11 @@ export class AxiosRequest {
     // 请求拦截器
     this.instance.interceptors.request.use(
       (config) => {
+        // 运行时解析接口根地址（支持在控制台随时切换接口环境）
+        if (typeof this.baseURL === 'function') {
+          config.baseURL = this.baseURL();
+        }
+
         // 请求开始前的处理
         // console.log(`🚀 请求开始: ${config.method?.toUpperCase()} ${config.url}`);
 
@@ -292,11 +303,11 @@ export class AxiosRequest {
   }
 
   /**
-   * 设置baseURL
+   * 设置baseURL（支持传函数，每次请求时求值）
    */
-  setBaseURL(baseURL: string): void {
+  setBaseURL(baseURL: BaseURLInput): void {
     this.baseURL = baseURL;
-    this.instance.defaults.baseURL = baseURL;
+    this.instance.defaults.baseURL = typeof baseURL === 'function' ? baseURL() : baseURL;
   }
 
   /**
@@ -340,7 +351,7 @@ export class AxiosRequest {
 export const axiosRequest = new AxiosRequest();
 
 // 创建带baseURL的实例
-export const createRequest = (baseURL: string, config?: RequestConfig) => {
+export const createRequest = (baseURL: BaseURLInput, config?: RequestConfig) => {
   return new AxiosRequest(baseURL, config);
 };
 

@@ -1,17 +1,13 @@
 import { createRequest, ResponseData } from './axiosRequest';
+import { getOmsBaseUrl } from './apiTarget';
 
-// ==================== 本地/生产环境切换 ====================
-// 统一 OMS 服务 request 实例：本文件财务相关接口（/finance、/finance-unit-cost）
-// 都挂在同一个 OMS 服务上，共用这一个实例，路由在各方法里写完整前缀。
-// 切换本地 / 生产只需改这一处即可。
-// 生产环境使用
-export const FINANCE_BASE_URL: string = `${process.env.BASE_URL}`;
-// 调试地址（本地联调时启用，同时注释掉上面一行）
-// export const FINANCE_BASE_URL: string = `http://12.18.1.36:8085/oms`;
+// ==================== 本地/生产/本地2 环境切换 ====================
+// 财务接口地址由 apiTarget.ts 统一管理，支持运行时切换：
+// window.__api.set('local1' | 'local2' | 'prod')
+// 页面里拼接下载 / 上传地址请用 getFinanceBaseUrl()，保证切换后立即生效。
+export const getFinanceBaseUrl = (): string => getOmsBaseUrl();
 
-// 统一 OMS 服务 request 实例：本文件财务相关接口（/finance、/finance-unit-cost）
-// 都挂在同一个 OMS 服务上，共用这一个实例，路由在各方法里写完整前缀。
-const financeRequest = createRequest(FINANCE_BASE_URL, {
+const financeRequest = createRequest(() => getFinanceBaseUrl(), {
   timeout: 1000 * 60,
 });
 // ==================== 切换代码结束 ====================

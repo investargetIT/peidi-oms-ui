@@ -17,7 +17,7 @@ import {
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
-import { FINANCE_BASE_URL } from '@/services/financeApi';
+import { getFinanceBaseUrl } from '@/services/financeApi';
 import Reprocess from './reprocess';
 import ReprocessForShop from './reprocessForShop';
 import AuxiliaryOperation from './auxiliaryOperation';
@@ -203,7 +203,7 @@ const App: React.FC = () => {
 
   const fetchExecuteStatus = async () => {
     try {
-      const response = await axios.get(`${FINANCE_BASE_URL}/finance/date/execute`, {
+      const response = await axios.get(`${getFinanceBaseUrl()}/finance/date/execute`, {
         headers: { Authorization: localStorage.getItem('token') },
       });
       const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } = response.data.data;
@@ -235,7 +235,7 @@ const App: React.FC = () => {
   // 上传成功后调用的函数
   const handleUploadSuccess = async () => {
     try {
-      const response = await axios.get(`${FINANCE_BASE_URL}/finance/date/execute`, {
+      const response = await axios.get(`${getFinanceBaseUrl()}/finance/date/execute`, {
         headers: { Authorization: localStorage.getItem('token') },
       });
       const { uploadFileNames, executeStatus } = response.data.data;
@@ -265,7 +265,7 @@ const App: React.FC = () => {
 
       // return;
       await axios.post(
-        `${FINANCE_BASE_URL}/finance/date/execute`,
+        `${getFinanceBaseUrl()}/finance/date/execute`,
         { startDate, endDate },
         {
           headers: { Authorization: localStorage.getItem('token') },
@@ -311,9 +311,7 @@ const App: React.FC = () => {
                     uploadFileNames.map((fileName, index) => (
                       <li key={index}>
                         <a
-                          href={`${
-                            FINANCE_BASE_URL
-                          }/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
+                          href={`${getFinanceBaseUrl()}/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
                             'token',
                           )}`}
                         >
@@ -341,9 +339,7 @@ const App: React.FC = () => {
                     executeFileNames.map((fileName, index) => (
                       <li key={index}>
                         <a
-                          href={`${
-                            FINANCE_BASE_URL
-                          }/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
+                          href={`${getFinanceBaseUrl()}/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
                             'token',
                           )}`}
                         >
@@ -362,7 +358,7 @@ const App: React.FC = () => {
             <Col span={12}>
               <UploadComponent
                 title="财务手工调整的发票"
-                action={`${FINANCE_BASE_URL}/finance/upload/invoiceManual`}
+                action={`${getFinanceBaseUrl()}/finance/upload/invoiceManual`}
                 fileList={manualFileList}
                 setFileList={setManualFileList}
                 percent={manualPercent}
@@ -375,7 +371,7 @@ const App: React.FC = () => {
             <Col span={12}>
               <UploadComponent
                 title="阿里发票"
-                action={`${FINANCE_BASE_URL}/finance/upload/invoice`}
+                action={`${getFinanceBaseUrl()}/finance/upload/invoice`}
                 fileList={aliFileList}
                 setFileList={setAliFileList}
                 percent={aliPercent}
@@ -390,7 +386,7 @@ const App: React.FC = () => {
             <Col span={12}>
               <UploadComponent
                 title="抖音仅退款"
-                action={`${FINANCE_BASE_URL}/finance/upload/douyinRefund`}
+                action={`${getFinanceBaseUrl()}/finance/upload/douyinRefund`}
                 fileList={dyFileList}
                 setFileList={setDYFileList}
                 percent={dyPercent}
@@ -403,7 +399,7 @@ const App: React.FC = () => {
             <Col span={12}>
               <UploadComponent
                 title="拼多多仅退款"
-                action={`${FINANCE_BASE_URL}/finance/upload/pddrefund`}
+                action={`${getFinanceBaseUrl()}/finance/upload/pddrefund`}
                 fileList={pddFileList}
                 setFileList={setPddFileList}
                 percent={pddPercent}
@@ -418,7 +414,7 @@ const App: React.FC = () => {
             <Col span={12}>
               <UploadComponent
                 title="京东仅退款"
-                action={`${FINANCE_BASE_URL}/finance/upload/jdRefund`}
+                action={`${getFinanceBaseUrl()}/finance/upload/jdRefund`}
                 fileList={jdFileList}
                 setFileList={setJdFileList}
                 percent={jdPercent}
@@ -431,7 +427,7 @@ const App: React.FC = () => {
             <Col span={12}>
               <UploadComponent
                 title="天猫仅退款"
-                action={`${FINANCE_BASE_URL}/finance/upload/tmallRefund`}
+                action={`${getFinanceBaseUrl()}/finance/upload/tmallRefund`}
                 fileList={tmFileList}
                 setFileList={setTmFileList}
                 percent={tmPercent}

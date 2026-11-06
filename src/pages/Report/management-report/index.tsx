@@ -12,8 +12,11 @@ import ManagementReportApi, {
   type TmcsSalesCostVo,
   type TmallFlashSaleVo,
   type JdFeeVo,
+  type WalmartDetailVo,
+  type WalmartProfitVo,
 } from '@/services/managementReportApi';
 import JdExtraActions from './JdExtraActions';
+import WalmartExtraActions from './WalmartExtraActions';
 
 // 京东自营费用分组：与「京东自营9月份数据.xlsx」表头保持一致
 const JD_FEE_GROUPS = [
@@ -77,6 +80,7 @@ const MR_TYPE_LABELS: Record<number, string> = {
   8: '宁波银行',
   9: '天猫国际',
   10: '亚马逊',
+  11: '沃尔玛山姆',
 };
 
 const ManagementReportTab: React.FC = () => {
@@ -101,6 +105,24 @@ const ManagementReportTab: React.FC = () => {
   const [mrNingboList, setMrNingboList] = useState<JdSalesCostVo[]>([]);
   // 其他费用明细（type=4/5 共用）
   const [mrFeeList, setMrFeeList] = useState<JdFeeVo[]>([]);
+  // 沃尔玛山姆（type=11）：明细表 + 利润表
+  const [mrWalmartDetailList, setMrWalmartDetailList] = useState<WalmartDetailVo[]>([]);
+  const [mrWalmartProfitList, setMrWalmartProfitList] = useState<WalmartProfitVo[]>([]);
+  // 明细表筛选：渠道 / 单据类型
+  const [walmartChannelFilter, setWalmartChannelFilter] = useState<string | undefined>(undefined);
+  const [walmartDocTypeFilter, setWalmartDocTypeFilter] = useState<string | undefined>(undefined);
+
+  // 沃尔玛山姆（type=11）：两张表
+  const isWalmartSamType = mrType === 11;
+
+  // 明细表按渠道 / 单据类型前端筛选
+  const mrWalmartDetailData = useMemo(() => {
+    return mrWalmartDetailList.filter((item) => {
+      if (walmartChannelFilter && item.channel !== walmartChannelFilter) return false;
+      if (walmartDocTypeFilter && item.docType !== walmartDocTypeFilter) return false;
+      return true;
+    });
+  }, [mrWalmartDetailList, walmartChannelFilter, walmartDocTypeFilter]);
 
   // 京东自营 / 天猫超市：是否展示费用相关区域
   const isFeeType = mrType === 4 || mrType === 5;
@@ -169,6 +191,9 @@ const ManagementReportTab: React.FC = () => {
         setMrWarehouseList(data.warehouseList || []);
         setMrZhaohangList(data.zhaohangList || []);
         setMrNingboList(data.ningboList || []);
+        // 沃尔玛山姆（type=11）：明细表 + 利润表
+        setMrWalmartDetailList(data.walmartDetailList || []);
+        setMrWalmartProfitList(data.walmartProfitList || []);
         message.success('查询成功');
       } else if (res.code === 500) {
         message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
@@ -198,6 +223,8 @@ const ManagementReportTab: React.FC = () => {
     setMrWarehouseList([]);
     setMrZhaohangList([]);
     setMrNingboList([]);
+    setMrWalmartDetailList([]);
+    setMrWalmartProfitList([]);
     fetchManagementReport({
       type: mrType,
       startMonth: defaultMonth,
@@ -949,6 +976,268 @@ const ManagementReportTab: React.FC = () => {
     },
   ];
 
+  // 管报数据查询 - 沃尔玛山姆（type=11）明细表
+  // 出货单 + 退回单逐行返回（退货不合并负数），前端提供渠道 / 单据类型筛选
+  const mrWalmartDetailColumns = [
+    {
+      title: '渠道',
+      dataIndex: 'channel',
+      key: 'channel',
+      width: 100,
+      fixed: 'left' as const,
+    },
+    {
+      title: '单据类型',
+      dataIndex: 'docType',
+      key: 'docType',
+      width: 100,
+    },
+    {
+      title: '单据编号',
+      dataIndex: 'docNo',
+      key: 'docNo',
+      width: 170,
+    },
+    {
+      title: '订货客户',
+      dataIndex: 'orderCustomer',
+      key: 'orderCustomer',
+      width: 110,
+    },
+    {
+      title: '货号',
+      dataIndex: 'merchantCode',
+      key: 'merchantCode',
+      width: 150,
+    },
+    {
+      title: '料号',
+      dataIndex: 'u9',
+      key: 'u9',
+      width: 130,
+    },
+    {
+      title: '品名',
+      dataIndex: 'productName',
+      key: 'productName',
+      width: 240,
+    },
+    {
+      title: '品牌',
+      dataIndex: 'brandName',
+      key: 'brandName',
+      width: 100,
+      render: (v?: string | null) => v || '-',
+    },
+    {
+      title: '自有/外采',
+      dataIndex: 'own',
+      key: 'own',
+      width: 90,
+      render: formatOwn,
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 90,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '单价',
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: 110,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '价税合计',
+      dataIndex: 'totalWithTax',
+      key: 'totalWithTax',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '税率',
+      dataIndex: 'taxRate',
+      key: 'taxRate',
+      width: 80,
+      render: formatTaxRatePercent,
+    },
+    {
+      title: '不含税金额',
+      dataIndex: 'amountWithoutTax',
+      key: 'amountWithoutTax',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '成本',
+      dataIndex: 'costAmount',
+      key: 'costAmount',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '单据日期',
+      dataIndex: 'created',
+      key: 'created',
+      width: 120,
+    },
+  ];
+
+  // 管报数据查询 - 沃尔玛山姆（type=11）利润表
+  // 固定「山姆 / 沃尔玛 / 合计」三行 × 指标列；毛利率 / 净利率为小数，按百分比展示
+  const mrWalmartProfitColumns = [
+    {
+      title: '渠道',
+      dataIndex: 'channel',
+      key: 'channel',
+      width: 110,
+      fixed: 'left' as const,
+      render: (v?: string) => <strong>{v || '-'}</strong>,
+    },
+    {
+      title: '月份',
+      dataIndex: 'month',
+      key: 'month',
+      width: 100,
+    },
+    {
+      title: '订单金额',
+      dataIndex: 'orderAmount',
+      key: 'orderAmount',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '销售收入',
+      dataIndex: 'salesRevenue',
+      key: 'salesRevenue',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '未税收入',
+      dataIndex: 'noTaxRevenue',
+      key: 'noTaxRevenue',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '含税收入',
+      dataIndex: 'revenueWithTax',
+      key: 'revenueWithTax',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '不含税收入',
+      dataIndex: 'revenueWithoutTax',
+      key: 'revenueWithoutTax',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '返利',
+      dataIndex: 'rebate',
+      key: 'rebate',
+      width: 120,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '商品成本',
+      dataIndex: 'goodsCost',
+      key: 'goodsCost',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '物流',
+      dataIndex: 'logistics',
+      key: 'logistics',
+      width: 120,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '毛利',
+      dataIndex: 'grossProfit',
+      key: 'grossProfit',
+      width: 120,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '毛利率',
+      dataIndex: 'grossMargin',
+      key: 'grossMargin',
+      width: 100,
+      align: 'right' as const,
+      render: formatTaxRatePercent,
+    },
+    {
+      title: '营业税金及附加',
+      dataIndex: 'taxSurcharge',
+      key: 'taxSurcharge',
+      width: 150,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '仓储',
+      dataIndex: 'storage',
+      key: 'storage',
+      width: 110,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '人工',
+      dataIndex: 'labor',
+      key: 'labor',
+      width: 110,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '货损',
+      dataIndex: 'loss',
+      key: 'loss',
+      width: 110,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '净利润',
+      dataIndex: 'netProfit',
+      key: 'netProfit',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '净利率',
+      dataIndex: 'netMargin',
+      key: 'netMargin',
+      width: 100,
+      align: 'right' as const,
+      render: formatTaxRatePercent,
+    },
+  ];
+
   // 京东自营 / 天猫超市费用明细（单独表格展示，避免费用列太靠右看不到）
   const jdFeeDetailColumns = [
     {
@@ -989,6 +1278,111 @@ const ManagementReportTab: React.FC = () => {
   const handleMrDownload = async () => {
     let dataList: any[] = [];
     let columns: any[] = [];
+
+    // 沃尔玛山姆（type=11）：同一个文件导出两个 sheet（明细表 + 利润表）
+    // 导出当月全量数据（不套用明细表的渠道 / 单据类型筛选）
+    if (mrType === 11) {
+      if (!mrWalmartDetailList.length && !mrWalmartProfitList.length) {
+        message.warning('当前没有可下载的数据，请先查询');
+        return;
+      }
+      const monthLabel = (mrStartMonth || dayjs().subtract(1, 'month')).format('YYYY-MM');
+      try {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Peidi OMS';
+        workbook.created = new Date();
+
+        // ---- Sheet1：明细表 ----
+        const detailSheet = workbook.addWorksheet('明细');
+        const detailHeaders = mrWalmartDetailColumns.map((col) => col.title);
+        detailSheet.addRow(detailHeaders);
+        detailSheet.getRow(1).font = { bold: true };
+        const u9ColIndex = mrWalmartDetailColumns.findIndex((col) => col.dataIndex === 'u9');
+        // 数字列格式：金额 2 位小数，税率按百分比
+        const detailNumFmt: Record<string, string> = {
+          quantity: '0.00',
+          unitPrice: '0.00',
+          totalWithTax: '0.00',
+          taxRate: '0.00%',
+          amountWithoutTax: '0.00',
+          costAmount: '0.00',
+        };
+
+        mrWalmartDetailList.forEach((record) => {
+          const row = detailSheet.addRow(
+            mrWalmartDetailColumns.map((col) => {
+              const value = record[col.dataIndex as keyof WalmartDetailVo];
+              if (value === null || value === undefined) return '';
+              return value;
+            }),
+          );
+          mrWalmartDetailColumns.forEach((col, idx) => {
+            const value = record[col.dataIndex as keyof WalmartDetailVo];
+            const cell = row.getCell(idx + 1);
+            if (typeof value === 'number' && detailNumFmt[col.dataIndex]) {
+              cell.numFmt = detailNumFmt[col.dataIndex];
+            }
+          });
+          // 料号强制文本，避免前导 0 / 后置 0 被 Excel 当数字处理而丢失
+          if (u9ColIndex >= 0) {
+            const cell = row.getCell(u9ColIndex + 1);
+            const v = record.u9;
+            cell.value = v === null || v === undefined ? '' : String(v).trim();
+            cell.numFmt = '@';
+          }
+        });
+        detailSheet.columns = detailHeaders.map((h, idx) => ({
+          width: Math.max(12, String(h).length * 2 + 4),
+          key: String(idx),
+        }));
+
+        // ---- Sheet2：利润表 ----
+        const profitSheet = workbook.addWorksheet('利润');
+        const profitHeaders = mrWalmartProfitColumns.map((col) => col.title);
+        profitSheet.addRow(profitHeaders);
+        profitSheet.getRow(1).font = { bold: true };
+        const profitPercentFields = ['grossMargin', 'netMargin'];
+
+        mrWalmartProfitList.forEach((record) => {
+          const row = profitSheet.addRow(
+            mrWalmartProfitColumns.map((col) => {
+              const value = record[col.dataIndex as keyof WalmartProfitVo];
+              if (value === null || value === undefined) return '';
+              return value;
+            }),
+          );
+          mrWalmartProfitColumns.forEach((col, idx) => {
+            const value = record[col.dataIndex as keyof WalmartProfitVo];
+            if (typeof value === 'number') {
+              row.getCell(idx + 1).numFmt = profitPercentFields.includes(col.dataIndex)
+                ? '0.00%'
+                : '#,##0.00';
+            }
+          });
+        });
+        profitSheet.columns = profitHeaders.map((h, idx) => ({
+          width: Math.max(12, String(h).length * 2 + 4),
+          key: String(idx),
+        }));
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `管报数据-沃尔玛山姆-${monthLabel}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        message.success('下载成功');
+      } catch (error) {
+        console.error('下载管报数据失败:', error);
+        message.error('下载管报数据失败');
+      }
+      return;
+    }
 
     if (mrType === 1) {
       dataList = mrOnlineList;
@@ -1127,6 +1521,7 @@ const ManagementReportTab: React.FC = () => {
                 { label: '宁波银行', value: 8 },
                 { label: '天猫国际', value: 9 },
                 { label: '亚马逊', value: 10 },
+                { label: '沃尔玛山姆', value: 11 },
               ]}
             />
           </div>
@@ -1174,6 +1569,13 @@ const ManagementReportTab: React.FC = () => {
               {(isU9Type || mrType === 5) && (
                 <JdExtraActions
                   reportType={mrType}
+                  month={mrStartMonth}
+                  onChanged={() => fetchManagementReport()}
+                />
+              )}
+              {/* 沃尔玛山姆（type=11）：成本单价配置 + 三份原始单上传 */}
+              {isWalmartSamType && (
+                <WalmartExtraActions
                   month={mrStartMonth}
                   onChanged={() => fetchManagementReport()}
                 />
@@ -1331,6 +1733,85 @@ const ManagementReportTab: React.FC = () => {
             showTotal: (total) => `共 ${total} 条记录`,
           }}
         />
+      )}
+
+      {/* 沃尔玛山姆（type=11）：利润表 + 明细表 */}
+      {isWalmartSamType && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* 利润表 */}
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>利润表（山姆 / 沃尔玛 / 合计）</div>
+            <Table
+              columns={mrWalmartProfitColumns}
+              dataSource={mrWalmartProfitList}
+              rowKey={(record, index) => `walmart-profit-${record.channel ?? index ?? 0}`}
+              loading={mrLoading}
+              size="small"
+              scroll={{ x: 1900 }}
+              pagination={false}
+              locale={{ emptyText: '先点击查询' }}
+            />
+          </div>
+
+          {/* 明细表 */}
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              <span style={{ fontWeight: 600 }}>
+                明细表（出货单 + 退回单，共 {mrWalmartDetailData.length} 行）
+              </span>
+              <Space>
+                <span style={{ fontSize: 12, color: '#666' }}>渠道</span>
+                <Select
+                  style={{ width: 120 }}
+                  allowClear
+                  placeholder="全部"
+                  value={walmartChannelFilter}
+                  onChange={(value) => setWalmartChannelFilter(value)}
+                  options={[
+                    { label: '山姆', value: '山姆' },
+                    { label: '沃尔玛', value: '沃尔玛' },
+                  ]}
+                />
+                <span style={{ fontSize: 12, color: '#666' }}>单据类型</span>
+                <Select
+                  style={{ width: 120 }}
+                  allowClear
+                  placeholder="全部"
+                  value={walmartDocTypeFilter}
+                  onChange={(value) => setWalmartDocTypeFilter(value)}
+                  options={[
+                    { label: '出货单', value: '出货单' },
+                    { label: '退回单', value: '退回单' },
+                  ]}
+                />
+              </Space>
+            </div>
+            <Table
+              columns={mrWalmartDetailColumns}
+              dataSource={mrWalmartDetailData}
+              rowKey={(_record, index) => `walmart-detail-${index ?? 0}`}
+              loading={mrLoading}
+              size="small"
+              scroll={{ x: 2100 }}
+              pagination={{
+                showSizeChanger: true,
+                showQuickJumper: true,
+                pageSizeOptions: [10, 20, 50, 100],
+                showTotal: (total) => `共 ${total} 条记录`,
+              }}
+              locale={{ emptyText: '先点击查询' }}
+            />
+          </div>
+        </div>
       )}
     </>
   );

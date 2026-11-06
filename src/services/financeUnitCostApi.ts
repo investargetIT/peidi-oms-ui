@@ -1,14 +1,15 @@
 import { createRequest, ResponseData } from './axiosRequest';
+import { getOmsBaseUrl } from './apiTarget';
 
-// ==================== 本地/生产环境切换 ====================
-// 生产环境使用
-const financeUnitCostRequest = createRequest(`${process.env.BASE_URL}/finance-unit-cost`, {
-  timeout: 1000 * 60,
-});
-// 调试地址
-// const financeUnitCostRequest = createRequest(`http://12.18.1.36:8085/oms/finance-unit-cost`, {
-//   timeout: 1000 * 60,
-// });
+// ==================== 本地/生产/本地2 环境切换 ====================
+// 成本核算接口地址由 apiTarget.ts 统一管理，支持运行时切换：
+// window.__api.set('local1' | 'local2' | 'prod')
+const financeUnitCostRequest = createRequest(
+  () => `${getOmsBaseUrl()}/finance-unit-cost`,
+  {
+    timeout: 1000 * 60,
+  },
+);
 // ==================== 切换代码结束 ====================
 
 export interface PageResponse<T> {
