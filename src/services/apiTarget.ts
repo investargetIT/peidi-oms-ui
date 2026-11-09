@@ -9,7 +9,7 @@
  *      window.__api.set('prod')     // 切回生产
  *      window.__api.get()           // 查看当前目标
  *      window.__api.urls            // 查看所有地址
- *   切换后页面会自动刷新，选择会记在 localStorage（key: oms_api_target）。
+ *   切换后页面会自动刷新，选择会记在 localStorage（key: oms_api_target_v2）。
  * 3. 取消本地覆盖：
  *      window.__api.reset()         // 清除 localStorage，回到 DEFAULT_API_TARGET
  *

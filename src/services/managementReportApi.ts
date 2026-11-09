@@ -431,6 +431,10 @@ export interface WalmartDetailVo {
   taxRate?: number | null;
   /** 不含税金额 = 价税合计 / (1 + 税率) */
   amountWithoutTax?: number;
+  /** 含税收入（明细表展示） */
+  revenueWithTax?: number;
+  /** 不含税收入（明细表展示） */
+  revenueWithoutTax?: number;
   /** 成本 = 该月成本单价 × 实际出货量；该料号当月无成本单价时为 null */
   costAmount?: number | null;
   /** 单据日期 yyyy-MM-dd */
@@ -453,10 +457,6 @@ export interface WalmartProfitVo {
   salesRevenue?: number;
   /** 未税收入 */
   noTaxRevenue?: number;
-  /** 含税收入 */
-  revenueWithTax?: number;
-  /** 不含税收入 */
-  revenueWithoutTax?: number;
   /** 返利（含预计年返） */
   rebate?: number;
   /** 商品成本（含包材） */

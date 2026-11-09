@@ -1076,6 +1076,22 @@ const ManagementReportTab: React.FC = () => {
       render: formatMoneyDash,
     },
     {
+      title: '含税收入',
+      dataIndex: 'revenueWithTax',
+      key: 'revenueWithTax',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
+      title: '不含税收入',
+      dataIndex: 'revenueWithoutTax',
+      key: 'revenueWithoutTax',
+      width: 130,
+      align: 'right' as const,
+      render: formatMoneyDash,
+    },
+    {
       title: '成本',
       dataIndex: 'costAmount',
       key: 'costAmount',
@@ -1128,22 +1144,6 @@ const ManagementReportTab: React.FC = () => {
       title: '未税收入',
       dataIndex: 'noTaxRevenue',
       key: 'noTaxRevenue',
-      width: 130,
-      align: 'right' as const,
-      render: formatMoneyDash,
-    },
-    {
-      title: '含税收入',
-      dataIndex: 'revenueWithTax',
-      key: 'revenueWithTax',
-      width: 130,
-      align: 'right' as const,
-      render: formatMoneyDash,
-    },
-    {
-      title: '不含税收入',
-      dataIndex: 'revenueWithoutTax',
-      key: 'revenueWithoutTax',
       width: 130,
       align: 'right' as const,
       render: formatMoneyDash,
@@ -1305,6 +1305,8 @@ const ManagementReportTab: React.FC = () => {
           totalWithTax: '0.00',
           taxRate: '0.00%',
           amountWithoutTax: '0.00',
+          revenueWithTax: '0.00',
+          revenueWithoutTax: '0.00',
           costAmount: '0.00',
         };
 
@@ -1801,7 +1803,7 @@ const ManagementReportTab: React.FC = () => {
               rowKey={(_record, index) => `walmart-detail-${index ?? 0}`}
               loading={mrLoading}
               size="small"
-              scroll={{ x: 2100 }}
+              scroll={{ x: 2360 }}
               pagination={{
                 showSizeChanger: true,
                 showQuickJumper: true,
