@@ -8,7 +8,7 @@ import type { FinanceKuaishouCostStatItemVo } from '@/services/channelExtendCost
  *
  * 展示形式：固定行模板，按后端返回的 name 匹配取数（参考小红书）：
  *   分类「其他」     : 其他（净收入）= 合计收入 - 订单退款
- *   分类「平台费用」 : 技术服务费 / 运费险（运费险类）
+ *   分类「平台费用」 : 赔付 / 技术服务费 / 商城分销信息服务费 / 其他收费 / 运费险（运费险类）
  *   分类「推广费用」 : 达人佣金 / 团长佣金 / 服务商佣金
  */
 
@@ -27,7 +27,13 @@ export interface KuaishouRowDef {
 /** 后端返回 name 顺序无关，模板顺序即最终展示顺序 */
 export const KUAISHOU_ROW_DEFS: KuaishouRowDef[] = [
   { category: '其他', displayName: '其他（净收入）', sourceName: '合计收入', net: true },
+  // 赔付：后端新增项（type = 支出，金额为负），归入平台费用
+  { category: '平台费用', displayName: '赔付', sourceName: '赔付' },
   { category: '平台费用', displayName: '技术服务费', sourceName: '技术服务费' },
+  // 商城分销信息服务费：后续后端新增项，归入平台费用
+  { category: '平台费用', displayName: '商城分销信息服务费', sourceName: '商城分销信息服务费' },
+  // 其他收费：后端返回 name = 其他收费，归入平台费用
+  { category: '平台费用', displayName: '其他收费', sourceName: '其他收费' },
   // 运费险：后端 business_desc = 运费险类，管报名称展示为「运费险」，归入平台费用
   { category: '平台费用', displayName: '运费险', sourceName: '运费险类' },
   { category: '推广费用', displayName: '达人佣金', sourceName: '达人佣金' },
@@ -76,7 +82,7 @@ export interface KuaishouBatchStatResult {
  *
  * 口径（与小红书一致）：
  *   本期收款 = 明细表收入列之和（净收入）
- *   本期费用 = 明细表支出列之和（技术服务费 + 各项佣金，保留负号）
+ *   本期费用 = 明细表支出列之和（赔付 + 技术服务费 + 商城分销信息服务费 + 其他收费 + 运费险 + 各项佣金，保留负号）
  *   提现 / 结息 = 默认 0
  *   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
  *   校验     = 计算余额 - 期末余额

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Tooltip,
   Button,
   Collapse,
   Input,
@@ -34,9 +35,10 @@ export interface XhsExtendCostBaseProps {
 }
 
 // 小红书费用统计项的分类归属：固定两种——「平台费用」「其他」
-// 规则：计佣基数 → 其他；其余（赔付薯券 / 买手佣金 / 运费宝 / 平台佣金等）→ 平台费用
+// 规则：计佣基数 / 提现 → 其他；其余（赔付薯券 / 买手佣金 / 运费宝 / 平台佣金等）→ 平台费用
 const XHS_CATEGORY_ORDER = ['平台费用', '其他'];
-const getXhsCategory = (name: string | undefined) => (name === '计佣基数' ? '其他' : '平台费用');
+const getXhsCategory = (name: string | undefined) =>
+  name === '计佣基数' || name === '提现' ? '其他' : '平台费用';
 
 const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
   channel,
@@ -46,7 +48,11 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
 }) => {
   const [channelLoading, setChannelLoading] = useState(false);
   const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostItemVo[]>([]);
-  const [channelPagination, setChannelPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [channelPagination, setChannelPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopsLoading, setShopsLoading] = useState(false);
 
@@ -64,7 +70,9 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
 
   const [searchAccountType, setSearchAccountType] = useState<string>('');
   const [searchShopId, setSearchShopId] = useState<number | undefined>(undefined);
-  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
+  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(
+    dayjs().subtract(1, 'month'),
+  );
 
   const fetchShops = async () => {
     setShopsLoading(true);
@@ -177,26 +185,34 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
   // 小红书余额对账 / 汇总：
   //   本期收款 = 收入列之和（type 为「收入」的各项之和，value 为正）
   //   本期费用 = 支出列之和（type 为「支出」的各项之和，保留负号）
+  //   提现     = 接口返回的「提现」项原值（保留正负号）；
+  //              提现不并入本期收款 / 本期费用，避免与提现列重复计算
   //   期末/上月余额 = 各渠道月账单的 endingBalance / beginningBalance
-  //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 结息（提现默认 0）
+  //   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
   //   校验     = 计算余额 - 期末余额
   const xhsSummary = useMemo(() => {
-    let income = 0; // 本期收款 / 收入列之和
-    let expense = 0; // 本期费用 / 支出列之和（保留负号）
+    let incomeAll = 0; // 明细表收入列之和（含提现，供合计行使用）
+    let expenseAll = 0; // 明细表支出列之和（含提现，保留负号）
+    let withdraw = 0; // 提现：取「提现」项原值（保留正负号）
     xhsStatData.forEach((it) => {
       const v = typeof it.value === 'number' ? it.value : 0;
+      if (it.name === '提现') {
+        withdraw = v;
+      }
       if (it.type === '收入') {
-        income += v;
+        incomeAll += v;
       } else {
-        expense += v;
+        expenseAll += v;
       }
     });
+    // 余额对账的本期收款 / 本期费用不含提现（提现单独一列），避免重复计算
+    const withdrawInIncome = xhsStatData.find((it) => it.name === '提现' && it.type === '收入');
+    const withdrawInExpense = xhsStatData.find((it) => it.name === '提现' && it.type !== '收入');
     const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
     const lastMonthBalance = safeNum(beginningBalance);
     const endBalance = safeNum(endingBalance);
-    const currentCollection = income;
-    const currentExpense = expense;
-    const withdraw = 0; // 提现默认 0
+    const currentCollection = incomeAll - (withdrawInIncome ? withdraw : 0);
+    const currentExpense = expenseAll - (withdrawInExpense ? withdraw : 0);
     const interest = 0; // 结息固定 0
     const calculatedBalance =
       lastMonthBalance + currentCollection + currentExpense + withdraw + interest;
@@ -214,16 +230,16 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
       interest,
       calculatedBalance,
       checkDiff,
-      // 明细表合计行使用的收入 / 支出 / 总金额
-      income,
-      expense,
-      total: income + expense,
+      // 明细表合计行使用的收入 / 支出 / 总金额（含提现，与明细行一致）
+      income: incomeAll,
+      expense: expenseAll,
+      total: incomeAll + expenseAll,
     };
   }, [xhsStatData, beginningBalance, endingBalance, currentYearMonth, currentShopName]);
 
   // 明细表行：把接口返回项映射为「分类 / 管报名称 / 收入 / 支出」。
   //   type 为「收入」→ 放进收入列；type 为「支出」→ 放进支出列（保留负号）。
-  //   按分类聚合，分类顺序固定为 平台费用 / 其他（计佣基数 → 其他）。
+  //   按分类聚合，分类顺序固定为 平台费用 / 其他（计佣基数 / 提现 → 其他）。
   const xhsStatRows = useMemo(() => {
     const byCat: Record<string, any[]> = {};
     xhsStatData.forEach((it) => {
@@ -470,9 +486,24 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
               title: '账户名称',
               dataIndex: 'accountName',
               key: 'accountName',
-              width: 150,
+              width: 200,
               render: (text: string) => (
-                <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+                <Tooltip title={text}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      maxWidth: 184,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      verticalAlign: 'bottom',
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {text}
+                  </span>
+                </Tooltip>
               ),
             },
             {
@@ -602,7 +633,8 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
                     </div>
                     <div>
                       ② 余额（上月余额 / 期末余额）= 老接口 <code>GET /cost-category-stat</code>，取
-                      <code>PDD_LAST_BALANCE</code>（上月/期初）和 <code>PDD_BALANCE</code>（本月期末）两条的
+                      <code>PDD_LAST_BALANCE</code>（上月/期初）和 <code>PDD_BALANCE</code>
+                      （本月期末）两条的
                       <code>totalIncome</code>；接口未返回时回退 <code>queryEndingBalance</code>。
                     </div>
                   </div>
@@ -612,10 +644,13 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>二、费用统计表列结构</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>固定 4 列：<strong>分类</strong> / <strong>管报名称</strong> / <strong>收入</strong> / <strong>支出</strong>。</div>
                     <div>
-                      分类固定两种：<strong>平台费用</strong> / <strong>其他</strong>；
-                      接口返回的 <code>name</code> 即「管报名称」。
+                      固定 4 列：<strong>分类</strong> / <strong>管报名称</strong> /{' '}
+                      <strong>收入</strong> / <strong>支出</strong>。
+                    </div>
+                    <div>
+                      分类固定两种：<strong>平台费用</strong> / <strong>其他</strong>； 接口返回的{' '}
+                      <code>name</code> 即「管报名称」。
                     </div>
                   </div>
                 </li>
@@ -624,8 +659,14 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>三、分类归属规则</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>· 名称为 <strong>计佣基数</strong> → 归入 <strong>其他</strong>；</div>
-                    <div>· 其余名称（赔付薯券 / 买手佣金 / 运费宝 / 平台佣金 等）→ 归入 <strong>平台费用</strong>。</div>
+                    <div>
+                      · 名称为 <strong>计佣基数</strong> / <strong>提现</strong> → 归入{' '}
+                      <strong>其他</strong>；
+                    </div>
+                    <div>
+                      · 其余名称（赔付薯券 / 买手佣金 / 运费宝 / 平台佣金 等）→ 归入{' '}
+                      <strong>平台费用</strong>。
+                    </div>
                   </div>
                 </li>
 
@@ -633,8 +674,14 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>四、收入 / 支出列取值</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>收入列</strong> = <code>type</code> 为「收入」的那一条 <code>value</code>（正数）；</div>
-                    <div><strong>支出列</strong> = <code>type</code> 为「支出」的那一条 <code>value</code>（负数，保留负号）；</div>
+                    <div>
+                      <strong>收入列</strong> = <code>type</code> 为「收入」的那一条{' '}
+                      <code>value</code>（正数）；
+                    </div>
+                    <div>
+                      <strong>支出列</strong> = <code>type</code> 为「支出」的那一条{' '}
+                      <code>value</code>（负数，保留负号）；
+                    </div>
                     <div>不是对应的类型则填 0.00。</div>
                   </div>
                 </li>
@@ -643,8 +690,12 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>五、合计行</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>· <strong>收入合计</strong> = 收入列所有值之和；</div>
-                    <div>· <strong>支出合计</strong> = 支出列所有值之和（保留负号）。</div>
+                    <div>
+                      · <strong>收入合计</strong> = 收入列所有值之和；
+                    </div>
+                    <div>
+                      · <strong>支出合计</strong> = 支出列所有值之和（保留负号）。
+                    </div>
                   </div>
                 </li>
 
@@ -652,11 +703,24 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>六、余额对账表字段</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>期末余额 / 上月余额</strong> = 各渠道月账单（<code>/finance/zfb-bill/page</code>）的
-                      <code>endingBalance</code> / <code>beginningBalance</code>；</div>
-                    <div><strong>本期收款</strong> = 收入列之和；</div>
-                    <div><strong>本期费用</strong> = 支出列之和（保留负号）；</div>
-                    <div><strong>提现</strong> / <strong>结息</strong>：当前默认 0。</div>
+                    <div>
+                      <strong>期末余额 / 上月余额</strong> = 各渠道月账单（
+                      <code>/finance/zfb-bill/page</code>）的
+                      <code>endingBalance</code> / <code>beginningBalance</code>；
+                    </div>
+                    <div>
+                      <strong>本期收款</strong> = 收入列之和；
+                    </div>
+                    <div>
+                      <strong>本期费用</strong> = 支出列之和（保留负号）；
+                    </div>
+                    <div>
+                      <strong>提现</strong> = 接口返回的「提现」项原值（保留正负号），不并入本期收款
+                      / 本期费用；
+                    </div>
+                    <div>
+                      <strong>结息</strong>：当前默认 0。
+                    </div>
                   </div>
                 </li>
 
@@ -664,8 +728,13 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>七、计算余额与校验</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</div>
-                    <div><strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色 0.00，否则红色实际差异。</div>
+                    <div>
+                      <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
+                    </div>
+                    <div>
+                      <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
+                      0.00，否则红色实际差异。
+                    </div>
                   </div>
                 </li>
               </ul>
@@ -708,7 +777,9 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
               key: 'name',
               fixed: 'left' as const,
               width: 160,
-              render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+              render: (text: string) => (
+                <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+              ),
             },
             {
               title: '收入',
@@ -719,7 +790,13 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
               render: (value: number) => {
                 const v = typeof value === 'number' ? value : 0;
                 return (
-                  <span style={{ fontSize: 12, fontWeight: 'bold', color: v > 0 ? '#389e0d' : 'inherit' }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      color: v > 0 ? '#389e0d' : 'inherit',
+                    }}
+                  >
                     {v === 0 ? '0.00' : v.toFixed(2)}
                   </span>
                 );
@@ -734,7 +811,13 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
               render: (value: number) => {
                 const v = typeof value === 'number' ? value : 0;
                 return (
-                  <span style={{ fontSize: 12, fontWeight: 'bold', color: v < 0 ? '#cf1322' : 'inherit' }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      color: v < 0 ? '#cf1322' : 'inherit',
+                    }}
+                  >
                     {v === 0 ? '0.00' : v.toFixed(2)}
                   </span>
                 );

@@ -873,9 +873,24 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
               title: '账户名称',
               dataIndex: 'accountName',
               key: 'accountName',
-              width: 150,
+              width: 200,
               render: (text: string) => (
-                <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+                <Tooltip title={text}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      maxWidth: 184,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      verticalAlign: 'bottom',
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {text}
+                  </span>
+                </Tooltip>
               ),
             },
             {
@@ -1008,9 +1023,10 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                       ）；
                     </div>
                     <div>
-                      ② 余额（上月余额 / 期末余额）= 各渠道月账单 <code>POST /finance/zfb-bill/page</code> 的
-                      <code>beginningBalance</code>（上月/期初）和 <code>endingBalance</code>（本月期末）；
-                      账单未生成 / 未填余额时显示空值。
+                      ② 余额（上月余额 / 期末余额）= 各渠道月账单{' '}
+                      <code>POST /finance/zfb-bill/page</code> 的<code>beginningBalance</code>
+                      （上月/期初）和 <code>endingBalance</code>（本月期末）； 账单未生成 /
+                      未填余额时显示空值。
                     </div>
                   </div>
                 </li>
@@ -1253,13 +1269,13 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                       ＋「收入金额（入账）」（为正），即出账与入账一并纳入；
                     </div>
                     <div>
-                      · <strong>费用列行</strong>（动态明细列的费用分类属于平台费用 /
-                      推广费用，如 平台服务费 / 佣金 / 服务商佣金 / 招商服务费 / 站外推广费）：
-                      支出金额 = 该列的纵向合计（当列总计）。
+                      · <strong>费用列行</strong>（动态明细列的费用分类属于平台费用 / 推广费用，如
+                      平台服务费 / 佣金 / 服务商佣金 / 招商服务费 / 站外推广费）： 支出金额 =
+                      该列的纵向合计（当列总计）。
                     </div>
                     <div>
-                      行序：平台费用 → 推广费用；组内先首层分类行、后费用列行（保持出现顺序）；
-                      相同 分类 / 管报名称 的相邻单元格合并。
+                      行序：平台费用 → 推广费用；组内先首层分类行、后费用列行（保持出现顺序）； 相同
+                      分类 / 管报名称 的相邻单元格合并。
                     </div>
                     <div>
                       <strong>合计</strong> = 本表各行金额之和（首层分类行已含「收入金额（入账）」，
@@ -1343,7 +1359,10 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
                     <Table.Summary.Cell index={3} align="left">
                       <span style={{ fontSize: 12, fontWeight: 'bold' }}>
                         {dyExpenseSummaryRows
-                          .reduce((acc, r) => acc + (typeof r.amount === 'number' ? r.amount : 0), 0)
+                          .reduce(
+                            (acc, r) => acc + (typeof r.amount === 'number' ? r.amount : 0),
+                            0,
+                          )
                           .toFixed(2)}
                       </span>
                     </Table.Summary.Cell>

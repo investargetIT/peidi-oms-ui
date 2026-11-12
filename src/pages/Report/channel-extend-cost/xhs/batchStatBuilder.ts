@@ -8,10 +8,10 @@ import type { FinanceXhsCostStatItemVo } from '@/services/channelExtendCostApi';
  */
 
 /** 小红书费用统计项的分类归属：固定两种——「平台费用」「其他」
- *  规则：计佣基数 → 其他；其余（赔付薯券 / 买手佣金 / 运费宝 / 平台佣金等）→ 平台费用 */
+ *  规则：计佣基数 / 提现 → 其他；其余（赔付薯券 / 买手佣金 / 运费宝 / 平台佣金等）→ 平台费用 */
 export const XHS_CATEGORY_ORDER = ['平台费用', '其他'];
 export const getXhsCategory = (name: string | undefined) =>
-  name === '计佣基数' ? '其他' : '平台费用';
+  name === '计佣基数' || name === '提现' ? '其他' : '平台费用';
 
 export interface XhsBalanceSummary {
   billMonth: string;
@@ -52,7 +52,8 @@ export interface XhsBatchStatResult {
  * 余额对账口径：
  *   本期收款 = 收入列之和（type 为「收入」的各项之和，value 为正）
  *   本期费用 = 支出列之和（type 为「支出」的各项之和，保留负号）
- *   提现 / 结息 = 默认 0
+ *   提现     = 「提现」项原值（保留正负号），不并入本期收款 / 本期费用
+ *   结息     = 默认 0
  *   计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
  *   校验     = 计算余额 - 期末余额
  */
@@ -66,22 +67,31 @@ export function buildXhsStat(args: {
   const { xhsStatData, beginningBalance, endingBalance, yearMonth, shopName } = args;
 
   // —— 汇总 ——
-  let income = 0; // 本期收款 / 收入列之和
-  let expense = 0; // 本期费用 / 支出列之和（保留负号）
+  let incomeAll = 0; // 明细表收入列之和（含提现，供合计行使用）
+  let expenseAll = 0; // 明细表支出列之和（含提现，保留负号）
+  let withdraw = 0; // 提现：取「提现」项原值（保留正负号）
   xhsStatData.forEach((it) => {
     const v = typeof it.value === 'number' ? it.value : 0;
+    if (it.name === '提现') {
+      withdraw = v;
+    }
     if (it.type === '收入') {
-      income += v;
+      incomeAll += v;
     } else {
-      expense += v;
+      expenseAll += v;
     }
   });
+  // 余额对账的本期收款 / 本期费用不含提现（提现单独一列），避免重复计算
+  const withdrawInIncome = xhsStatData.find((it) => it.name === '提现' && it.type === '收入');
+  const withdrawInExpense = xhsStatData.find((it) => it.name === '提现' && it.type !== '收入');
   const safeNum = (n: number | null | undefined) => (typeof n === 'number' ? n : 0);
   const lastMonthBalance = safeNum(beginningBalance);
   const endBalance = safeNum(endingBalance);
-  const withdraw = 0; // 提现默认 0
+  const currentCollection = incomeAll - (withdrawInIncome ? withdraw : 0);
+  const currentExpense = expenseAll - (withdrawInExpense ? withdraw : 0);
   const interest = 0; // 结息固定 0
-  const calculatedBalance = lastMonthBalance + income + expense + withdraw + interest;
+  const calculatedBalance =
+    lastMonthBalance + currentCollection + currentExpense + withdraw + interest;
   const checkDiff = calculatedBalance - endBalance;
 
   const summary = {
@@ -90,16 +100,16 @@ export function buildXhsStat(args: {
     platform: '小红书',
     endBalance,
     lastMonthBalance,
-    currentCollection: income,
-    currentExpense: expense,
+    currentCollection,
+    currentExpense,
     withdraw,
     interest,
     calculatedBalance,
     checkDiff,
-    // 明细表合计行使用的收入 / 支出 / 总金额
-    income,
-    expense,
-    total: income + expense,
+    // 明细表合计行使用的收入 / 支出 / 总金额（含提现，与明细行一致）
+    income: incomeAll,
+    expense: expenseAll,
+    total: incomeAll + expenseAll,
   };
 
   // —— 明细行：把接口返回项映射为「分类 / 管报名称 / 收入 / 支出」 ——

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Collapse, Input, Modal, Table, message } from 'antd';
+import { Tooltip, Collapse, Input, Modal, Table, message } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import ChannelExtendCostApi, {
@@ -618,8 +618,25 @@ const JdExtendCostPanel: React.FC = () => {
         title: '账户名称',
         dataIndex: 'accountName',
         key: 'accountName',
-        width: 150,
-        render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+        width: 200,
+        render: (text: string) => (
+          <Tooltip title={text}>
+            <span
+              style={{
+                display: 'inline-block',
+                maxWidth: 184,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                verticalAlign: 'bottom',
+                fontSize: 12,
+                fontWeight: 'bold',
+              }}
+            >
+              {text}
+            </span>
+          </Tooltip>
+        ),
       },
       {
         title: '期末余额（元）',
@@ -825,7 +842,8 @@ const JdExtendCostPanel: React.FC = () => {
                   分类-管报名称-业务描述；其中「推广费-京东联盟-京东联盟」的金额取自
                   「京东钱包支出分类统计」的京东联盟分类；「佣金」= 总计的佣金 +
                   总计的价保返佣（价保返佣不单独展示）；「直营服务费」「运营服务费」「中转履约服务费」
-                  按 平台费用-直营服务费/运营服务费/中转履约服务费 归类。默认仅展示当月有对应业务描述的行；
+                  按 平台费用-直营服务费/运营服务费/中转履约服务费
+                  归类。默认仅展示当月有对应业务描述的行；
                   交易服务费、直营服务费、运营服务费固定展示（无数据时金额显示 -）。
                   完整映射如下，可搜索 / 按分类、管报名称筛选：
                   <div style={{ marginTop: 8 }}>

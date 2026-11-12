@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Tooltip,
   Button,
   Input,
   Select,
@@ -76,7 +77,11 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
   // ============ 状态 ============
   const [channelLoading, setChannelLoading] = useState(false);
   const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostItemVo[]>([]);
-  const [channelPagination, setChannelPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [channelPagination, setChannelPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopsLoading, setShopsLoading] = useState(false);
 
@@ -94,7 +99,9 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
   // 搜索条件 - 渠道由父级 Tab 决定（channel prop），不再作为搜索项
   const [searchAccountType, setSearchAccountType] = useState<string>('');
   const [searchShopId, setSearchShopId] = useState<number | undefined>(undefined);
-  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
+  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(
+    dayjs().subtract(1, 'month'),
+  );
 
   // ============ 数据获取 ============
   // 获取店铺列表（按当前渠道过滤）
@@ -204,7 +211,6 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
       setBeginningBalance(balances.beginningBalance);
       setEndingBalance(balances.endingBalance);
       setStatDataSource(detailData);
-
     } catch (error) {
       console.error('获取统计数据失败:', error);
       message.error('获取统计数据失败');
@@ -458,9 +464,24 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
               title: '账户名称',
               dataIndex: 'accountName',
               key: 'accountName',
-              width: 150,
+              width: 200,
               render: (text: string) => (
-                <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+                <Tooltip title={text}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      maxWidth: 184,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      verticalAlign: 'bottom',
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {text}
+                  </span>
+                </Tooltip>
               ),
             },
             {
@@ -571,11 +592,22 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
               }}
             >
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                <li style={{ marginBottom: 2 }}><strong>账单月份：</strong>当前统计的月份</li>
-                <li style={{ marginBottom: 2 }}><strong>平台：</strong>当前统计的渠道</li>
-                <li style={{ marginBottom: 2 }}><strong>账户名称：</strong>店铺名称</li>
-                <li style={{ marginBottom: 2 }}><strong>期末余额：</strong>取「各渠道月账单」该店铺该月的期末余额（endingBalance）</li>
-                <li style={{ marginBottom: 2 }}><strong>上月余额：</strong>取「各渠道月账单」该店铺该月的期初余额（beginningBalance）</li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>账单月份：</strong>当前统计的月份
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>平台：</strong>当前统计的渠道
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>账户名称：</strong>店铺名称
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>期末余额：</strong>取「各渠道月账单」该店铺该月的期末余额（endingBalance）
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>上月余额：</strong>
+                  取「各渠道月账单」该店铺该月的期初余额（beginningBalance）
+                </li>
                 <li style={{ marginBottom: 2 }}>
                   <strong>本期收款：</strong>本月所有收款类业务编码汇总，收款业务编码包括：
                   {summaryGroups[0].codes.join(', ')}
@@ -588,7 +620,9 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
                   <strong>提现：</strong>本月提现业务汇总，业务编码：
                   {summaryGroups[2].codes.join(', ')}
                 </li>
-                <li style={{ marginBottom: 2 }}><strong>结息：</strong>默认 0，如有结息业务后续调整</li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>结息：</strong>默认 0，如有结息业务后续调整
+                </li>
                 <li style={{ marginBottom: 2 }}>
                   <strong>计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</strong>
                 </li>
@@ -652,9 +686,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
                     const major = getFeeMajorCategory(getFeeCategory(record.businessCode));
                     const isFirst = majorFirstIndex[major] === index;
                     return {
-                      children: (
-                        <span style={{ fontSize: 12, fontWeight: 'bold' }}>{major}</span>
-                      ),
+                      children: <span style={{ fontSize: 12, fontWeight: 'bold' }}>{major}</span>,
                       props: { rowSpan: isFirst ? majorCount[major] : 0 },
                     };
                   },

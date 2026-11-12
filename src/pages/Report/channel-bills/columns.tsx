@@ -100,13 +100,6 @@ export const channelBillColumns = [
     render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
   },
   {
-    title: '推广金额',
-    dataIndex: 'promotionAmount',
-    key: 'promotionAmount',
-    width: 120,
-    render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
-  },
-  {
     title: '生成状态',
     dataIndex: 'generateStatus',
     key: 'generateStatus',

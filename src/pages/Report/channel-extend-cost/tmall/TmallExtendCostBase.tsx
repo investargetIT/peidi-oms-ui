@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Input, Select, Table, Space, Modal, Collapse, message, DatePicker } from 'antd';
+import {
+  Tooltip,
+  Button,
+  Input,
+  Select,
+  Table,
+  Space,
+  Modal,
+  Collapse,
+  message,
+  DatePicker,
+} from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import ChannelExtendCostApi, {
@@ -592,9 +603,24 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
               title: '账户名称',
               dataIndex: 'accountName',
               key: 'accountName',
-              width: 150,
+              width: 200,
               render: (text: string) => (
-                <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+                <Tooltip title={text}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      maxWidth: 184,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      verticalAlign: 'bottom',
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {text}
+                  </span>
+                </Tooltip>
               ),
             },
             {
@@ -782,11 +808,10 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
                       rows。
                     </div>
                     <div>
-                      · 「分类」= 由「备注」按固定映射归一（多数两者同名，仅「收款」下各明细以备注细分）。
+                      · 「分类」=
+                      由「备注」按固定映射归一（多数两者同名，仅「收款」下各明细以备注细分）。
                     </div>
-                    <div>
-                      · 「费用分类」与「分类」相同取值分别合并（rowSpan）展示。
-                    </div>
+                    <div>· 「费用分类」与「分类」相同取值分别合并（rowSpan）展示。</div>
                     <div>· 底部合计行取接口 total（收入 / 支出全量合计）。</div>
                     <div>· 收入金额 / 支出金额为固定列，横向滚动时保持可见。</div>
                   </div>
@@ -795,8 +820,9 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
                 {/* 五、费用分类映射 */}
                 <li style={{ marginBottom: 0 }}>
                   <strong>五、费用分类映射：</strong>
-                  明细表「费用分类 / 分类」均按固定映射由「备注」归一（对应关系由业务提供，重复项已去重）；
-                  明细行按 费用分类（推广费用 → 平台费用 → 其他 →
+                  明细表「费用分类 /
+                  分类」均按固定映射由「备注」归一（对应关系由业务提供，重复项已去重）； 明细行按
+                  费用分类（推广费用 → 平台费用 → 其他 →
                   未映射）分组排序，相同「费用分类」与「分类」的单元格分别合并展示。
                   完整映射如下，可搜索 / 按费用分类筛选。
                   <div style={{ marginTop: 4, color: '#999' }}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Tooltip,
   Button,
   Collapse,
   Input,
@@ -42,7 +43,11 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
 }) => {
   const [channelLoading, setChannelLoading] = useState(false);
   const [channelDataSource, setChannelDataSource] = useState<FinanceChannelExtendCostItemVo[]>([]);
-  const [channelPagination, setChannelPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [channelPagination, setChannelPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
   const [shopList, setShopList] = useState<ShopVo[]>([]);
   const [shopsLoading, setShopsLoading] = useState(false);
 
@@ -60,7 +65,9 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
 
   const [searchAccountType, setSearchAccountType] = useState<string>('');
   const [searchShopId, setSearchShopId] = useState<number | undefined>(undefined);
-  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(dayjs().subtract(1, 'month'));
+  const [searchYearMonth, setSearchYearMonth] = useState<Dayjs | null>(
+    dayjs().subtract(1, 'month'),
+  );
 
   const fetchShops = async () => {
     setShopsLoading(true);
@@ -400,9 +407,24 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
               title: '账户名称',
               dataIndex: 'accountName',
               key: 'accountName',
-              width: 150,
+              width: 200,
               render: (text: string) => (
-                <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+                <Tooltip title={text}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      maxWidth: 184,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      verticalAlign: 'bottom',
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {text}
+                  </span>
+                </Tooltip>
               ),
             },
             {
@@ -527,13 +549,14 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                   <strong>一、数据来源（两个接口）</strong>
                   <div style={{ marginLeft: 16 }}>
                     <div>
-                      ① 费用明细 = 新接口 <code>GET /kuaishou-cost-stat</code>（按 business_desc 分类，
-                      返回 <code>name / type / value</code>，金额含正负号）；
+                      ① 费用明细 = 新接口 <code>GET /kuaishou-cost-stat</code>（按 business_desc
+                      分类， 返回 <code>name / type / value</code>，金额含正负号）；
                     </div>
                     <div>
-                      ② 余额（上月余额 / 期末余额）= 各渠道月账单 <code>POST /finance/zfb-bill/page</code> 的
-                      <code>beginningBalance</code>（上月/期初）和 <code>endingBalance</code>（本月期末）；
-                      账单未生成 / 未填余额时显示空值。
+                      ② 余额（上月余额 / 期末余额）= 各渠道月账单{' '}
+                      <code>POST /finance/zfb-bill/page</code> 的<code>beginningBalance</code>
+                      （上月/期初）和 <code>endingBalance</code>（本月期末）； 账单未生成 /
+                      未填余额时显示空值。
                     </div>
                   </div>
                 </li>
@@ -542,10 +565,14 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>二、费用统计表列结构</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>固定 4 列：<strong>分类</strong> / <strong>管报名称</strong> / <strong>收入</strong> / <strong>支出</strong>。</div>
                     <div>
-                      固定行模板，分类三种：<strong>其他</strong> / <strong>平台费用</strong> / <strong>推广费用</strong>；
-                      按后端返回的 <code>name</code> 匹配取数，<strong>后端未返回该 name 的行不展示</strong>（只展示有数据的行）。
+                      固定 4 列：<strong>分类</strong> / <strong>管报名称</strong> /{' '}
+                      <strong>收入</strong> / <strong>支出</strong>。
+                    </div>
+                    <div>
+                      固定行模板，分类三种：<strong>其他</strong> / <strong>平台费用</strong> /{' '}
+                      <strong>推广费用</strong>； 按后端返回的 <code>name</code> 匹配取数，
+                      <strong>后端未返回该 name 的行不展示</strong>（只展示有数据的行）。
                     </div>
                   </div>
                 </li>
@@ -554,9 +581,17 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>三、分类归属规则</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>· <strong>其他</strong>：其他（净收入）= <code>合计收入</code> - <code>订单退款</code>；</div>
-                    <div>· <strong>平台费用</strong>：技术服务费 / 运费险（后端 运费险类）；</div>
-                    <div>· <strong>推广费用</strong>：达人佣金 / 团长佣金 / 服务商佣金。</div>
+                    <div>
+                      · <strong>其他</strong>：其他（净收入）= <code>合计收入</code> -{' '}
+                      <code>订单退款</code>；
+                    </div>
+                    <div>
+                      · <strong>平台费用</strong>：赔付 / 技术服务费 / 商城分销信息服务费 / 其他收费
+                      / 运费险（后端 运费险类）；
+                    </div>
+                    <div>
+                      · <strong>推广费用</strong>：达人佣金 / 团长佣金 / 服务商佣金。
+                    </div>
                   </div>
                 </li>
 
@@ -564,8 +599,15 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>四、收入 / 支出列取值</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>以模板行为准：净收入按「合计收入 - 订单退款」结果为正填 <strong>收入列</strong>、为负填 <strong>支出列</strong>；</div>
-                    <div>直出行（技术服务费 / 运费险 / 各佣金）按后端 <code>type</code> 判断——「收入」填收入列（正数）、「支出」填支出列（负数，保留负号）。</div>
+                    <div>
+                      以模板行为准：净收入按「合计收入 - 订单退款」结果为正填{' '}
+                      <strong>收入列</strong>、为负填 <strong>支出列</strong>；
+                    </div>
+                    <div>
+                      直出行（赔付 / 技术服务费 / 商城分销信息服务费 / 其他收费 / 运费险 /
+                      各佣金）按后端 <code>type</code>{' '}
+                      判断——「收入」填收入列（正数）、「支出」填支出列（负数，保留负号）。
+                    </div>
                   </div>
                 </li>
 
@@ -573,8 +615,13 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>五、合计行</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div>· <strong>收入合计</strong> = 收入列所有值之和（净收入）；</div>
-                    <div>· <strong>支出合计</strong> = 支出列所有值之和（技术服务费 + 运费险 + 各佣金，保留负号）。</div>
+                    <div>
+                      · <strong>收入合计</strong> = 收入列所有值之和（净收入）；
+                    </div>
+                    <div>
+                      · <strong>支出合计</strong> = 支出列所有值之和（赔付 + 技术服务费 +
+                      商城分销信息服务费 + 其他收费 + 运费险 + 各佣金，保留负号）。
+                    </div>
                   </div>
                 </li>
 
@@ -582,11 +629,20 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>六、余额对账表字段</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>期末余额 / 上月余额</strong> = 各渠道月账单（<code>/finance/zfb-bill/page</code>）的
-                      <code>endingBalance</code> / <code>beginningBalance</code>；</div>
-                    <div><strong>本期收款</strong> = 收入列之和；</div>
-                    <div><strong>本期费用</strong> = 支出列之和（保留负号）；</div>
-                    <div><strong>提现</strong> / <strong>结息</strong>：当前默认 0。</div>
+                    <div>
+                      <strong>期末余额 / 上月余额</strong> = 各渠道月账单（
+                      <code>/finance/zfb-bill/page</code>）的
+                      <code>endingBalance</code> / <code>beginningBalance</code>；
+                    </div>
+                    <div>
+                      <strong>本期收款</strong> = 收入列之和；
+                    </div>
+                    <div>
+                      <strong>本期费用</strong> = 支出列之和（保留负号）；
+                    </div>
+                    <div>
+                      <strong>提现</strong> / <strong>结息</strong>：当前默认 0。
+                    </div>
                   </div>
                 </li>
 
@@ -594,8 +650,13 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
                 <li style={{ marginBottom: 6 }}>
                   <strong>七、计算余额与校验</strong>
                   <div style={{ marginLeft: 16 }}>
-                    <div><strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</div>
-                    <div><strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色 0.00，否则红色实际差异。</div>
+                    <div>
+                      <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
+                    </div>
+                    <div>
+                      <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
+                      0.00，否则红色实际差异。
+                    </div>
                   </div>
                 </li>
               </ul>
@@ -638,7 +699,9 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
               key: 'name',
               fixed: 'left' as const,
               width: 160,
-              render: (text: string) => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>,
+              render: (text: string) => (
+                <span style={{ fontSize: 12, fontWeight: 'bold' }}>{text}</span>
+              ),
             },
             {
               title: '收入',
@@ -649,7 +712,13 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
               render: (value: number) => {
                 const v = typeof value === 'number' ? value : 0;
                 return (
-                  <span style={{ fontSize: 12, fontWeight: 'bold', color: v > 0 ? '#389e0d' : 'inherit' }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      color: v > 0 ? '#389e0d' : 'inherit',
+                    }}
+                  >
                     {v === 0 ? '0.00' : v.toFixed(2)}
                   </span>
                 );
@@ -664,7 +733,13 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
               render: (value: number) => {
                 const v = typeof value === 'number' ? value : 0;
                 return (
-                  <span style={{ fontSize: 12, fontWeight: 'bold', color: v < 0 ? '#cf1322' : 'inherit' }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                      color: v < 0 ? '#cf1322' : 'inherit',
+                    }}
+                  >
                     {v === 0 ? '0.00' : v.toFixed(2)}
                   </span>
                 );
