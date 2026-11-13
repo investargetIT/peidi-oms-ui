@@ -1017,6 +1017,12 @@ const ManagementReportTab: React.FC = () => {
       width: 130,
     },
     {
+      title: '商品编号',
+      dataIndex: 'merchantSku',
+      key: 'merchantSku',
+      width: 150,
+    },
+    {
       title: '品名',
       dataIndex: 'productName',
       key: 'productName',
@@ -1053,9 +1059,9 @@ const ManagementReportTab: React.FC = () => {
       render: formatMoneyDash,
     },
     {
-      title: '价税合计',
-      dataIndex: 'totalWithTax',
-      key: 'totalWithTax',
+      title: '含税收入',
+      dataIndex: 'revenueWithTax',
+      key: 'revenueWithTax',
       width: 130,
       align: 'right' as const,
       render: formatMoneyDash,
@@ -1066,22 +1072,6 @@ const ManagementReportTab: React.FC = () => {
       key: 'taxRate',
       width: 80,
       render: formatTaxRatePercent,
-    },
-    {
-      title: '不含税金额',
-      dataIndex: 'amountWithoutTax',
-      key: 'amountWithoutTax',
-      width: 130,
-      align: 'right' as const,
-      render: formatMoneyDash,
-    },
-    {
-      title: '含税收入',
-      dataIndex: 'revenueWithTax',
-      key: 'revenueWithTax',
-      width: 130,
-      align: 'right' as const,
-      render: formatMoneyDash,
     },
     {
       title: '不含税收入',
@@ -1302,9 +1292,7 @@ const ManagementReportTab: React.FC = () => {
         const detailNumFmt: Record<string, string> = {
           quantity: '0.00',
           unitPrice: '0.00',
-          totalWithTax: '0.00',
           taxRate: '0.00%',
-          amountWithoutTax: '0.00',
           revenueWithTax: '0.00',
           revenueWithoutTax: '0.00',
           costAmount: '0.00',

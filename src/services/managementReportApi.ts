@@ -413,6 +413,8 @@ export interface WalmartDetailVo {
   docNo?: string;
   /** 货号 */
   merchantCode?: string;
+  /** 商品编号 */
+  merchantSku?: string | null;
   /** 料号 */
   u9?: string;
   /** 品名 */
