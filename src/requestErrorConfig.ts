@@ -1,8 +1,9 @@
-﻿import type { RequestOptions } from '@@/plugin-request/request';
+import type { RequestOptions } from '@@/plugin-request/request';
 import type { RequestConfig } from '@umijs/max';
 import { message, notification } from 'antd';
 // 添加导入
 import { stringify } from 'querystring';
+import { clearAuthToken, getAuthToken } from '@/utils/auth';
 
 // 错误处理方案： 错误类型
 enum ErrorShowType {
@@ -74,13 +75,12 @@ export const errorConfig: RequestConfig = {
       } else if (error.response) {
         // Axios 的错误
         // 请求成功发出且服务器也响应了状态码，但状态代码超出了 2xx 的范围
-        const { code } = error.response;
-        
+
         // 处理 code 100100012错误 - token过期
-        if (code === 100100012) {
+        if (error.response.data?.code === 100100012) {
           message.error('认证失败，请重新登录');
-          // 清除token并跳转到登录页
-          localStorage.removeItem('token');
+          // 清除token并跳转到登录页，登录页会用「记住我」凭据静默重登
+          clearAuthToken();
           const { search, pathname } = window.location;
           const urlParams = new URL(window.location.href).searchParams;
           const redirect = urlParams.get('redirect');
@@ -109,7 +109,7 @@ export const errorConfig: RequestConfig = {
   // 请求拦截器
   requestInterceptors: [
     (config: RequestOptions) => {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const url = config?.url;
       config.headers.Authorization = token;
       return { ...config, url };

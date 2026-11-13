@@ -1,4 +1,5 @@
 import { outLogin, updatePassword } from '@/services/ant-design-pro/api';
+import { clearAuthToken, clearRememberedCreds } from '@/utils/auth';
 import { LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { history, useModel } from '@umijs/max';
 import { Spin, Modal, Input, Form, Button, message } from 'antd';
@@ -44,7 +45,9 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu, childre
   const { styles } = useStyles();
 
   const loginOut = async () => {
-    localStorage.removeItem('token');
+    clearAuthToken();
+    // 不清「记住我」凭据的话，登录页会立刻用记住的账号密码把用户静默登回去，等于没退出
+    clearRememberedCreds();
     const { search, pathname } = window.location;
     const urlParams = new URL(window.location.href).searchParams;
     const redirect = urlParams.get('redirect');

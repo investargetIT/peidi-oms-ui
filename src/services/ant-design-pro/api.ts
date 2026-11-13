@@ -2,10 +2,11 @@
 /* eslint-disable */
 import { request } from '@umijs/max';
 import { getFinanceBaseUrl } from '@/services/financeApi';
+import { getAuthToken } from '@/utils/auth';
 
 /** 获取当前的用户 GET /api/currentUser */
 export async function currentUser(options?: { [key: string]: any }) {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   return request<{
     data: API.CurrentUser;
   }>(process.env.USER_AUTH_BASE_URL + '/user/user-check?token=' + token, {

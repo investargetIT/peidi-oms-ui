@@ -29,6 +29,7 @@ import SalesmanBillCheckApi, {
   type PageParams,
 } from '@/services/salesmanBillCheckApi';
 import dayjs from 'dayjs';
+import { getAuthToken } from '@/utils/auth';
 
 // 权限判断函数
 const hasUploadPermission = () => {
@@ -323,7 +324,7 @@ const SalesmanAccounting: React.FC = () => {
                 icon={<DownloadOutlined />}
                 href={`${process.env.BASE_URL}/finance/download?objectName=${
                   record.splitFilePath
-                }&authorization=${localStorage.getItem('token')}`}
+                }&authorization=${getAuthToken()}`}
               />
             </Tooltip>
           )}

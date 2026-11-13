@@ -7,6 +7,7 @@ import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import { financeObaPage } from '@/services/ant-design-pro/api';
 import { getFinanceBaseUrl } from '@/services/financeApi';
+import { getAuthToken } from '@/utils/auth';
 import dayjs from 'dayjs';
 import {
   handleFormData,
@@ -48,7 +49,7 @@ const UploadComponent: React.FC<{
     showUploadList: false,
     maxCount: 1,
     headers: {
-      Authorization: localStorage.getItem('token'),
+      Authorization: getAuthToken(),
     },
     action,
     data: { org },
@@ -141,7 +142,7 @@ const Reprocess: FC = () => {
     const fetchExecuteStatus = async () => {
       try {
         const response = await axios.get(`${getFinanceBaseUrl()}/finance/oba/upload`, {
-          headers: { Authorization: localStorage.getItem('token') },
+          headers: { Authorization: getAuthToken() },
         });
         const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } =
           response.data.data;
@@ -162,7 +163,7 @@ const Reprocess: FC = () => {
   const handleUploadSuccess = async () => {
     try {
       const response = await axios.get(`${getFinanceBaseUrl()}/finance/oba/upload`, {
-        headers: { Authorization: localStorage.getItem('token') },
+        headers: { Authorization: getAuthToken() },
       });
       const { uploadFileNames, executeStatus } = response.data.data;
       setUploadFileNames(uploadFileNames);

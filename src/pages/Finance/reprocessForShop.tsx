@@ -35,6 +35,7 @@ import {
 import dayjs from 'dayjs';
 import { financeObaPage } from '@/services/ant-design-pro/api';
 import { getFinanceBaseUrl } from '@/services/financeApi';
+import { getAuthToken } from '@/utils/auth';
 
 const { Dragger } = Upload;
 
@@ -70,7 +71,7 @@ const UploadComponent: React.FC<{
     showUploadList: false,
     // maxCount: 1,
     headers: {
-      Authorization: localStorage.getItem('token') || '',
+      Authorization: getAuthToken() || '',
     },
     action,
     data: { org, userName: username },
@@ -159,7 +160,7 @@ const ReprocessForShop = () => {
     const fetchExecuteStatus = async () => {
       try {
         const response = await axios.get(`${getFinanceBaseUrl()}/finance/oba/upload`, {
-          headers: { Authorization: localStorage.getItem('token') },
+          headers: { Authorization: getAuthToken() },
         });
         const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } =
           response.data.data;
@@ -180,7 +181,7 @@ const ReprocessForShop = () => {
   const handleUploadSuccess = async () => {
     try {
       const response = await axios.get(`${getFinanceBaseUrl()}/finance/oba/upload`, {
-        headers: { Authorization: localStorage.getItem('token') },
+        headers: { Authorization: getAuthToken() },
       });
       const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } = response.data.data;
       setUploadFileNames(uploadFileNames);
@@ -298,7 +299,7 @@ const ReprocessForShop = () => {
                 style={{ fontSize: 12, marginLeft: 5 }}
                 href={`${getFinanceBaseUrl()}/finance/download?objectName=${
                   url.split('&')[1]
-                }&authorization=${localStorage.getItem('token')}`}
+                }&authorization=${getAuthToken()}`}
               >
                 下载
               </a>

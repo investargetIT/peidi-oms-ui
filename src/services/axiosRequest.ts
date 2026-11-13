@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { message } from 'antd';
 // 添加导入
 import { stringify } from 'querystring';
+import { clearAuthToken, getAuthToken } from '@/utils/auth';
 
 // 请求配置接口
 export interface RequestConfig extends AxiosRequestConfig {
@@ -79,7 +80,7 @@ export class AxiosRequest {
         // console.log(`🚀 请求开始: ${config.method?.toUpperCase()} ${config.url}`);
 
         // 添加认证token
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         if (token) {
           config.headers.Authorization = `${token}`;
         }
@@ -328,8 +329,8 @@ export class AxiosRequest {
    * 处理token过期
    */
   private handleTokenExpired(): void {
-    // 清除本地存储的token
-    localStorage.removeItem('token');
+    // 清除本地存储的token（会话级 + 持久化），登录页会用「记住我」凭据静默重登
+    clearAuthToken();
 
     // 跳转到登录页
     const { search, pathname } = window.location;

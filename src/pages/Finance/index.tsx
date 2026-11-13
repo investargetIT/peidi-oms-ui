@@ -18,6 +18,7 @@ import {
 import { PageContainer } from '@ant-design/pro-components';
 import axios from 'axios';
 import { getFinanceBaseUrl } from '@/services/financeApi';
+import { getAuthToken } from '@/utils/auth';
 import Reprocess from './reprocess';
 import ReprocessForShop from './reprocessForShop';
 import AuxiliaryOperation from './auxiliaryOperation';
@@ -54,7 +55,7 @@ const UploadComponent: React.FC<{
     showUploadList: false,
     maxCount: 1,
     headers: {
-      Authorization: localStorage.getItem('token') || '',
+      Authorization: getAuthToken() || '',
     },
     action,
     customRequest(options) {
@@ -81,7 +82,7 @@ const UploadComponent: React.FC<{
       axios
         .post(action, formData, {
           headers: {
-            Authorization: localStorage.getItem('token') || '',
+            Authorization: getAuthToken() || '',
           },
           onUploadProgress: (evt) => {
             if (evt.total && onProgress) {
@@ -204,7 +205,7 @@ const App: React.FC = () => {
   const fetchExecuteStatus = async () => {
     try {
       const response = await axios.get(`${getFinanceBaseUrl()}/finance/date/execute`, {
-        headers: { Authorization: localStorage.getItem('token') },
+        headers: { Authorization: getAuthToken() },
       });
       const { executeFileNames, uploadFileNames, executeStatus, uploadStatus } = response.data.data;
       setUploadFileNames(uploadFileNames);
@@ -236,7 +237,7 @@ const App: React.FC = () => {
   const handleUploadSuccess = async () => {
     try {
       const response = await axios.get(`${getFinanceBaseUrl()}/finance/date/execute`, {
-        headers: { Authorization: localStorage.getItem('token') },
+        headers: { Authorization: getAuthToken() },
       });
       const { uploadFileNames, executeStatus } = response.data.data;
       setUploadFileNames(uploadFileNames);
@@ -268,7 +269,7 @@ const App: React.FC = () => {
         `${getFinanceBaseUrl()}/finance/date/execute`,
         { startDate, endDate },
         {
-          headers: { Authorization: localStorage.getItem('token') },
+          headers: { Authorization: getAuthToken() },
         },
       );
 

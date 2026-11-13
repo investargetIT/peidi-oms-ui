@@ -4,27 +4,38 @@ import React, { useEffect } from 'react';
 import { decryptMessage, encryptMessage } from './utils/cryptojs';
 import * as dd from 'dingtalk-jsapi';
 import UserApi from '@/services/userApi';
+import {
+  clearRememberedCreds,
+  getRememberedCreds,
+  saveRememberedCreds,
+  writeAuthToken,
+  type LoginScope,
+} from '@/utils/auth';
+
+const LOGIN_PORTAL_URL = 'https://login.peidigroup.cn/#/login';
 
 const UnifiedLogin: React.FC = () => {
   //#region 通用方法
-  const storageLocal = () => {
-    return {
-      setItem: (key: string, value: any) => {
-        localStorage.setItem(key, JSON.stringify(value));
-      },
-      // getItem 若当前key里不存在值，则返回一个null
-      getItem: (key: string) => {
-        return JSON.parse(localStorage.getItem(key) || 'null');
-      },
-      removeItem: (key: string) => {
-        localStorage.removeItem(key);
-      },
-    };
+  // 解密门户参数，密文异常时按空值处理，避免登录页白屏
+  const safeDecrypt = (value: string | null) => {
+    if (!value) return '';
+    try {
+      // 门户可能对密文做了 URL 编码（+/= 变成 %2B%2F%3D），先解码再解密
+      return decryptMessage(decodeURIComponent(value));
+    } catch (e) {
+      console.warn('解密门户参数失败:', e);
+      return '';
+    }
+  };
+
+  // 跳统一登录门户
+  const redirectToLoginPortal = () => {
+    window.location.href = `${LOGIN_PORTAL_URL}?source=${encryptMessage(window.location.href)}`;
   };
   //#endregion
 
   // 账号密码登录，所有登录方式都调用这个函数
-  const fetchLogin = (username: string, password: string) => {
+  const fetchLogin = (username: string, password: string, scope: LoginScope = 'persist') => {
     const params = new URLSearchParams();
     params.append('username', username);
     params.append('password', password);
@@ -39,18 +50,19 @@ const UnifiedLogin: React.FC = () => {
     }).then((res) => {
       if (res) {
         if (res.success) {
-          localStorage.setItem('token', res.data);
+          // 按「记住我」决定 token 落盘位置
+          writeAuthToken(res.data, scope);
           // 登录成功，跳转到指定页面
           const urlParams = new URL(window.location.href).searchParams;
           window.location.href = urlParams.get('redirect') || '/';
         } else {
           message.error('用户登录失败：' + JSON.stringify(res));
           // 不是钉钉环境，退回登录页
-          // return;
-          if (!navigator.userAgent.includes('DingTalk'))
-            window.location.href = `https://login.peidigroup.cn/#/login?source=${encryptMessage(
-              window.location.href,
-            )}`;
+          if (!navigator.userAgent.includes('DingTalk')) {
+            // 凭据已失效时一并清掉，避免下次继续拿废凭据重试，形成登录循环
+            clearRememberedCreds();
+            redirectToLoginPortal();
+          }
         }
       }
     });
@@ -66,49 +78,50 @@ const UnifiedLogin: React.FC = () => {
     const key1 = key1Match ? key1Match[1] : null;
     const key2 = key2Match ? key2Match[1] : null;
     const key3 = key3Match ? key3Match[1] : null;
-    console.log('key1', key1);
-    console.log('key2', key2);
-    console.log('key3', key3);
     return { key1, key2, key3 };
   };
   // 网页登录逻辑总函数
   const loginInWeb = () => {
-    // 先判断是否有记住密码功能存下的账号密码，有的话就先取出来
-    const userInfo: { username: string; password: string } = storageLocal().getItem(
-      'peidi-userInfo',
-    ) || { username: '', password: '' };
-
     // 获取参数
     const queryKey = getLoginInfoInWeb();
-    // 判断是否需要记住密码
+    const urlUsername = safeDecrypt(queryKey.key1);
+    const urlPassword = safeDecrypt(queryKey.key2);
+    const hasUrlCreds = !!(urlUsername && urlPassword);
+
+    // key3 即门户「记住我」勾选态：
+    // - 明确为 "false" → 本次登录只在会话内有效，关掉页面就需要重新登录
+    // - "true" / 未携带（老门户）→ 持久化，保持原有行为，避免把所有人踢成每次重登
+    const key3Value = safeDecrypt(queryKey.key3);
+    const isRemember = key3Value !== 'false';
+
+    // 先同步「记住我」凭据：勾选保存，未勾选清除
     if (queryKey.key3) {
-      const isRemember = decryptMessage(queryKey.key3);
-      console.log('isRemember', isRemember);
-      if (isRemember === 'true') {
-        storageLocal().setItem('peidi-userInfo', {
-          username: decryptMessage(queryKey.key1 || ''),
-          password: decryptMessage(queryKey.key2 || ''),
-        });
+      if (isRemember) {
+        if (hasUrlCreds) {
+          saveRememberedCreds({ username: urlUsername, password: urlPassword });
+        }
       } else {
-        storageLocal().removeItem('peidi-userInfo');
+        clearRememberedCreds();
+      }
+    } else if (hasUrlCreds) {
+      // 老门户没带 key3：若与记住的账号不是同一个，清掉旧凭据，避免静默登录成上一个用户
+      const remembered = getRememberedCreds();
+      if (remembered && remembered.username !== urlUsername) {
+        clearRememberedCreds();
       }
     }
-    // 是否存在账号密码
-    if (queryKey.key1 && queryKey.key2) {
-      const username = decryptMessage(queryKey.key1);
-      const password = decryptMessage(queryKey.key2);
-      // 如果存在则覆盖保存的账号密码
-      userInfo.username = username;
-      userInfo.password = password;
-    }
-    if (userInfo.username && userInfo.password) {
+
+    // 回跳带了账号密码就用回跳的，否则用记住的凭据静默登录
+    const remembered = hasUrlCreds ? null : getRememberedCreds();
+    const username = hasUrlCreds ? urlUsername : remembered?.username || '';
+    const password = hasUrlCreds ? urlPassword : remembered?.password || '';
+
+    if (username && password) {
       // 调用账号密码登录函数
-      fetchLogin(userInfo.username, userInfo.password);
+      fetchLogin(username, password, isRemember ? 'persist' : 'session');
     } else {
       // 没有账号密码 提示用户输入
-      window.location.href = `https://login.peidigroup.cn/#/login?source=${encryptMessage(
-        window.location.href,
-      )}`;
+      redirectToLoginPortal();
     }
   };
   //#endregion
