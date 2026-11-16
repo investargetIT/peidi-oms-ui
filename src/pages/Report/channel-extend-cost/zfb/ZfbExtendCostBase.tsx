@@ -11,6 +11,8 @@ import ChannelExtendCostApi, {
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
+import PromotionFeeBlock from '../shared/PromotionFeeBlock';
+import { usePromotionFee } from '../shared/usePromotionFee';
 import { ZFB_FEE_TYPE_GROUPS, ZFB_FEE_TYPE_MAP } from './batchStatBuilder';
 
 // 「费用分类」映射（分类 → 推广费用 / 平台费用 / 其他）已抽到 batchStatBuilder
@@ -67,6 +69,10 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
   //   endingBalance = 本月期末余额；beginningBalance = 上月余额（本月期初）
   const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
   const [endingBalance, setEndingBalance] = useState<number | null>(null);
+
+  // 各平台推广费（GET /cost-category-stat 中 infoName 不为 null 的行）
+  const { promotionGroups, promotionLoading, loadPromotionFee, resetPromotionFee } =
+    usePromotionFee();
 
   const [searchAccountType, setSearchAccountType] = useState<string>('');
   // 计算逻辑说明「费用分类映射」表格的搜索关键字
@@ -155,6 +161,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
     setCurrentYearMonth(yearMonth || '');
     setStatModalVisible(true);
     setStatLoading(true);
+    resetPromotionFee();
     try {
       if (!financeBillConfigId) {
         message.error('该店铺缺少账单配置ID，无法查询');
@@ -185,6 +192,9 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
       });
       setBeginningBalance(balances.beginningBalance);
       setEndingBalance(balances.endingBalance);
+
+      // —— 推广费：/cost-category-stat 的 infoName 行（失败不影响主表） ——
+      void loadPromotionFee({ shopId, yearMonth, channel });
     } catch (error) {
       console.error('获取支付宝统计数据失败:', error);
       message.error('获取支付宝统计数据失败');
@@ -638,6 +648,13 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
           style={{ fontSize: 12, marginBottom: 16 }}
           pagination={false}
           scroll={{ x: 'max-content' }}
+        />
+
+        {/* 各平台推广费（infoName 不为 null 的行；无数据时整块不渲染） */}
+        <PromotionFeeBlock
+          groups={promotionGroups}
+          className="stat-table-compact"
+          loading={promotionLoading}
         />
 
         {/* 计算逻辑说明 */}

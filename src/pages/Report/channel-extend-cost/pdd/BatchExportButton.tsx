@@ -36,7 +36,7 @@ const PddBatchExportButton: React.FC<BatchExportButtonProps> = ({ channel, yearM
       renderGenericEmptyStatExcel({ shopName, yearMonth, channel })
     }
     descriptionLines={[
-      '· 每店一个 Excel，含 2 个 Sheet：汇总校验 + 业务编码明细',
+      '· 每店一个 Excel，含 2~3 个 Sheet：汇总校验 + 业务编码明细 +（有推广费时）推广费',
       '· 样式尽量还原前端弹窗（合并单元格、底色、加粗、校验列染色）',
       '· 失败的店铺会写入 zip 内的 _失败明细.txt',
     ]}

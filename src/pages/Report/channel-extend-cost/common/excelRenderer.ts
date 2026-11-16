@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { StatResult, DetailRow } from './statBuilder';
+import { computePromotionBalance, getPromotionFieldNames, hasPromotionData } from './promotionFee';
 
 /**
  * 行底色 ARGB（与弹窗保持一致）
@@ -32,6 +33,7 @@ export async function renderStatExcel(result: StatResult): Promise<Blob> {
 
   renderSummarySheet(workbook, result);
   renderDetailSheet(workbook, result);
+  renderPromotionSheet(workbook, result);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return new Blob([buffer], {
@@ -139,8 +141,7 @@ function renderDetailSheet(workbook: ExcelJS.Workbook, result: StatResult) {
     applyHeaderStyle(cell);
   });
 
-  const { majorCount, majorFirstIndex, categoryCount, categoryFirstIndex } =
-    result.detailGroupMeta;
+  const { majorCount, majorFirstIndex, categoryCount, categoryFirstIndex } = result.detailGroupMeta;
 
   // ⚠️ ExcelJS 的坑 #1：如果先 mergeCells 合并一个还没 addRow 的未来行，
   // 后面再 addRow 时那一行的值会被吞掉（即使是未被合并的列）。
@@ -234,5 +235,66 @@ function renderDetailSheet(workbook: ExcelJS.Workbook, result: StatResult) {
     excelRow.eachCell((cell: ExcelJS.Cell) => {
       applyCellBorder(cell);
     });
+  });
+}
+
+/**
+ * Sheet 3「推广费」—— 对应弹窗里的「各平台推广费」区块。
+ * 仅当接口返回了推广费行时生成；列按 infoName 动态生成（不假设固定条数）。
+ */
+function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
+  const groups = result.promotionGroups;
+  if (!hasPromotionData(groups)) return;
+
+  const fields = getPromotionFieldNames(groups);
+  const ws = workbook.addWorksheet('推广费');
+  ws.columns = [
+    { header: '账户名称', key: 'accountName', width: 24 },
+    ...fields.map((field) => ({ header: field, key: field, width: 18 })),
+    { header: '计算余额', key: 'calculatedBalance', width: 16 },
+    { header: '校验', key: 'checkDiff', width: 12 },
+  ];
+
+  const headerRow = ws.getRow(1);
+  headerRow.eachCell((cell: ExcelJS.Cell) => {
+    applyHeaderStyle(cell);
+  });
+
+  groups.forEach((group) => {
+    const values: Record<string, number | string> = {
+      accountName: group.accountName ?? '单账户',
+    };
+    fields.forEach((field) => {
+      const value = group.values[field];
+      values[field] = typeof value === 'number' ? value : '-';
+    });
+    const { calculatedBalance, checkDiff } = computePromotionBalance(group.values);
+    const isBalanced = checkDiff !== null && Math.abs(checkDiff) < 0.001;
+    values.calculatedBalance = calculatedBalance;
+    values.checkDiff = checkDiff === null ? '-' : isBalanced ? 0 : checkDiff;
+
+    const dataRow = ws.addRow(values);
+    dataRow.eachCell((cell: ExcelJS.Cell) => {
+      applyCellBorder(cell);
+    });
+    dataRow.getCell('accountName').font = { bold: true };
+    fields.forEach((field) => {
+      const cell = dataRow.getCell(field);
+      if (typeof cell.value === 'number') {
+        cell.numFmt = '0.00';
+      }
+      cell.font = { bold: true };
+    });
+    const calcCell = dataRow.getCell('calculatedBalance');
+    calcCell.numFmt = '0.00';
+    calcCell.font = { bold: true };
+    const checkCell = dataRow.getCell('checkDiff');
+    if (typeof checkCell.value === 'number') {
+      checkCell.numFmt = '0.00';
+    }
+    checkCell.font = {
+      bold: true,
+      color: { argb: isBalanced ? CHECK_PASSED_ARGB : CHECK_FAILED_ARGB },
+    };
   });
 }

@@ -10,6 +10,8 @@ import ChannelExtendCostApi, {
 import { displayShopName } from '../common/shopNameMap';
 import ChannelExtendCostBase from '../shared/ChannelExtendCostBase';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
+import PromotionFeeBlock from '../shared/PromotionFeeBlock';
+import { usePromotionFee } from '../shared/usePromotionFee';
 import JdBatchExportButton from './BatchExportButton';
 
 /**
@@ -107,6 +109,9 @@ const JdExtendCostPanel: React.FC = () => {
   const [billEndingBalance, setBillEndingBalance] = useState<number | null>(null);
   // 计算逻辑说明「费用分类统计映射」表格的搜索关键字
   const [jd1MappingSearch, setJd1MappingSearch] = useState('');
+  // 各平台推广费（GET /cost-category-stat 中 infoName 不为 null 的行）
+  const { promotionGroups, promotionLoading, loadPromotionFee, resetPromotionFee } =
+    usePromotionFee();
 
   // 按 yyyy-MM 算出当月 startDate / endDate
   const getMonthRange = (yearMonth: string) => {
@@ -136,6 +141,9 @@ const JdExtendCostPanel: React.FC = () => {
         const balances = await fetchBillBalances({ yearMonth, channel: '京东', shopId });
         setBillBeginningBalance(balances.beginningBalance);
         setBillEndingBalance(balances.endingBalance);
+
+        // 推广费：/cost-category-stat 的 infoName 行（失败不影响主表）
+        void loadPromotionFee({ shopId, yearMonth, channel: '京东' });
       } else if (res.code === 500) {
         message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
       } else {
@@ -171,6 +179,7 @@ const JdExtendCostPanel: React.FC = () => {
     setLastMonthJd1CalculateStat([]);
     setBillBeginningBalance(null);
     setBillEndingBalance(null);
+    resetPromotionFee();
     setModalVisible(true);
     fetchJdStat(params.shopId, params.yearMonth);
     return true; // 已处理，Base 不再弹默认统计弹窗
@@ -766,6 +775,13 @@ const JdExtendCostPanel: React.FC = () => {
           pagination={false}
           scroll={{ x: 1100 }}
           style={{ marginBottom: 16 }}
+        />
+
+        {/* 各平台推广费（infoName 不为 null 的行；无数据时整块不渲染） */}
+        <PromotionFeeBlock
+          groups={promotionGroups}
+          className="jd1-table-small"
+          loading={promotionLoading}
         />
 
         {/* 计算逻辑说明：3 段表格的数据来源 + 本月入账的公式 */}

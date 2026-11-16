@@ -29,6 +29,7 @@ import {
   feeMajorCategoryOrder,
 } from '../common/businessCodes';
 import { buildStatResult } from '../common/statBuilder';
+import PromotionFeeBlock from './PromotionFeeBlock';
 
 export interface ChannelExtendCostBaseProps {
   /**
@@ -579,6 +580,13 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
           scroll={{ x: 1100 }}
         />
 
+        {/* 各平台推广费（后端 infoName 不为 null 的行；无数据时整块不渲染） */}
+        <PromotionFeeBlock
+          groups={statResult.promotionGroups}
+          className="stat-table-small"
+          loading={statLoading}
+        />
+
         {/* 计算逻辑说明 */}
         <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
           <Collapse.Panel header="计算逻辑说明" key="1">
@@ -630,6 +638,15 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
                   <strong>校验 = 计算余额 - 期末余额</strong>
                   ，差异绝对值小于0.001则视为平衡，统一展示为
                   <strong>0.00</strong>（绿色），否则展示实际差异（红色）
+                </li>
+                <li style={{ marginBottom: 2 }}>
+                  <strong>推广费：</strong>取 cost-category-stat 返回中 infoName 不为 null
+                  的推广费行（上月余额 / 本月收入:充值金额 / 本月支出:推广费合计 / 期末余额），按
+                  accountName 分组展示；该月无数据时后端不返回，整块显示空态。
+                  <br />
+                  <strong>计算余额 = 上月余额 + 本月收入:充值金额 - 本月支出:推广费合计；</strong>
+                  <strong>校验 = 计算余额 - 期末余额</strong>
+                  ，|差异| &lt; 0.001 显示绿色 0.00，否则红色实际差异
                 </li>
                 <li>
                   <strong>明细表格颜色区分：</strong>

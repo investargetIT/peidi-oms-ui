@@ -22,6 +22,8 @@ import ChannelExtendCostApi, {
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
+import PromotionFeeBlock from '../shared/PromotionFeeBlock';
+import { usePromotionFee } from '../shared/usePromotionFee';
 import {
   remarkToCategory,
   TMALL_REMARK_CATEGORY_MAP,
@@ -90,6 +92,10 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
   //   endingBalance = 本月期末余额；beginningBalance = 上月余额（本月期初）
   const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
   const [endingBalance, setEndingBalance] = useState<number | null>(null);
+
+  // 各平台推广费：天猫推广费挂在支付宝账单上，必须用 channel='支付宝' 查询
+  const { promotionGroups, promotionLoading, loadPromotionFee, resetPromotionFee } =
+    usePromotionFee();
 
   const [searchAccountType, setSearchAccountType] = useState<string>('');
   // 计算逻辑说明「费用分类映射」表格的搜索关键字
@@ -178,6 +184,7 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
     setCurrentYearMonth(yearMonth || '');
     setStatModalVisible(true);
     setStatLoading(true);
+    resetPromotionFee();
     try {
       if (!financeBillConfigId) {
         message.error('该店铺缺少账单配置ID，无法查询');
@@ -208,6 +215,9 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
       });
       setBeginningBalance(balances.beginningBalance);
       setEndingBalance(balances.endingBalance);
+
+      // —— 推广费：天猫推广费挂在支付宝账单上，channel 必须传「支付宝」——
+      void loadPromotionFee({ shopId, yearMonth, channel: '支付宝' });
     } catch (error) {
       console.error('获取天猫统计数据失败:', error);
       message.error('获取天猫统计数据失败');
@@ -725,6 +735,13 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
           style={{ fontSize: 12, marginBottom: 16 }}
           pagination={false}
           scroll={{ x: 'max-content' }}
+        />
+
+        {/* 各平台推广费（infoName 不为 null 的行；无数据时整块不渲染） */}
+        <PromotionFeeBlock
+          groups={promotionGroups}
+          className="stat-table-compact"
+          loading={promotionLoading}
         />
 
         {/* 计算逻辑说明 */}

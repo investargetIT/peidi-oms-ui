@@ -6,6 +6,7 @@ import {
   getFeeMajorCategory,
   feeMajorCategoryOrder,
 } from './businessCodes';
+import { groupPromotionRows, splitStatData, type PromotionFeeGroup } from './promotionFee';
 
 /**
  * 渠道推广费用 - 站内外推广费统计 通用计算工具
@@ -78,6 +79,8 @@ export interface StatResult {
   summary: SummaryRow;
   detail: DetailRow[];
   detailGroupMeta: DetailGroupMeta;
+  /** 各平台推广费（按 accountName 分组；无数据时为空数组） */
+  promotionGroups: PromotionFeeGroup[];
 }
 
 export interface BuildStatResultArgs {
@@ -113,8 +116,12 @@ function getRowColor(businessCode: string): DetailRow['rowColor'] {
 export function buildStatResult(args: BuildStatResultArgs): StatResult {
   const { statData, beginningBalance, endingBalance, yearMonth, channel, shopName } = args;
 
+  // 推广费行（infoName 不为 null）单独抽出来，不参与业务编码明细 / 汇总计算
+  const { detailData, promotionRows } = splitStatData(statData);
+  const promotionGroups = groupPromotionRows(promotionRows);
+
   // === 1. 排序 ===
-  const sorted = [...statData].sort((a, b) => {
+  const sorted = [...detailData].sort((a, b) => {
     const ca = getFeeCategory(a.businessCode);
     const cb = getFeeCategory(b.businessCode);
     const ma = feeMajorCategoryOrder.indexOf(getFeeMajorCategory(ca));
@@ -127,13 +134,13 @@ export function buildStatResult(args: BuildStatResultArgs): StatResult {
   });
 
   // === 2. 汇总 3 类（按业务编码聚合 calculate） ===
-  const collectionTotal = statData
+  const collectionTotal = detailData
     .filter((it) => summaryGroups[0].codes.includes(it.businessCode))
     .reduce((s, it) => s + (it.calculate || 0), 0);
-  const deductionTotal = statData
+  const deductionTotal = detailData
     .filter((it) => summaryGroups[1].codes.includes(it.businessCode))
     .reduce((s, it) => s + (it.calculate || 0), 0);
-  const withdrawTotal = statData
+  const withdrawTotal = detailData
     .filter((it) => summaryGroups[2].codes.includes(it.businessCode))
     .reduce((s, it) => s + (it.calculate || 0), 0);
 
@@ -202,6 +209,7 @@ export function buildStatResult(args: BuildStatResultArgs): StatResult {
       categoryCount,
       categoryFirstIndex,
     },
+    promotionGroups,
   };
 }
 

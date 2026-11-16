@@ -21,6 +21,8 @@ import ChannelExtendCostApi, {
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
+import PromotionFeeBlock from '../shared/PromotionFeeBlock';
+import { usePromotionFee } from '../shared/usePromotionFee';
 import { dyBizDescOf, dyColumnMetaOf, sortDyRowsByCategory } from './dyFeeMapping';
 
 /**
@@ -122,6 +124,10 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
   const [beginningBalance, setBeginningBalance] = useState<number | null>(null);
   const [endingBalance, setEndingBalance] = useState<number | null>(null);
 
+  // 各平台推广费（GET /cost-category-stat 中 infoName 不为 null 的行）
+  const { promotionGroups, promotionLoading, loadPromotionFee, resetPromotionFee } =
+    usePromotionFee();
+
   // 搜索条件 - 渠道由父级 Tab 决定（channel prop），不再作为搜索项
   const [searchAccountType, setSearchAccountType] = useState<string>('');
   const [searchShopId, setSearchShopId] = useState<number | undefined>(undefined);
@@ -211,6 +217,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
     setCurrentYearMonth(yearMonth || '');
     setStatModalVisible(true);
     setStatLoading(true);
+    resetPromotionFee();
     try {
       if (shopId === undefined || shopId === null) {
         message.error('该店铺没有 ID，无法查询');
@@ -238,6 +245,9 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
       });
       setBeginningBalance(balances.beginningBalance);
       setEndingBalance(balances.endingBalance);
+
+      // —— 推广费：/cost-category-stat 的 infoName 行（失败不影响主表） ——
+      void loadPromotionFee({ shopId, yearMonth, channel });
     } catch (error) {
       console.error('获取抖音费用统计数据失败:', error);
       message.error('获取抖音费用统计数据失败');
@@ -996,6 +1006,13 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
           style={{ fontSize: 12, marginBottom: 16 }}
           pagination={false}
           scroll={{ x: 1030 }}
+        />
+
+        {/* 各平台推广费（infoName 不为 null 的行；无数据时整块不渲染） */}
+        <PromotionFeeBlock
+          groups={promotionGroups}
+          className="stat-table-small"
+          loading={promotionLoading}
         />
 
         {/* 计算逻辑说明 */}

@@ -127,9 +127,18 @@ export interface PageResponse {
 export interface FinanceCostCategoryStatVo {
   businessCode: string;
   businessDesc: string;
-  totalIncome: number;
-  totalExpense: number;
-  calculate: number;
+  totalIncome: number | null;
+  totalExpense: number | null;
+  calculate: number | null;
+  /**
+   * 推广费字段名（如「上月余额」「本月收入:充值金额」「本月支出:推广费合计」「期末余额」）。
+   * 为 null / undefined 表示这是「原有费用分类行」；不为 null 表示这是「推广费行」。
+   */
+  infoName?: string | null;
+  /** 推广费数值（元），与 calculate 同值 */
+  infoValue?: number | null;
+  /** 天猫多账户时 = 账户名（如「万相台」）；单账户 / 其它平台为 null */
+  accountName?: string | null;
   [key: string]: any;
 }
 
@@ -592,9 +601,42 @@ export class ChannelExtendCostApi {
     success?: boolean;
   }> {
     // 本地测试
-    return costCategoryStatLocalRequest.get('/cost-category-stat', {
+    const res = await costCategoryStatLocalRequest.get('/cost-category-stat', {
       params,
     });
+    // 推广费排查：dev 下打印返回行数 / 推广费行数（生产构建自动关闭）
+    if (process.env.NODE_ENV !== 'production') {
+      const rows = Array.isArray(res?.data) ? res.data : [];
+      // 与 common/promotionFee 的判定保持一致：infoName 有值，或 businessCode 命中标准字段/别名
+      const promoFieldNames = [
+        '上月余额',
+        '期初余额',
+        '本月收入:充值金额',
+        '本期充值',
+        '充值金额',
+        '本月支出:推广费合计',
+        '本期消耗',
+        '推广费合计',
+        '期末余额',
+      ];
+      const promoCount = rows.filter((it: any) => {
+        const infoName = it?.infoName;
+        if (infoName !== null && infoName !== undefined && infoName !== '') return true;
+        const code = typeof it?.businessCode === 'string' ? it.businessCode.replace(/：/g, ':') : '';
+        return promoFieldNames.includes(code);
+      }).length;
+      // eslint-disable-next-line no-console
+      console.info(
+        `[cost-category-stat] shopId=${params.shopId} yearMonth=${params.yearMonth} channel=${params.channel}，返回 ${rows.length} 行，其中推广费 ${promoCount} 行`,
+      );
+      if (promoCount === 0) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          '[cost-category-stat] 本次返回没有推广费行：请确认 ①后端已重启到新版本（旧版无 infoName/infoValue/accountName）②该店铺该月账单存在且有推广费数据 ③channel 传参正确',
+        );
+      }
+    }
+    return res;
   }
 
   /**
