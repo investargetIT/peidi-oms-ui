@@ -16,6 +16,10 @@ export interface PromotionFeeBlockProps {
   yearMonth?: string;
   /** 平台（表格「平台」列，如 拼多多 / 天猫 / 抖音 / 京东） */
   platform?: string;
+  /** 是否展示「账号名称」列：仅天猫 / 天猫支付宝展示 */
+  showAccountName?: boolean;
+  /** 「账号名称」列的值（店铺名称） */
+  shopName?: string;
   /** 区块标题，默认「推广费」 */
   title?: string;
   /** 加载中 */
@@ -37,9 +41,10 @@ function formatAmount(value: number | undefined): string {
  *
  * - **始终渲染**：即使该月接口没有返回推广费行，也保留区块位置 + 表头，
  *   用空态文案说明「本月无推广费数据」，避免使用者不知道有这个栏目。
- * - 表格前置 4 列：月份 / 平台 / 站内推广费用名称 / 账号名称。
+ * - 表格前置列：月份 / 平台 / 站内推广费用名称（/ 账号名称，仅天猫展示）。
  *   站内推广费用名称按平台强匹配（拼多多=推广费、抖音=巨量千川服务费、京东=京准通），
  *   天猫/支付宝由接口返回（accountName），不强匹配。
+ *   账号名称仅天猫/天猫支付宝展示，取店铺名称；其它平台没有该列。
  * - 列按 infoName 动态生成，不假设固定条数：统一字段按固定顺序在前，
  *   未知字段按首次出现顺序追加；无数据时展示统一字段的表头。
  * - 末尾固定追加「计算余额 / 校验」两列：
@@ -51,6 +56,8 @@ const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
   groups,
   yearMonth = '',
   platform = '',
+  showAccountName = false,
+  shopName = '',
   title = '推广费',
   loading = false,
   className,
@@ -84,14 +91,19 @@ const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
         </span>
       ),
     },
-    {
-      title: '账号名称',
-      key: 'accountName',
-      width: 150,
-      render: (_: unknown, group: PromotionFeeGroup) => (
-        <span style={{ fontSize: 12, fontWeight: 'bold' }}>{group.accountName ?? '单账户'}</span>
-      ),
-    },
+    // 账号名称仅天猫展示，且用店铺名称（非接口 accountName）
+    ...(showAccountName
+      ? [
+          {
+            title: '账号名称',
+            key: 'shopName',
+            width: 170,
+            render: () => (
+              <span style={{ fontSize: 12, fontWeight: 'bold' }}>{shopName || '-'}</span>
+            ),
+          },
+        ]
+      : []),
     ...fields.map((field) => ({
       title: field,
       key: field,

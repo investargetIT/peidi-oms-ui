@@ -54,7 +54,8 @@ const PromotionFeeLogicNote: React.FC<PromotionFeeLogicNoteProps> = ({ promotion
         期末余额（|值| &lt; 0.001 显示绿色 0.00，否则红色实际差异）。
       </div>
       <div>
-        · 天猫多账户按 accountName 分组，accountName 为 null 视为单账户；缺失字段按 0
+        · 天猫多账户按接口 accountName 分组（为 null 视为单账户）；「账号名称」列仅 天猫 /
+        天猫支付宝展示，取店铺名称，其它平台没有该列。缺失字段按 0
         参与计算，期末余额缺失时校验显示「-」。
       </div>
       {extra ? <div>· {extra}</div> : null}

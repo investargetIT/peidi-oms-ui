@@ -739,6 +739,8 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
           groups={promotionGroups}
           yearMonth={currentYearMonth}
           platform="天猫"
+          showAccountName
+          shopName={currentShopName}
           className="stat-table-compact"
           loading={promotionLoading}
         />

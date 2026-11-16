@@ -252,12 +252,15 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
   if (!hasPromotionData(groups)) return;
 
   const fields = getPromotionFieldNames(groups);
+  // 账号名称仅天猫/支付宝展示，取店铺名称（result.summary.accountName）
+  const showAccountName =
+    result.summary.platform === '天猫' || result.summary.platform === '支付宝';
   const ws = workbook.addWorksheet('推广费');
   ws.columns = [
     { header: '月份', key: 'billMonth', width: 10 },
     { header: '平台', key: 'platform', width: 10 },
     { header: '站内推广费用名称', key: 'promotionName', width: 20 },
-    { header: '账号名称', key: 'accountName', width: 20 },
+    ...(showAccountName ? [{ header: '账号名称', key: 'accountName', width: 20 }] : []),
     ...fields.map((field) => ({ header: field, key: field, width: 18 })),
     { header: '计算余额', key: 'calculatedBalance', width: 16 },
     { header: '校验', key: 'checkDiff', width: 12 },
@@ -273,8 +276,10 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
       billMonth: result.summary.billMonth,
       platform: result.summary.platform,
       promotionName: getPromotionDisplayName(result.summary.platform, group.accountName) || '-',
-      accountName: group.accountName ?? '单账户',
     };
+    if (showAccountName) {
+      values.accountName = result.summary.accountName || '-';
+    }
     fields.forEach((field) => {
       const value = group.values[field];
       values[field] = typeof value === 'number' ? value : '-';
@@ -288,7 +293,9 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
     dataRow.eachCell((cell: ExcelJS.Cell) => {
       applyCellBorder(cell);
     });
-    ['billMonth', 'platform', 'promotionName', 'accountName'].forEach((key) => {
+    const boldKeys = ['billMonth', 'platform', 'promotionName'];
+    if (showAccountName) boldKeys.push('accountName');
+    boldKeys.forEach((key) => {
       dataRow.getCell(key).font = { bold: true };
     });
     fields.forEach((field) => {

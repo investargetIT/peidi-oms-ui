@@ -663,6 +663,8 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
           groups={promotionGroups}
           yearMonth={currentYearMonth}
           platform="天猫"
+          showAccountName
+          shopName={currentShopName}
           className="stat-table-compact"
           loading={promotionLoading}
         />
