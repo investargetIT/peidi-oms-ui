@@ -817,6 +817,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
 
       {/* 抖音费用统计弹窗：动账方向汇总 + 按动账场景分类汇总各费用项 */}
       <Modal
+        rootClassName="stat-stat-modal"
         title={
           <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
         }
@@ -855,7 +856,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         `}</style>
 
         {/* 抖音余额对账（最上面的汇总表，列与共享 Base 的站内外推广费统计一致） */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>抖音余额对账</div>
+        <div className="stat-section-title">抖音余额对账</div>
         <Table
           columns={[
             {
@@ -1299,7 +1300,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         </LogicInfoModal>
 
         {/* 汇总费用：只取 平台费用 / 推广费用；行取金额（首层分类行含收入金额）/ 费用列当列总计，合计 = 本表各行金额之和 */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+        <div className="stat-section-title">
           汇总费用
           <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
             （仅含 平台费用 / 推广费用；首层分类行取「首层 value 净额（含收入金额（入账））」，
@@ -1382,7 +1383,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         />
 
         {/* 明细表：业务描述（分类别）= data 第一层 name；后续各列 = details 里各费用项 */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+        <div className="stat-section-title">
           抖音费用明细（按业务分类）
           {dyStatData.length > 0 && (
             <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>

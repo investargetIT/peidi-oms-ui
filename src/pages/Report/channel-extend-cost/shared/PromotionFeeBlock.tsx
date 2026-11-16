@@ -156,16 +156,7 @@ const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
 
   return (
     <div style={{ marginBottom: 16, ...style }}>
-      <div
-        style={{
-          marginBottom: 8,
-          fontSize: 14,
-          fontWeight: 500,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-        }}
-      >
+      <div className="stat-section-title">
         {title}
         {!loading && !hasData && (
           <span style={{ fontSize: 12, fontWeight: 400, color: '#999' }}>（本月无数据）</span>

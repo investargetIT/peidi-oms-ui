@@ -350,6 +350,7 @@ const WxExtendCostBase: React.FC<WxExtendCostBaseProps> = ({
       />
 
       <Modal
+        rootClassName="stat-stat-modal"
         title={
           <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
         }
@@ -384,7 +385,7 @@ const WxExtendCostBase: React.FC<WxExtendCostBaseProps> = ({
         `}</style>
 
         {/* 微信余额对账（与抖音 / 共享 Base 的站内外推广费统计列一致） */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>微信余额对账</div>
+        <div className="stat-section-title">微信余额对账</div>
         <Table
           columns={[
             {
@@ -695,7 +696,7 @@ const WxExtendCostBase: React.FC<WxExtendCostBaseProps> = ({
           </div>
         </LogicInfoModal>
 
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+        <div className="stat-section-title">
           微信费用统计
           {wxStatRows.rows.length > 0 && (
             <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>

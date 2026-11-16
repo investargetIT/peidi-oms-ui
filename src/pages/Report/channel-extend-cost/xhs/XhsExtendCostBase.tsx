@@ -423,6 +423,7 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
       />
 
       <Modal
+        rootClassName="stat-stat-modal"
         title={
           <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
         }
@@ -457,7 +458,7 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
         `}</style>
 
         {/* 小红书余额对账（与抖音 / 共享 Base 的站内外推广费统计列一致） */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>小红书余额对账</div>
+        <div className="stat-section-title">小红书余额对账</div>
         <Table
           columns={[
             {
@@ -736,7 +737,7 @@ const XhsExtendCostBase: React.FC<XhsExtendCostBaseProps> = ({
           </div>
         </LogicInfoModal>
 
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+        <div className="stat-section-title">
           小红书费用统计
           {xhsStatData.length > 0 && (
             <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>

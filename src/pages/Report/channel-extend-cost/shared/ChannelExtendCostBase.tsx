@@ -409,6 +409,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
 
       {/* 费用分类统计弹窗 */}
       <Modal
+        rootClassName="stat-stat-modal"
         title={
           <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
         }
@@ -438,6 +439,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
         `}</style>
 
         {/* 汇总表格 */}
+        <div className="stat-section-title">余额对账</div>
         <Table
           columns={[
             {
@@ -674,6 +676,8 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
             </ul>
           </div>
         </LogicInfoModal>
+
+        <div className="stat-section-title">业务编码明细</div>
 
         {/* 业务编码明细表格 */}
         {(() => {

@@ -715,6 +715,7 @@ const JdExtendCostPanel: React.FC = () => {
       />
 
       <Modal
+        rootClassName="stat-stat-modal"
         title={
           <ModalTitleWithLogic
             title={
@@ -775,7 +776,7 @@ const JdExtendCostPanel: React.FC = () => {
         `}</style>
 
         {/* 京东余额对账（汇总表，置于最上方，列顺序与样式参考拼多多「费用统计」最上面那张表） */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>京东余额对账</div>
+        <div className="stat-section-title">京东余额对账</div>
         <Table
           columns={jdBalanceColumns}
           dataSource={jdBalanceSummary}
@@ -947,7 +948,7 @@ const JdExtendCostPanel: React.FC = () => {
         </LogicInfoModal>
 
         {/* 京东钱包支出分类统计 */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+        <div className="stat-section-title">
           京东钱包支出分类统计
           {jd2CategoryList.length > 0 && (
             <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
@@ -968,7 +969,7 @@ const JdExtendCostPanel: React.FC = () => {
         />
 
         {/* 费用分类统计：取账单收支计算列表「总计行」每列合计，按 分类/管报名称 归类（样式参考拼多多费用统计） */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+        <div className="stat-section-title">
           费用分类统计
           <span style={{ fontSize: 12, color: '#999', fontWeight: 'normal', marginLeft: 8 }}>
             （金额 = 京东账单收支计算列表「总计行」各业务列的合计；推广费-京东联盟

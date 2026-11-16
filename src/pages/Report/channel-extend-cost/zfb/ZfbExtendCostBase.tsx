@@ -493,6 +493,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
       />
 
       <Modal
+        rootClassName="stat-stat-modal"
         title={
           <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
         }
@@ -523,7 +524,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
           }
         `}</style>
         {/* 支付宝余额对账（顶部汇总表，逻辑与抖音一致） */}
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>支付宝余额对账</div>
+        <div className="stat-section-title">支付宝余额对账</div>
         <Table
           className="stat-table-compact"
           columns={[
@@ -821,7 +822,7 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
           </div>
         </LogicInfoModal>
 
-        <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>账单明细汇总</div>
+        <div className="stat-section-title">账单明细汇总</div>
         <Table
           className="stat-table-compact"
           columns={detailColumns}

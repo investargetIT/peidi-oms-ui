@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Modal } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import StatModalTheme from './StatModalTheme';
 
 export interface ModalTitleWithLogicProps {
   /** 弹窗原标题（如「店铺 月份 费用统计」） */
@@ -23,6 +24,7 @@ export const ModalTitleWithLogic: React.FC<ModalTitleWithLogicProps> = ({ title,
       paddingRight: 32,
     }}
   >
+    <StatModalTheme />
     <span
       style={{
         minWidth: 0,
@@ -33,7 +35,12 @@ export const ModalTitleWithLogic: React.FC<ModalTitleWithLogicProps> = ({ title,
     >
       {title}
     </span>
-    <Button size="small" icon={<InfoCircleOutlined />} onClick={onOpenLogic}>
+    <Button
+      size="small"
+      icon={<InfoCircleOutlined style={{ fontSize: 12 }} />}
+      style={{ fontSize: 12, height: 24, padding: '0 8px' }}
+      onClick={onOpenLogic}
+    >
       计算逻辑说明
     </Button>
   </div>
