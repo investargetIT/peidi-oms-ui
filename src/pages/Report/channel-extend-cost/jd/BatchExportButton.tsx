@@ -8,6 +8,7 @@ import ChannelExtendCostApi, { type ShopVo } from '@/services/channelExtendCostA
 import { displayShopName } from '../common/shopNameMap';
 import { getMonthRange, buildJdStat } from './batchStatBuilder';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
+import { fetchPromotionGroups } from '../shared/fetchPromotionGroups';
 import { renderJdStatExcel } from './batchExcelRenderer';
 
 const { Text } = Typography;
@@ -144,7 +145,12 @@ const BatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) => {
           yearMonth,
           shopName,
         });
-        const blob = await renderJdStatExcel(statResult);
+        const blob = await renderJdStatExcel(statResult, {
+          groups: await fetchPromotionGroups({ shopId, yearMonth, channel: '京东' }),
+          yearMonth,
+          platform: '京东',
+          shopName,
+        });
         zip.file(`${fileBase}.xlsx`, blob);
         successCount++;
       } catch (e: any) {
@@ -249,8 +255,8 @@ const BatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) => {
               </div>
             ) : (
               <div style={{ color: '#999', fontSize: 12, lineHeight: 1.7 }}>
-                · 每店一个 Excel，含 3 个 Sheet：京东余额对账 + 京东钱包支出分类统计 +
-                京东账单收支计算列表
+                · 每店一个 Excel，含 3~4 个 Sheet：京东余额对账 + 京东钱包支出分类统计 +
+                京东账单收支计算列表 +（有推广费时）推广费
                 <br />
                 · 样式尽量还原前端弹窗（加粗、底纹、校验列染色）
                 <br />· 失败的店铺会生成空模板，错误信息写入 zip 内的 _失败明细.txt

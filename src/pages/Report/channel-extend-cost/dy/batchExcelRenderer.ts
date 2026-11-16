@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { appendPromotionSheet, type PromotionSheetData } from '../common/excelRenderer';
 import type { DyBatchStatResult, DyExpenseRow } from './batchStatBuilder';
 import type { FinanceDyCostStatVo } from '@/services/channelExtendCostApi';
 import { dyBizDescOf, dyColumnMetaOf, sortDyRowsByCategory } from './dyFeeMapping';
@@ -270,11 +271,13 @@ function renderDetailSheet(
     if (categorySpans[idx] > 1) {
       ws.mergeCells(excelRowIdx, 1, excelRowIdx + categorySpans[idx] - 1, 1);
     }
-    if (categorySpans[idx] >= 1) addedRows[idx].getCell(1).value = dyBizDescOf(sorted[idx].name).category;
+    if (categorySpans[idx] >= 1)
+      addedRows[idx].getCell(1).value = dyBizDescOf(sorted[idx].name).category;
     if (mgmtNameSpans[idx] > 1) {
       ws.mergeCells(excelRowIdx, 2, excelRowIdx + mgmtNameSpans[idx] - 1, 2);
     }
-    if (mgmtNameSpans[idx] >= 1) addedRows[idx].getCell(2).value = dyBizDescOf(sorted[idx].name).mgmtName;
+    if (mgmtNameSpans[idx] >= 1)
+      addedRows[idx].getCell(2).value = dyBizDescOf(sorted[idx].name).mgmtName;
   });
 
   // 样式
@@ -327,6 +330,7 @@ function renderDetailSheet(
 export async function renderDyStatExcel(
   result: DyBatchStatResult,
   data: FinanceDyCostStatVo[],
+  promotion?: PromotionSheetData,
 ): Promise<Blob> {
   const workbook: ExcelJS.Workbook = new ExcelJS.Workbook();
   workbook.creator = 'peidi-oms-ui';
@@ -335,6 +339,7 @@ export async function renderDyStatExcel(
   renderBalanceSheet(workbook, result);
   renderExpenseSummarySheet(workbook, result);
   renderDetailSheet(workbook, result, data);
+  if (promotion) appendPromotionSheet(workbook, promotion);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return new Blob([buffer], {

@@ -1,6 +1,7 @@
 import React from 'react';
 import BatchExportButton, { fetchChannelShops } from '../shared/BatchExportButton';
 import { fetchShopBalances } from '../shared/balanceFetcher';
+import { fetchPromotionGroups } from '../shared/fetchPromotionGroups';
 import ChannelExtendCostApi from '@/services/channelExtendCostApi';
 import { buildDyStat } from './batchStatBuilder';
 import { renderDyStatExcel } from './batchExcelRenderer';
@@ -34,7 +35,7 @@ const DyBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =>
       }
       const dyStatData = statRes.data || [];
       // 2. 余额对账：老接口 /cost-category-stat 内联余额项（无则回退 queryEndingBalance）
-      const balances = await fetchShopBalances(shopId, yearMonth, "抖音");
+      const balances = await fetchShopBalances(shopId, yearMonth, '抖音');
       const statResult = buildDyStat({
         dyStatData,
         beginningBalance: balances.beginningBalance,
@@ -42,7 +43,18 @@ const DyBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =>
         yearMonth,
         shopName,
       });
-      return renderDyStatExcel(statResult, dyStatData);
+      // 推广费：来自 /cost-category-stat 的 infoName 行（失败返回空，不影响其它 Sheet）
+      const promotionGroups = await fetchPromotionGroups({
+        shopId,
+        yearMonth,
+        channel: '抖音',
+      });
+      return renderDyStatExcel(statResult, dyStatData, {
+        groups: promotionGroups,
+        yearMonth,
+        platform: '抖音',
+        shopName,
+      });
     }}
     renderEmptyExcel={async (_shop, shopName) => {
       const emptyStat = buildDyStat({
@@ -55,7 +67,7 @@ const DyBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =>
       return renderDyStatExcel(emptyStat, []);
     }}
     descriptionLines={[
-      '· 每店一个 Excel，含 3 个 Sheet：抖音余额对账 + 抖音汇总费用（仅平台/推广费用）+ 抖音费用明细（按业务分类）',
+      '· 每店一个 Excel，含 3~4 个 Sheet：抖音余额对账 + 抖音汇总费用（仅平台/推广费用）+ 抖音费用明细（按业务分类）+（有推广费时）推广费',
       '· 明细表列按接口 details 动态生成，口径与前端弹窗完全一致（含合计行）',
       '· 失败的店铺会生成空模板，错误信息写入 zip 内的 _失败明细.txt',
     ]}

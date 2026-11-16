@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { appendPromotionSheet, type PromotionSheetData } from '../common/excelRenderer';
 import type { ZfbBatchStatResult } from './batchStatBuilder';
 
 /**
@@ -169,13 +170,17 @@ function renderDetailSheet(workbook: ExcelJS.Workbook, result: ZfbBatchStatResul
 /**
  * 把支付宝统计结果渲染成 Excel Blob
  */
-export async function renderZfbStatExcel(result: ZfbBatchStatResult): Promise<Blob> {
+export async function renderZfbStatExcel(
+  result: ZfbBatchStatResult,
+  promotion?: PromotionSheetData,
+): Promise<Blob> {
   const workbook: ExcelJS.Workbook = new ExcelJS.Workbook();
   workbook.creator = 'peidi-oms-ui';
   workbook.created = new Date();
 
   renderBalanceSheet(workbook, result);
   renderDetailSheet(workbook, result);
+  if (promotion) appendPromotionSheet(workbook, promotion);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return new Blob([buffer], {

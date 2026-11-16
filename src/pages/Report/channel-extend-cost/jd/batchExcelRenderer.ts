@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { appendPromotionSheet, type PromotionSheetData } from '../common/excelRenderer';
 import type { JdBatchStatResult } from './batchStatBuilder';
 
 /**
@@ -112,7 +113,14 @@ function renderJdCategorySheet(workbook: ExcelJS.Workbook, result: JdBatchStatRe
   const table = result.jd1Category;
   const addedRows: ExcelJS.Row[] = [];
   table.rows.forEach((row) => {
-    addedRows.push(ws.addRow([row.major, row.category, row.desc, row.amount === undefined ? null : Math.round(row.amount * 100) / 100]));
+    addedRows.push(
+      ws.addRow([
+        row.major,
+        row.category,
+        row.desc,
+        row.amount === undefined ? null : Math.round(row.amount * 100) / 100,
+      ]),
+    );
   });
 
   // 合并前清掉非 master 行的合并列值
@@ -216,7 +224,10 @@ function renderJd1Sheet(workbook: ExcelJS.Workbook, result: JdBatchStatResult) {
 /**
  * 把京东统计结果渲染成 Excel Blob
  */
-export async function renderJdStatExcel(result: JdBatchStatResult): Promise<Blob> {
+export async function renderJdStatExcel(
+  result: JdBatchStatResult,
+  promotion?: PromotionSheetData,
+): Promise<Blob> {
   const workbook: ExcelJS.Workbook = new ExcelJS.Workbook();
   workbook.creator = 'peidi-oms-ui';
   workbook.created = new Date();
@@ -225,6 +236,7 @@ export async function renderJdStatExcel(result: JdBatchStatResult): Promise<Blob
   renderJd2Sheet(workbook, result);
   renderJdCategorySheet(workbook, result);
   renderJd1Sheet(workbook, result);
+  if (promotion) appendPromotionSheet(workbook, promotion);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return new Blob([buffer], {

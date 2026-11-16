@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { appendPromotionSheet, type PromotionSheetData } from '../common/excelRenderer';
 import type { TmallBatchStatResult } from './batchStatBuilder';
 
 /**
@@ -179,13 +180,17 @@ function renderDetailSheet(workbook: ExcelJS.Workbook, result: TmallBatchStatRes
 /**
  * 把天猫统计结果渲染成 Excel Blob
  */
-export async function renderTmallStatExcel(result: TmallBatchStatResult): Promise<Blob> {
+export async function renderTmallStatExcel(
+  result: TmallBatchStatResult,
+  promotion?: PromotionSheetData,
+): Promise<Blob> {
   const workbook: ExcelJS.Workbook = new ExcelJS.Workbook();
   workbook.creator = 'peidi-oms-ui';
   workbook.created = new Date();
 
   renderBalanceSheet(workbook, result);
   renderDetailSheet(workbook, result);
+  if (promotion) appendPromotionSheet(workbook, promotion);
 
   const buffer = await workbook.xlsx.writeBuffer();
   return new Blob([buffer], {

@@ -1,6 +1,7 @@
 import React from 'react';
 import BatchExportButton from '../shared/BatchExportButton';
 import { fetchShopBalances } from '../shared/balanceFetcher';
+import { fetchPromotionGroups } from '../shared/fetchPromotionGroups';
 import ChannelExtendCostApi from '@/services/channelExtendCostApi';
 import { buildZfbStat } from './batchStatBuilder';
 import { renderZfbStatExcel } from './batchExcelRenderer';
@@ -62,7 +63,7 @@ const ZfbBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =
       let beginningBalance: number | null = null;
       let endingBalance: number | null = null;
       if (shopId !== undefined && shopId !== null) {
-        const balances = await fetchShopBalances(shopId, yearMonth, "支付宝");
+        const balances = await fetchShopBalances(shopId, yearMonth, '支付宝');
         beginningBalance = balances.beginningBalance;
         endingBalance = balances.endingBalance;
       }
@@ -73,7 +74,18 @@ const ZfbBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =
         yearMonth,
         shopName,
       });
-      return renderZfbStatExcel(statResult);
+      // 推广费：天猫推广费挂在支付宝账单上，channel 传「支付宝」
+      const promotionGroups = await fetchPromotionGroups({
+        shopId,
+        yearMonth,
+        channel: '支付宝',
+      });
+      return renderZfbStatExcel(statResult, {
+        groups: promotionGroups,
+        yearMonth,
+        platform: '天猫',
+        shopName,
+      });
     }}
     renderEmptyExcel={async (_shop, shopName) => {
       const emptyStat = buildZfbStat({
@@ -86,7 +98,7 @@ const ZfbBatchExportButton: React.FC<BatchExportButtonProps> = ({ yearMonth }) =
       return renderZfbStatExcel(emptyStat);
     }}
     descriptionLines={[
-      '· 每店一个 Excel，含 2 个 Sheet：支付宝余额对账 + 账单明细汇总',
+      '· 每店一个 Excel，含 2~3 个 Sheet：支付宝余额对账 + 账单明细汇总 +（有推广费时）推广费',
       '· 口径与前端弹窗完全一致（余额对账按「收款/提现/结息」分类归类）',
       '· 失败的店铺会生成空模板，错误信息写入 zip 内的 _失败明细.txt',
     ]}

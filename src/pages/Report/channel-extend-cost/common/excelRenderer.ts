@@ -5,6 +5,7 @@ import {
   getPromotionDisplayName,
   getPromotionFieldNames,
   hasPromotionData,
+  type PromotionFeeGroup,
 } from './promotionFee';
 
 /**
@@ -243,18 +244,29 @@ function renderDetailSheet(workbook: ExcelJS.Workbook, result: StatResult) {
   });
 }
 
+export interface PromotionSheetData {
+  /** 推广费分组数据（按 accountName 分组） */
+  groups: PromotionFeeGroup[];
+  /** 账单月份 yyyy-MM */
+  yearMonth: string;
+  /** 平台（决定站内推广费用名称与是否展示账号名称列） */
+  platform: string;
+  /** 账号名称（仅天猫/支付宝展示，通常是店铺名） */
+  shopName?: string;
+}
+
 /**
- * Sheet 3「推广费」—— 对应弹窗里的「各平台推广费」区块。
- * 仅当接口返回了推广费行时生成；列按 infoName 动态生成（不假设固定条数）。
+ * 往已有 workbook 追加「推广费」Sheet。
+ * 各渠道批量导出（抖音/京东/天猫/支付宝）与拼多多 renderStatExcel 共用。
+ * 无推广费数据时不生成 Sheet。
  */
-function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
-  const groups = result.promotionGroups;
+export function appendPromotionSheet(workbook: ExcelJS.Workbook, data: PromotionSheetData) {
+  const { groups, yearMonth, platform, shopName = '' } = data;
   if (!hasPromotionData(groups)) return;
 
   const fields = getPromotionFieldNames(groups);
-  // 账号名称仅天猫/支付宝展示，取店铺名称（result.summary.accountName）
-  const showAccountName =
-    result.summary.platform === '天猫' || result.summary.platform === '支付宝';
+  // 账号名称仅天猫/支付宝展示，取店铺名称
+  const showAccountName = platform === '天猫' || platform === '支付宝';
   const ws = workbook.addWorksheet('推广费');
   ws.columns = [
     { header: '月份', key: 'billMonth', width: 10 },
@@ -273,12 +285,12 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
 
   groups.forEach((group) => {
     const values: Record<string, number | string> = {
-      billMonth: result.summary.billMonth,
-      platform: result.summary.platform,
-      promotionName: getPromotionDisplayName(result.summary.platform, group.accountName) || '-',
+      billMonth: yearMonth,
+      platform,
+      promotionName: getPromotionDisplayName(platform, group.accountName) || '-',
     };
     if (showAccountName) {
-      values.accountName = result.summary.accountName || '-';
+      values.accountName = shopName || '-';
     }
     fields.forEach((field) => {
       const value = group.values[field];
@@ -319,5 +331,18 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
       color: { argb: isBalanced ? CHECK_PASSED_ARGB : CHECK_FAILED_ARGB },
     };
     checkCell.alignment = { horizontal: 'left' };
+  });
+}
+
+/**
+ * Sheet 3「推广费」—— 对应弹窗里的「各平台推广费」区块。
+ * 仅当接口返回了推广费行时生成；列按 infoName 动态生成（不假设固定条数）。
+ */
+function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
+  appendPromotionSheet(workbook, {
+    groups: result.promotionGroups,
+    yearMonth: result.summary.billMonth,
+    platform: result.summary.platform,
+    shopName: result.summary.accountName,
   });
 }
