@@ -780,6 +780,8 @@ const JdExtendCostPanel: React.FC = () => {
         {/* 各平台推广费（infoName 不为 null 的行；无数据时整块不渲染） */}
         <PromotionFeeBlock
           groups={promotionGroups}
+          yearMonth={currentYearMonth}
+          platform="京东"
           className="jd1-table-small"
           loading={promotionLoading}
         />

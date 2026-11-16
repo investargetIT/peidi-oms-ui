@@ -583,6 +583,8 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
         {/* 各平台推广费（后端 infoName 不为 null 的行；无数据时整块不渲染） */}
         <PromotionFeeBlock
           groups={statResult.promotionGroups}
+          yearMonth={currentYearMonth}
+          platform={currentChannel || channel}
           className="stat-table-small"
           loading={statLoading}
         />
@@ -641,8 +643,8 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
                 </li>
                 <li style={{ marginBottom: 2 }}>
                   <strong>推广费：</strong>取 cost-category-stat 返回中 infoName 不为 null
-                  的推广费行（上月余额 / 本月收入:充值金额 / 本月支出:推广费合计 / 期末余额），按
-                  accountName 分组展示；该月无数据时后端不返回，整块显示空态。
+                  的推广费行（上月余额 / 期末余额 / 本月收入:充值金额 / 本月支出:推广费合计），按
+                  infoName 强匹配展示，按 accountName 分组；该月无数据时后端不返回，整块显示空态。
                   <br />
                   <strong>计算余额 = 上月余额 + 本月收入:充值金额 - 本月支出:推广费合计；</strong>
                   <strong>校验 = 计算余额 - 期末余额</strong>

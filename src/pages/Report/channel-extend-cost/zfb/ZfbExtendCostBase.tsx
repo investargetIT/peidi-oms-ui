@@ -653,6 +653,8 @@ const ZfbExtendCostBase: React.FC<ZfbExtendCostBaseProps> = ({
         {/* 各平台推广费（infoName 不为 null 的行；无数据时整块不渲染） */}
         <PromotionFeeBlock
           groups={promotionGroups}
+          yearMonth={currentYearMonth}
+          platform="天猫"
           className="stat-table-compact"
           loading={promotionLoading}
         />

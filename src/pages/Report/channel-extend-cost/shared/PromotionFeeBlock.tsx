@@ -3,6 +3,7 @@ import { Table } from 'antd';
 import {
   PROMOTION_FIELD_ORDER,
   computePromotionBalance,
+  getPromotionDisplayName,
   getPromotionFieldNames,
   hasPromotionData,
   type PromotionFeeGroup,
@@ -11,6 +12,10 @@ import {
 export interface PromotionFeeBlockProps {
   /** 按 accountName 分组后的推广费数据 */
   groups: PromotionFeeGroup[];
+  /** 账单月份 yyyy-MM（表格「月份」列） */
+  yearMonth?: string;
+  /** 平台（表格「平台」列，如 拼多多 / 天猫 / 抖音 / 京东） */
+  platform?: string;
   /** 区块标题，默认「推广费」 */
   title?: string;
   /** 加载中 */
@@ -32,6 +37,9 @@ function formatAmount(value: number | undefined): string {
  *
  * - **始终渲染**：即使该月接口没有返回推广费行，也保留区块位置 + 表头，
  *   用空态文案说明「本月无推广费数据」，避免使用者不知道有这个栏目。
+ * - 表格前置 4 列：月份 / 平台 / 站内推广费用名称 / 账号名称。
+ *   站内推广费用名称按平台强匹配（拼多多=推广费、抖音=巨量千川服务费、京东=京准通），
+ *   天猫/支付宝由接口返回（accountName），不强匹配。
  * - 列按 infoName 动态生成，不假设固定条数：统一字段按固定顺序在前，
  *   未知字段按首次出现顺序追加；无数据时展示统一字段的表头。
  * - 末尾固定追加「计算余额 / 校验」两列：
@@ -41,6 +49,8 @@ function formatAmount(value: number | undefined): string {
  */
 const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
   groups,
+  yearMonth = '',
+  platform = '',
   title = '推广费',
   loading = false,
   className,
@@ -52,10 +62,32 @@ const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
   const fields = hasData ? getPromotionFieldNames(groups) : [...PROMOTION_FIELD_ORDER];
   const columns = [
     {
-      title: '账户名称',
+      title: '月份',
+      key: 'billMonth',
+      width: 80,
+      render: () => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{yearMonth || '-'}</span>,
+    },
+    {
+      title: '平台',
+      key: 'platform',
+      width: 80,
+      render: () => <span style={{ fontSize: 12, fontWeight: 'bold' }}>{platform || '-'}</span>,
+    },
+    {
+      // 拼多多/抖音/京东按平台强匹配；天猫/支付宝取接口返回的 accountName
+      title: '站内推广费用名称',
+      key: 'promotionName',
+      width: 170,
+      render: (_: unknown, group: PromotionFeeGroup) => (
+        <span style={{ fontSize: 12, fontWeight: 'bold' }}>
+          {getPromotionDisplayName(platform, group.accountName) || '-'}
+        </span>
+      ),
+    },
+    {
+      title: '账号名称',
       key: 'accountName',
-      width: 180,
-      fixed: 'left' as const,
+      width: 150,
       render: (_: unknown, group: PromotionFeeGroup) => (
         <span style={{ fontSize: 12, fontWeight: 'bold' }}>{group.accountName ?? '单账户'}</span>
       ),
@@ -64,7 +96,7 @@ const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
       title: field,
       key: field,
       width: 160,
-      align: 'right' as const,
+      align: 'left' as const,
       render: (_: unknown, group: PromotionFeeGroup) => (
         <span style={{ fontSize: 12, fontWeight: 'bold' }}>
           {formatAmount(group.values[field])}
@@ -76,7 +108,7 @@ const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
       title: '计算余额',
       key: 'calculatedBalance',
       width: 130,
-      align: 'right' as const,
+      align: 'left' as const,
       render: (_: unknown, group: PromotionFeeGroup) => (
         <span style={{ fontSize: 12, fontWeight: 'bold' }}>
           {formatAmount(computePromotionBalance(group.values).calculatedBalance)}
@@ -88,7 +120,7 @@ const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
       title: '校验',
       key: 'checkDiff',
       width: 100,
-      align: 'right' as const,
+      align: 'left' as const,
       render: (_: unknown, group: PromotionFeeGroup) => {
         const { checkDiff } = computePromotionBalance(group.values);
         if (checkDiff === null) {

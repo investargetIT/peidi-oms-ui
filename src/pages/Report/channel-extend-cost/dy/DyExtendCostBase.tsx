@@ -1011,6 +1011,8 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         {/* 各平台推广费（infoName 不为 null 的行；无数据时整块不渲染） */}
         <PromotionFeeBlock
           groups={promotionGroups}
+          yearMonth={currentYearMonth}
+          platform={channel}
           className="stat-table-small"
           loading={promotionLoading}
         />

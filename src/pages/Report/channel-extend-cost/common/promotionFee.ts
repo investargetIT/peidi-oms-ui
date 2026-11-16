@@ -12,7 +12,7 @@ import type { FinanceCostCategoryStatVo } from '@/services/channelExtendCostApi'
  * 列顺序也由标准字段顺序决定（接口顺序只用于「未知字段」的兜底排序）。
  *
  * 标准字段（各平台缺项就不展示该列）：
- *   上月余额 → 本月收入:充值金额 → 本月支出:推广费合计 → 期末余额
+ *   上月余额 → 期末余额 → 本月收入:充值金额 → 本月支出:推广费合计
  * 兼容后端尚未统一的别名（实测京东仍返回 期初余额 / 本期充值 / 本期消耗）。
  *
  * 天猫多账户店通过 accountName 区分账户；accountName 为 null 视为单账户。
@@ -29,6 +29,7 @@ export interface PromotionFieldDef {
 /** 标准字段定义：顺序即列顺序 */
 export const PROMOTION_FIELD_DEFS: PromotionFieldDef[] = [
   { name: '上月余额', aliases: ['上月余额', '期初余额'] },
+  { name: '期末余额', aliases: ['期末余额'] },
   {
     name: '本月收入:充值金额',
     aliases: ['本月收入:充值金额', '本期充值', '充值金额'],
@@ -37,7 +38,6 @@ export const PROMOTION_FIELD_DEFS: PromotionFieldDef[] = [
     name: '本月支出:推广费合计',
     aliases: ['本月支出:推广费合计', '本期消耗', '推广费合计'],
   },
-  { name: '期末余额', aliases: ['期末余额'] },
 ];
 
 /** 标准字段展示顺序 */
@@ -64,6 +64,30 @@ function normalizeName(name: string): string {
 export function resolvePromotionFieldName(infoName?: string | null): string | null {
   if (!infoName) return null;
   return ALIAS_TO_NAME.get(normalizeName(infoName)) ?? null;
+}
+
+/**
+ * 「站内推广费用名称」：按平台强匹配固定名称。
+ * 天猫 / 支付宝不在这里强匹配 —— 该列由接口返回（即推广费行的 accountName）。
+ */
+export const PLATFORM_PROMOTION_NAMES: Record<string, string> = {
+  拼多多: '推广费',
+  抖音: '巨量千川服务费',
+  京东: '京准通',
+};
+
+/**
+ * 取「站内推广费用名称」：
+ *   - 拼多多 / 抖音 / 京东：固定名称（推广费 / 巨量千川服务费 / 京准通）
+ *   - 天猫 / 支付宝：接口返回的 accountName，不强匹配
+ *   - 其它未知平台：优先固定名称，其次 accountName
+ */
+export function getPromotionDisplayName(
+  platform?: string | null,
+  accountName?: string | null,
+): string {
+  if (platform === '天猫' || platform === '支付宝') return accountName ?? '';
+  return PLATFORM_PROMOTION_NAMES[platform ?? ''] ?? accountName ?? '';
 }
 
 export interface PromotionFeeRow {

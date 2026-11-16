@@ -1,6 +1,11 @@
 import ExcelJS from 'exceljs';
 import type { StatResult, DetailRow } from './statBuilder';
-import { computePromotionBalance, getPromotionFieldNames, hasPromotionData } from './promotionFee';
+import {
+  computePromotionBalance,
+  getPromotionDisplayName,
+  getPromotionFieldNames,
+  hasPromotionData,
+} from './promotionFee';
 
 /**
  * 行底色 ARGB（与弹窗保持一致）
@@ -249,7 +254,10 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
   const fields = getPromotionFieldNames(groups);
   const ws = workbook.addWorksheet('推广费');
   ws.columns = [
-    { header: '账户名称', key: 'accountName', width: 24 },
+    { header: '月份', key: 'billMonth', width: 10 },
+    { header: '平台', key: 'platform', width: 10 },
+    { header: '站内推广费用名称', key: 'promotionName', width: 20 },
+    { header: '账号名称', key: 'accountName', width: 20 },
     ...fields.map((field) => ({ header: field, key: field, width: 18 })),
     { header: '计算余额', key: 'calculatedBalance', width: 16 },
     { header: '校验', key: 'checkDiff', width: 12 },
@@ -262,6 +270,9 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
 
   groups.forEach((group) => {
     const values: Record<string, number | string> = {
+      billMonth: result.summary.billMonth,
+      platform: result.summary.platform,
+      promotionName: getPromotionDisplayName(result.summary.platform, group.accountName) || '-',
       accountName: group.accountName ?? '单账户',
     };
     fields.forEach((field) => {
@@ -277,17 +288,21 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
     dataRow.eachCell((cell: ExcelJS.Cell) => {
       applyCellBorder(cell);
     });
-    dataRow.getCell('accountName').font = { bold: true };
+    ['billMonth', 'platform', 'promotionName', 'accountName'].forEach((key) => {
+      dataRow.getCell(key).font = { bold: true };
+    });
     fields.forEach((field) => {
       const cell = dataRow.getCell(field);
       if (typeof cell.value === 'number') {
         cell.numFmt = '0.00';
       }
       cell.font = { bold: true };
+      cell.alignment = { horizontal: 'left' };
     });
     const calcCell = dataRow.getCell('calculatedBalance');
     calcCell.numFmt = '0.00';
     calcCell.font = { bold: true };
+    calcCell.alignment = { horizontal: 'left' };
     const checkCell = dataRow.getCell('checkDiff');
     if (typeof checkCell.value === 'number') {
       checkCell.numFmt = '0.00';
@@ -296,5 +311,6 @@ function renderPromotionSheet(workbook: ExcelJS.Workbook, result: StatResult) {
       bold: true,
       color: { argb: isBalanced ? CHECK_PASSED_ARGB : CHECK_FAILED_ARGB },
     };
+    checkCell.alignment = { horizontal: 'left' };
   });
 }
