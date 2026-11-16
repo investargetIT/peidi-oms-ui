@@ -1,16 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Tooltip,
-  Button,
-  Input,
-  Select,
-  Table,
-  Space,
-  Modal,
-  Collapse,
-  message,
-  DatePicker,
-} from 'antd';
+import { Tooltip, Button, Input, Select, Table, Space, Modal, message, DatePicker } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import ChannelExtendCostApi, {
@@ -30,6 +19,8 @@ import {
 } from '../common/businessCodes';
 import { buildStatResult } from '../common/statBuilder';
 import PromotionFeeBlock from './PromotionFeeBlock';
+import { LogicInfoModal, ModalTitleWithLogic } from './LogicInfoModal';
+import PromotionFeeLogicNote from './PromotionFeeLogicNote';
 
 export interface ChannelExtendCostBaseProps {
   /**
@@ -88,6 +79,7 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
 
   // 费用分类统计弹窗状态
   const [statModalVisible, setStatModalVisible] = useState(false);
+  const [logicVisible, setLogicVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
   const [statDataSource, setStatDataSource] = useState<FinanceCostCategoryStatVo[]>([]);
@@ -417,9 +409,14 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
 
       {/* 费用分类统计弹窗 */}
       <Modal
-        title={statModalTitle}
+        title={
+          <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
+        }
         open={statModalVisible}
-        onCancel={() => setStatModalVisible(false)}
+        onCancel={() => {
+          setStatModalVisible(false);
+          setLogicVisible(false);
+        }}
         footer={null}
         width={1200}
         destroyOnClose
@@ -590,103 +587,93 @@ const ChannelExtendCostBase: React.FC<ChannelExtendCostBaseProps> = ({
         />
 
         {/* 计算逻辑说明 */}
-        <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-          <Collapse.Panel header="计算逻辑说明" key="1">
-            <div
-              style={{
-                background: '#f5f5f5',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                fontSize: 12,
-                margin: -16,
-              }}
-            >
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>账单月份：</strong>当前统计的月份
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>平台：</strong>当前统计的渠道
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>账户名称：</strong>店铺名称
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>期末余额：</strong>取「各渠道月账单」该店铺该月的期末余额（endingBalance）
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>上月余额：</strong>
-                  取「各渠道月账单」该店铺该月的期初余额（beginningBalance）
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>本期收款：</strong>本月所有收款类业务编码汇总，收款业务编码包括：
-                  {summaryGroups[0].codes.join(', ')}
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>本期费用：</strong>本月所有扣款类业务编码汇总，扣款业务编码包括：
-                  {summaryGroups[1].codes.join(', ')}
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>提现：</strong>本月提现业务汇总，业务编码：
-                  {summaryGroups[2].codes.join(', ')}
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>结息：</strong>默认 0，如有结息业务后续调整
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</strong>
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>校验 = 计算余额 - 期末余额</strong>
-                  ，差异绝对值小于0.001则视为平衡，统一展示为
-                  <strong>0.00</strong>（绿色），否则展示实际差异（红色）
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>推广费：</strong>取 cost-category-stat 返回中 infoName 不为 null
-                  的推广费行（上月余额 / 期末余额 / 本月收入:充值金额 / 本月支出:推广费合计），按
-                  infoName 强匹配展示，按 accountName 分组；该月无数据时后端不返回，整块显示空态。
-                  <br />
-                  <strong>计算余额 = 上月余额 + 本月收入:充值金额 - 本月支出:推广费合计；</strong>
-                  <strong>校验 = 计算余额 - 期末余额</strong>
-                  ，|差异| &lt; 0.001 显示绿色 0.00，否则红色实际差异
-                </li>
-                <li>
-                  <strong>明细表格颜色区分：</strong>
-                  <span
-                    style={{
-                      background: '#f6ffed',
-                      padding: '2px 6px',
-                      borderRadius: 2,
-                      margin: '0 4px',
-                    }}
-                  >
-                    浅绿色 = 收款类
-                  </span>
-                  <span
-                    style={{
-                      background: '#fff7e6',
-                      padding: '2px 6px',
-                      borderRadius: 2,
-                      margin: '0 4px',
-                    }}
-                  >
-                    浅橙色 = 扣款(本期费用)类
-                  </span>
-                  <span
-                    style={{
-                      background: '#e6f7ff',
-                      padding: '2px 6px',
-                      borderRadius: 2,
-                      margin: '0 4px',
-                    }}
-                  >
-                    浅蓝色 = 提现类
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </Collapse.Panel>
-        </Collapse>
+        <LogicInfoModal open={logicVisible} onClose={() => setLogicVisible(false)}>
+          <div
+            style={{
+              background: '#f5f5f5',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: 12,
+              margin: 0,
+            }}
+          >
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li style={{ marginBottom: 2 }}>
+                <strong>账单月份：</strong>当前统计的月份
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>平台：</strong>当前统计的渠道
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>账户名称：</strong>店铺名称
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>期末余额：</strong>取「各渠道月账单」该店铺该月的期末余额（endingBalance）
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>上月余额：</strong>
+                取「各渠道月账单」该店铺该月的期初余额（beginningBalance）
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>本期收款：</strong>本月所有收款类业务编码汇总，收款业务编码包括：
+                {summaryGroups[0].codes.join(', ')}
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>本期费用：</strong>本月所有扣款类业务编码汇总，扣款业务编码包括：
+                {summaryGroups[1].codes.join(', ')}
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>提现：</strong>本月提现业务汇总，业务编码：
+                {summaryGroups[2].codes.join(', ')}
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>结息：</strong>默认 0，如有结息业务后续调整
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>计算余额 = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息</strong>
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>校验 = 计算余额 - 期末余额</strong>
+                ，差异绝对值小于0.001则视为平衡，统一展示为
+                <strong>0.00</strong>（绿色），否则展示实际差异（红色）
+              </li>
+              <PromotionFeeLogicNote promotionName="推广费" />
+              <li>
+                <strong>明细表格颜色区分：</strong>
+                <span
+                  style={{
+                    background: '#f6ffed',
+                    padding: '2px 6px',
+                    borderRadius: 2,
+                    margin: '0 4px',
+                  }}
+                >
+                  浅绿色 = 收款类
+                </span>
+                <span
+                  style={{
+                    background: '#fff7e6',
+                    padding: '2px 6px',
+                    borderRadius: 2,
+                    margin: '0 4px',
+                  }}
+                >
+                  浅橙色 = 扣款(本期费用)类
+                </span>
+                <span
+                  style={{
+                    background: '#e6f7ff',
+                    padding: '2px 6px',
+                    borderRadius: 2,
+                    margin: '0 4px',
+                  }}
+                >
+                  浅蓝色 = 提现类
+                </span>
+              </li>
+            </ul>
+          </div>
+        </LogicInfoModal>
 
         {/* 业务编码明细表格 */}
         {(() => {

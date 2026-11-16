@@ -12,6 +12,8 @@ import ChannelExtendCostBase from '../shared/ChannelExtendCostBase';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import PromotionFeeBlock from '../shared/PromotionFeeBlock';
 import { usePromotionFee } from '../shared/usePromotionFee';
+import { LogicInfoModal, ModalTitleWithLogic } from '../shared/LogicInfoModal';
+import PromotionFeeLogicNote from '../shared/PromotionFeeLogicNote';
 import JdBatchExportButton from './BatchExportButton';
 
 /**
@@ -95,6 +97,7 @@ const JdExtendCostPanel: React.FC = () => {
   );
   // 京东费用统计弹窗状态
   const [modalVisible, setModalVisible] = useState(false);
+  const [logicVisible, setLogicVisible] = useState(false);
   const [currentShopName, setCurrentShopName] = useState<string>('');
   const [currentYearMonth, setCurrentYearMonth] = useState<string>('');
   const [modalLoading, setModalLoading] = useState(false);
@@ -187,6 +190,7 @@ const JdExtendCostPanel: React.FC = () => {
 
   const handleCloseModal = () => {
     setModalVisible(false);
+    setLogicVisible(false);
     setJd1Data([]);
     setJd2Data([]);
     setLastMonthJd1CalculateStat([]);
@@ -712,7 +716,14 @@ const JdExtendCostPanel: React.FC = () => {
 
       <Modal
         title={
-          currentShopName ? `${currentShopName} ${currentYearMonth} 京东费用统计` : '京东费用统计'
+          <ModalTitleWithLogic
+            title={
+              currentShopName
+                ? `${currentShopName} ${currentYearMonth} 京东费用统计`
+                : '京东费用统计'
+            }
+            onOpenLogic={() => setLogicVisible(true)}
+          />
         }
         open={modalVisible}
         onCancel={handleCloseModal}
@@ -787,144 +798,153 @@ const JdExtendCostPanel: React.FC = () => {
         />
 
         {/* 计算逻辑说明：3 段表格的数据来源 + 本月入账的公式 */}
-        <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-          <Collapse.Panel header="计算逻辑说明" key="1">
-            <div
-              style={{
-                background: '#f5f5f5',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                fontSize: 12,
-                margin: -16,
-              }}
-            >
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                <li style={{ marginBottom: 4 }}>
-                  <strong>京东余额对账：</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）
-                    </div>
-                    <div>
-                      <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）
-                    </div>
-                    <div>
-                      <strong>本月入账</strong> = 京东账单收支计算列表的合计 −
-                      {DEDUCT_CATEGORIES.map((c) => c).join('、')}共{DEDUCT_CATEGORIES.length} 项
-                    </div>
-                    <div>
-                      <strong>本期费用</strong> ={' '}
-                      {EXPENSE_JD1_CATEGORIES.map((c) => `总计的${c}`).join(' + ')}−{' '}
-                      {EXPENSE_JD2_CATEGORIES.join(' − ')}
-                      <div style={{ marginLeft: 16 }}>
-                        （前 {EXPENSE_JD1_CATEGORIES.length}{' '}
-                        项取自账单收支计算列表「总计行」对应列的纵向合计；
-                        {EXPENSE_JD2_CATEGORIES.join('、')}取自钱包支出分类统计）
-                      </div>
-                    </div>
-                    <div>
-                      <strong>收款</strong> = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 −
-                      挽单补偿险
-                    </div>
+        <LogicInfoModal open={logicVisible} onClose={() => setLogicVisible(false)}>
+          <div
+            style={{
+              background: '#f5f5f5',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: 12,
+              margin: 0,
+            }}
+          >
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li style={{ marginBottom: 4 }}>
+                <strong>京东余额对账：</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）
+                  </div>
+                  <div>
+                    <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）
+                  </div>
+                  <div>
+                    <strong>本月入账</strong> = 京东账单收支计算列表的合计 −
+                    {DEDUCT_CATEGORIES.map((c) => c).join('、')}共{DEDUCT_CATEGORIES.length} 项
+                  </div>
+                  <div>
+                    <strong>本期费用</strong> ={' '}
+                    {EXPENSE_JD1_CATEGORIES.map((c) => `总计的${c}`).join(' + ')}−{' '}
+                    {EXPENSE_JD2_CATEGORIES.join(' − ')}
                     <div style={{ marginLeft: 16 }}>
-                      A = {COLLECTION_A_CATEGORIES.map((c) => `账单收支总计行的${c}`).join(' + ')}；
-                      扣减项里 直赔代扣/违约金/价保/售后/先行赔付/挽单补偿险 取自钱包支出分类统计
-                    </div>
-                    <div>
-                      <strong>校验</strong> = 期末余额 − （上月余额 + 本期费用 + 收款 − 提现），
-                      提现取自钱包支出分类统计（上方「提现」列同源）；|值| &lt; 0.001 显示绿色
-                      0.00，否则红色显示实际差异
+                      （前 {EXPENSE_JD1_CATEGORIES.length}{' '}
+                      项取自账单收支计算列表「总计行」对应列的纵向合计；
+                      {EXPENSE_JD2_CATEGORIES.join('、')}取自钱包支出分类统计）
                     </div>
                   </div>
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>京东钱包支出分类统计：</strong>
-                  按钱包扣款的备注分类（提现、京东联盟、违约金等）展示每类本月共支出多少。
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>京东账单收支计算列表：</strong>
-                  按账单日期倒序展示本月的每一笔收支明细，每行是某一天的总览，每列是当天的某一类业务（如货款、佣金、交易服务费等）金额。
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>表格最后一行：</strong>
-                  是上个月最后一天（例 6 月 30 日）的结转凭证，把它也纳入对账便于和上月余额衔接。
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>「总计行」：</strong>
-                  所有日期的纵向合计，但会排除本月最后一天（例 7 月 31
-                  日）；上月末日（6/30）正常参与合计。
-                </li>
-                <li style={{ marginBottom: 2 }}>
-                  <strong>费用分类统计：</strong>
-                  取「京东账单收支计算列表」总计行每列的合计，按固定映射归类为
-                  分类-管报名称-业务描述；其中「推广费-京东联盟-京东联盟」的金额取自
-                  「京东钱包支出分类统计」的京东联盟分类；「佣金」= 总计的佣金 +
-                  总计的价保返佣（价保返佣不单独展示）；「直营服务费」「运营服务费」「中转履约服务费」
-                  按 平台费用-直营服务费/运营服务费/中转履约服务费
-                  归类。默认仅展示当月有对应业务描述的行；
-                  交易服务费、直营服务费、运营服务费固定展示（无数据时金额显示 -）。
-                  完整映射如下，可搜索 / 按分类、管报名称筛选：
-                  <div style={{ marginTop: 8 }}>
-                    <Input
-                      placeholder="搜索分类 / 管报名称 / 业务描述"
-                      prefix={<SearchOutlined />}
-                      allowClear
-                      size="small"
-                      style={{ width: 240, marginBottom: 8 }}
-                      value={jd1MappingSearch}
-                      onChange={(e) => setJd1MappingSearch(e.target.value)}
-                    />
-                    <Table
-                      size="small"
-                      className="jd1-table-small"
-                      columns={[
-                        {
-                          title: '分类',
-                          dataIndex: 'major',
-                          key: 'major',
-                          width: 90,
-                          filters: Array.from(
-                            new Set(JD1_CATEGORY_MAPPING_ROWS.map((r) => r.major)),
-                          ).map((major) => ({ text: major, value: major })),
-                          onFilter: (value: React.Key | boolean, record: any) =>
-                            record.major === value,
-                          render: (text: string) => (
-                            <span style={{ fontWeight: 'bold' }}>{text}</span>
-                          ),
-                        },
-                        {
-                          title: '管报名称',
-                          dataIndex: 'category',
-                          key: 'category',
-                          width: 110,
-                          filters: Array.from(
-                            new Set(JD1_CATEGORY_MAPPING_ROWS.map((r) => r.category)),
-                          ).map((category) => ({ text: category, value: category })),
-                          onFilter: (value: React.Key | boolean, record: any) =>
-                            record.category === value,
-                        },
-                        { title: '业务描述', dataIndex: 'desc', key: 'desc' },
-                      ]}
-                      dataSource={JD1_CATEGORY_MAPPING_ROWS.filter(
-                        (r) =>
-                          !jd1MappingSearch ||
-                          r.major.includes(jd1MappingSearch) ||
-                          r.category.includes(jd1MappingSearch) ||
-                          r.desc.includes(jd1MappingSearch),
-                      )}
-                      pagination={false}
-                      scroll={{ y: 280 }}
-                      style={{ background: '#fff' }}
-                    />
-                    <div style={{ marginTop: 4, color: '#999' }}>
-                      兜底：若接口返回了映射之外的业务描述列，会追加到末尾，归类为「空-空-该业务描述」。
-                    </div>
+                  <div>
+                    <strong>收款</strong> = A − 直赔代扣 − 违约金 − 价保 − 售后 − 先行赔付 −
+                    挽单补偿险
                   </div>
-                </li>
-              </ul>
-            </div>
-          </Collapse.Panel>
-        </Collapse>
+                  <div style={{ marginLeft: 16 }}>
+                    A = {COLLECTION_A_CATEGORIES.map((c) => `账单收支总计行的${c}`).join(' + ')}；
+                    扣减项里 直赔代扣/违约金/价保/售后/先行赔付/挽单补偿险 取自钱包支出分类统计
+                  </div>
+                  <div>
+                    <strong>校验</strong> = 期末余额 − （上月余额 + 本期费用 + 收款 − 提现），
+                    提现取自钱包支出分类统计（上方「提现」列同源）；|值| &lt; 0.001 显示绿色
+                    0.00，否则红色显示实际差异
+                  </div>
+                </div>
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>京东钱包支出分类统计：</strong>
+                按钱包扣款的备注分类（提现、京东联盟、违约金等）展示每类本月共支出多少。
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>京东账单收支计算列表：</strong>
+                按账单日期倒序展示本月的每一笔收支明细，每行是某一天的总览，每列是当天的某一类业务（如货款、佣金、交易服务费等）金额。
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>表格最后一行：</strong>
+                是上个月最后一天（例 6 月 30 日）的结转凭证，把它也纳入对账便于和上月余额衔接。
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>「总计行」：</strong>
+                所有日期的纵向合计，但会排除本月最后一天（例 7 月 31
+                日）；上月末日（6/30）正常参与合计。
+              </li>
+              <li style={{ marginBottom: 2 }}>
+                <strong>费用分类统计：</strong>
+                取「京东账单收支计算列表」总计行每列的合计，按固定映射归类为
+                分类-管报名称-业务描述；其中「推广费-京东联盟-京东联盟」的金额取自
+                「京东钱包支出分类统计」的京东联盟分类；「佣金」= 总计的佣金 +
+                总计的价保返佣（价保返佣不单独展示）；「直营服务费」「运营服务费」「中转履约服务费」
+                按 平台费用-直营服务费/运营服务费/中转履约服务费
+                归类。默认仅展示当月有对应业务描述的行；
+                交易服务费、直营服务费、运营服务费固定展示（无数据时金额显示 -）。
+                完整映射如下，可搜索 / 按分类、管报名称筛选：
+                <div style={{ marginTop: 8 }}>
+                  <Input
+                    placeholder="搜索分类 / 管报名称 / 业务描述"
+                    prefix={<SearchOutlined />}
+                    allowClear
+                    size="small"
+                    style={{ width: 240, marginBottom: 8 }}
+                    value={jd1MappingSearch}
+                    onChange={(e) => setJd1MappingSearch(e.target.value)}
+                  />
+                  <Table
+                    size="small"
+                    className="jd1-table-small"
+                    columns={[
+                      {
+                        title: '分类',
+                        dataIndex: 'major',
+                        key: 'major',
+                        width: 90,
+                        filters: Array.from(
+                          new Set(JD1_CATEGORY_MAPPING_ROWS.map((r) => r.major)),
+                        ).map((major) => ({ text: major, value: major })),
+                        onFilter: (value: React.Key | boolean, record: any) =>
+                          record.major === value,
+                        render: (text: string) => (
+                          <span style={{ fontWeight: 'bold' }}>{text}</span>
+                        ),
+                      },
+                      {
+                        title: '管报名称',
+                        dataIndex: 'category',
+                        key: 'category',
+                        width: 110,
+                        filters: Array.from(
+                          new Set(JD1_CATEGORY_MAPPING_ROWS.map((r) => r.category)),
+                        ).map((category) => ({ text: category, value: category })),
+                        onFilter: (value: React.Key | boolean, record: any) =>
+                          record.category === value,
+                      },
+                      { title: '业务描述', dataIndex: 'desc', key: 'desc' },
+                    ]}
+                    dataSource={JD1_CATEGORY_MAPPING_ROWS.filter(
+                      (r) =>
+                        !jd1MappingSearch ||
+                        r.major.includes(jd1MappingSearch) ||
+                        r.category.includes(jd1MappingSearch) ||
+                        r.desc.includes(jd1MappingSearch),
+                    )}
+                    pagination={false}
+                    scroll={{ y: 280 }}
+                    style={{ background: '#fff' }}
+                  />
+                  <div
+                    style={{
+                      marginTop: 6,
+                      color: '#595959',
+                      borderLeft: '3px solid #d9d9d9',
+                      paddingLeft: 8,
+                    }}
+                  >
+                    兜底：若接口返回了映射之外的业务描述列，会追加到末尾，归类为「空-空-该业务描述」。
+                  </div>
+                </div>
+              </li>
+              <PromotionFeeLogicNote
+                promotionName="京准通"
+                extra="接口若返回旧名（期初余额 / 本期充值 / 本期消耗），前端会归一到标准字段后展示。"
+              />
+            </ul>
+          </div>
+        </LogicInfoModal>
 
         {/* 京东钱包支出分类统计 */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>

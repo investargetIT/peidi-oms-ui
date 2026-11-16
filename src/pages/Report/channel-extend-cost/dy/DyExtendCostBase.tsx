@@ -1,16 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Button,
-  Input,
-  Select,
-  Table,
-  Space,
-  Modal,
-  Collapse,
-  message,
-  DatePicker,
-  Tooltip,
-} from 'antd';
+import { Button, Input, Select, Table, Space, Modal, message, DatePicker, Tooltip } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import ChannelExtendCostApi, {
@@ -23,6 +12,8 @@ import { displayShopName } from '../common/shopNameMap';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import PromotionFeeBlock from '../shared/PromotionFeeBlock';
 import { usePromotionFee } from '../shared/usePromotionFee';
+import { LogicInfoModal, ModalTitleWithLogic } from '../shared/LogicInfoModal';
+import PromotionFeeLogicNote from '../shared/PromotionFeeLogicNote';
 import { dyBizDescOf, dyColumnMetaOf, sortDyRowsByCategory } from './dyFeeMapping';
 
 /**
@@ -112,6 +103,7 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
 
   // 抖音费用统计弹窗状态
   const [statModalVisible, setStatModalVisible] = useState(false);
+  const [logicVisible, setLogicVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
   // 抖音费用明细（按业务分类）：新接口 /dy-cost-stat 返回
@@ -825,9 +817,14 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
 
       {/* 抖音费用统计弹窗：动账方向汇总 + 按动账场景分类汇总各费用项 */}
       <Modal
-        title={statModalTitle}
+        title={
+          <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
+        }
         open={statModalVisible}
-        onCancel={() => setStatModalVisible(false)}
+        onCancel={() => {
+          setStatModalVisible(false);
+          setLogicVisible(false);
+        }}
         footer={null}
         width={1200}
         destroyOnClose
@@ -1018,295 +1015,288 @@ const DyExtendCostBase: React.FC<DyExtendCostBaseProps> = ({
         />
 
         {/* 计算逻辑说明 */}
-        <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-          <Collapse.Panel header="计算逻辑说明" key="1">
-            <div
-              style={{
-                background: '#f5f5f5',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                fontSize: 12,
-                margin: -16,
-              }}
-            >
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {/* 一、数据来源 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>一、数据来源（两个接口）</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      ① 明细表 / 余额对账明细 = 新接口 <code>GET /dy-cost-stat</code>（返回
-                      <code>
-                        name / value / details[{'{'}name,value{'}'}]
-                      </code>
-                      ）；
-                    </div>
-                    <div>
-                      ② 余额（上月余额 / 期末余额）= 各渠道月账单{' '}
-                      <code>POST /finance/zfb-bill/page</code> 的<code>beginningBalance</code>
-                      （上月/期初）和 <code>endingBalance</code>（本月期末）； 账单未生成 /
-                      未填余额时显示空值。
-                    </div>
+        <LogicInfoModal open={logicVisible} onClose={() => setLogicVisible(false)}>
+          <div
+            style={{
+              background: '#f5f5f5',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: 12,
+              margin: 0,
+            }}
+          >
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {/* 一、数据来源 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>一、数据来源（两个接口）</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    ① 明细表 / 余额对账明细 = 新接口 <code>GET /dy-cost-stat</code>（返回
+                    <code>
+                      name / value / details[{'{'}name,value{'}'}]
+                    </code>
+                    ）；
                   </div>
-                </li>
+                  <div>
+                    ② 余额（上月余额 / 期末余额）= 各渠道月账单{' '}
+                    <code>POST /finance/zfb-bill/page</code> 的<code>beginningBalance</code>
+                    （上月/期初）和 <code>endingBalance</code>（本月期末）； 账单未生成 /
+                    未填余额时显示空值。
+                  </div>
+                </div>
+              </li>
 
-                {/* 二、明细表列结构与归类映射 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>二、明细表列结构与归类映射</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      固定 3 列：<strong>分类、管报名称、业务描述（分类别）</strong>
-                      ＝接口首层 name。其中 分类 / 管报名称
-                      按下方【行维度映射】由业务描述（分类别）归类， 映射硬编码在{' '}
-                      <code>dy/dyFeeMapping.ts</code>（弹窗与批量导出共用，改映射只改这一处）。
-                    </div>
-                    <div style={{ margin: '4px 0' }}>
-                      <strong>【行维度映射】业务描述（分类别）→ 分类 / 管报名称</strong>
-                      <table
-                        style={{
-                          borderCollapse: 'collapse',
-                          marginLeft: 16,
-                          fontSize: 12,
-                          background: '#fff',
-                        }}
-                      >
-                        <thead>
-                          <tr>
-                            {['业务描述（分类别）', '分类', '管报名称'].map((h) => (
-                              <th
-                                key={h}
+              {/* 二、明细表列结构与归类映射 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>二、明细表列结构与归类映射</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    固定 3 列：<strong>分类、管报名称、业务描述（分类别）</strong>
+                    ＝接口首层 name。其中 分类 / 管报名称
+                    按下方【行维度映射】由业务描述（分类别）归类， 映射硬编码在{' '}
+                    <code>dy/dyFeeMapping.ts</code>（弹窗与批量导出共用，改映射只改这一处）。
+                  </div>
+                  <div style={{ margin: '4px 0' }}>
+                    <strong>【行维度映射】业务描述（分类别）→ 分类 / 管报名称</strong>
+                    <table
+                      style={{
+                        borderCollapse: 'collapse',
+                        marginLeft: 16,
+                        fontSize: 12,
+                        background: '#fff',
+                      }}
+                    >
+                      <thead>
+                        <tr>
+                          {['业务描述（分类别）', '分类', '管报名称'].map((h) => (
+                            <th key={h} style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}>
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          ['上门取件-支付快递费', '平台费用', '运费争议赔付'],
+                          ['消费者赔付', '平台费用', '赔付'],
+                          ['退换货运费险', '平台费用', '运费险'],
+                          ['快递拦截费', '平台费用', '快递拦截费'],
+                          ['评价有礼', '推广费用', '评价有礼'],
+                          ['评价有礼活动资金回退', '推广费用', '评价有礼'],
+                          ['其他所有业务描述（兜底）', '其他', '其他'],
+                        ].map((r) => (
+                          <tr key={r[0]}>
+                            {r.map((c, i) => (
+                              <td
+                                key={i}
                                 style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}
                               >
-                                {h}
-                              </th>
+                                {c}
+                              </td>
                             ))}
                           </tr>
-                        </thead>
-                        <tbody>
-                          {[
-                            ['上门取件-支付快递费', '平台费用', '运费争议赔付'],
-                            ['消费者赔付', '平台费用', '赔付'],
-                            ['退换货运费险', '平台费用', '运费险'],
-                            ['快递拦截费', '平台费用', '快递拦截费'],
-                            ['评价有礼', '推广费用', '评价有礼'],
-                            ['评价有礼活动资金回退', '推广费用', '评价有礼'],
-                            ['其他所有业务描述（兜底）', '其他', '其他'],
-                          ].map((r) => (
-                            <tr key={r[0]}>
-                              {r.map((c, i) => (
-                                <td
-                                  key={i}
-                                  style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}
-                                >
-                                  {c}
-                                </td>
-                              ))}
-                            </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div>
+                    <strong>行序与合并</strong>：明细行按分类分组排序（推广费用 → 平台费用 →
+                    其他，组内保持接口原序）；相同 分类 / 管报名称
+                    的相邻单元格合并展示（管报名称的合并不跨分类）。排序仅影响展示顺序，
+                    不影响各列合计与余额对账等求和口径。
+                  </div>
+                  <div>
+                    后接【动态明细列】：取所有分类 details 的 name 去重并集，
+                    <code>订单净收入</code> 固定为第一个 （即整体第 4
+                    列），其余按出现顺序；值取该分类 details 里对应项的值， 列宽超出显示省略号（悬停
+                    Tooltip 看全称）。
+                  </div>
+                  <div style={{ margin: '4px 0' }}>
+                    <strong>【列维度映射】动态明细列 → 费用分类（表头上方组头）</strong>
+                    <table
+                      style={{
+                        borderCollapse: 'collapse',
+                        marginLeft: 16,
+                        fontSize: 12,
+                        background: '#fff',
+                      }}
+                    >
+                      <thead>
+                        <tr>
+                          {['动态明细列', '费用分类组头'].map((h) => (
+                            <th key={h} style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}>
+                              {h}
+                            </th>
                           ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div>
-                      <strong>行序与合并</strong>：明细行按分类分组排序（推广费用 → 平台费用 →
-                      其他，组内保持接口原序）；相同 分类 / 管报名称
-                      的相邻单元格合并展示（管报名称的合并不跨分类）。排序仅影响展示顺序，
-                      不影响各列合计与余额对账等求和口径。
-                    </div>
-                    <div>
-                      后接【动态明细列】：取所有分类 details 的 name 去重并集，
-                      <code>订单净收入</code> 固定为第一个 （即整体第 4
-                      列），其余按出现顺序；值取该分类 details 里对应项的值，
-                      列宽超出显示省略号（悬停 Tooltip 看全称）。
-                    </div>
-                    <div style={{ margin: '4px 0' }}>
-                      <strong>【列维度映射】动态明细列 → 费用分类（表头上方组头）</strong>
-                      <table
-                        style={{
-                          borderCollapse: 'collapse',
-                          marginLeft: 16,
-                          fontSize: 12,
-                          background: '#fff',
-                        }}
-                      >
-                        <thead>
-                          <tr>
-                            {['动态明细列', '费用分类组头'].map((h) => (
-                              <th
-                                key={h}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          ['订单净收入', '其他'],
+                          ['平台服务费', '平台费用'],
+                          ['佣金 / 服务商佣金 / 招商服务费 / 站外推广费', '推广费用'],
+                          ['映射之外的新列（后端 details 出现新费用项）', '不显示组头（留空）'],
+                        ].map((r) => (
+                          <tr key={r[0]}>
+                            {r.map((c, i) => (
+                              <td
+                                key={i}
                                 style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}
                               >
-                                {h}
-                              </th>
+                                {c}
+                              </td>
                             ))}
                           </tr>
-                        </thead>
-                        <tbody>
-                          {[
-                            ['订单净收入', '其他'],
-                            ['平台服务费', '平台费用'],
-                            ['佣金 / 服务商佣金 / 招商服务费 / 站外推广费', '推广费用'],
-                            ['映射之外的新列（后端 details 出现新费用项）', '不显示组头（留空）'],
-                          ].map((r) => (
-                            <tr key={r[0]}>
-                              {r.map((c, i) => (
-                                <td
-                                  key={i}
-                                  style={{ border: '1px solid #d9d9d9', padding: '2px 8px' }}
-                                >
-                                  {c}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div>
-                      注：列维度映射中还维护了「管报名称」字段，当前它与列名相同（订单净收入的与其费用分类相同），
-                      无额外信息，因此表头只保留费用分类一层组头；将来若出现不同值，可在该层之下恢复管报名称层。
-                    </div>
-                    <div>
-                      最右侧固定 2 列：收入金额（入账）、支出金额（出账）。 后端 details
-                      中的「动账金额」「收入金额」「支出金额」三项明细已从列名中滤除（与最右侧两列含义重复）。
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </li>
+                  <div>
+                    注：列维度映射中还维护了「管报名称」字段，当前它与列名相同（订单净收入的与其费用分类相同），
+                    无额外信息，因此表头只保留费用分类一层组头；将来若出现不同值，可在该层之下恢复管报名称层。
+                  </div>
+                  <div>
+                    最右侧固定 2 列：收入金额（入账）、支出金额（出账）。 后端 details
+                    中的「动账金额」「收入金额」「支出金额」三项明细已从列名中滤除（与最右侧两列含义重复）。
+                  </div>
+                </div>
+              </li>
 
-                {/* 三、列取值口径 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>三、列取值口径</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      <strong>收入金额（入账）</strong> = 该分类首层 value &gt; 0 的部分，否则 0
-                    </div>
-                    <div>
-                      <strong>支出金额（出账）</strong> = 该分类首层 value &lt; 0
-                      的部分（保留负号），否则 0
-                    </div>
-                    <div>
-                      <strong>订单净收入</strong>（分三种情况，须先判断分类名）：
-                      <div style={{ marginLeft: 16 }}>
-                        <div>
-                          · <strong>小额打款</strong>：订单净收入 = 首层 value（注意：非 details
-                          里的值）；
-                        </div>
-                        <div>
-                          · <strong>纯收支分类</strong>（见第五点，除 小额打款 / 提现 /
-                          评价有礼活动资金回退 外）：订单净收入 = 收入金额（入账）；
-                        </div>
-                        <div>
-                          · <strong>其余分类（含 提现 / 评价有礼活动资金回退）</strong>：订单净收入
-                          = details 里「订单净收入」原值。
-                        </div>
+              {/* 三、列取值口径 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>三、列取值口径</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    <strong>收入金额（入账）</strong> = 该分类首层 value &gt; 0 的部分，否则 0
+                  </div>
+                  <div>
+                    <strong>支出金额（出账）</strong> = 该分类首层 value &lt; 0
+                    的部分（保留负号），否则 0
+                  </div>
+                  <div>
+                    <strong>订单净收入</strong>（分三种情况，须先判断分类名）：
+                    <div style={{ marginLeft: 16 }}>
+                      <div>
+                        · <strong>小额打款</strong>：订单净收入 = 首层 value（注意：非 details
+                        里的值）；
+                      </div>
+                      <div>
+                        · <strong>纯收支分类</strong>（见第五点，除 小额打款 / 提现 /
+                        评价有礼活动资金回退 外）：订单净收入 = 收入金额（入账）；
+                      </div>
+                      <div>
+                        · <strong>其余分类（含 提现 / 评价有礼活动资金回退）</strong>：订单净收入 =
+                        details 里「订单净收入」原值。
                       </div>
                     </div>
                   </div>
-                </li>
+                </div>
+              </li>
 
-                {/* 四、合计行 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>四、合计行</strong>＝每列所有分类的纵向相加。
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>· 订单净收入合计：按第三点“订单净收入”的分情况口径汇总；</div>
-                    <div>
-                      · 收入金额（入账）合计 = 各分类首层 value 正数之和； 支出金额（出账）合计 =
-                      各分类首层 value 负数之和。
-                    </div>
+              {/* 四、合计行 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>四、合计行</strong>＝每列所有分类的纵向相加。
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>· 订单净收入合计：按第三点“订单净收入”的分情况口径汇总；</div>
+                  <div>
+                    · 收入金额（入账）合计 = 各分类首层 value 正数之和； 支出金额（出账）合计 =
+                    各分类首层 value 负数之和。
                   </div>
-                </li>
+                </div>
+              </li>
 
-                {/* 五、纯收支分类 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>五、纯收支分类（除 小额打款 / 提现 / 评价有礼活动资金回退）</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      定义：某分类除「收入金额（入账）/ 支出金额（出账）」外，其余明细列 （含
-                      订单净收入 及全部费用列）均为 0，即后端未给出任何费用拆分。
-                    </div>
-                    <div>
-                      规则：<strong>订单净收入 = 收入金额（入账）</strong>（首层 value
-                      为正的部分，否则 0）； 且该分类的<strong>支出金额（出账）</strong>（首层 value
-                      为负的部分，保留负号） 计入<strong>本期费用</strong>。
-                    </div>
-                    <div>
-                      典型如：上门取件-支付快递费 / 退换货运费险 / 充值基础保证金 / 消费者赔付
-                      等纯支出项。
-                    </div>
+              {/* 五、纯收支分类 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>五、纯收支分类（除 小额打款 / 提现 / 评价有礼活动资金回退）</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    定义：某分类除「收入金额（入账）/ 支出金额（出账）」外，其余明细列 （含
+                    订单净收入 及全部费用列）均为 0，即后端未给出任何费用拆分。
                   </div>
-                </li>
+                  <div>
+                    规则：<strong>订单净收入 = 收入金额（入账）</strong>（首层 value
+                    为正的部分，否则 0）； 且该分类的<strong>支出金额（出账）</strong>（首层 value
+                    为负的部分，保留负号） 计入<strong>本期费用</strong>。
+                  </div>
+                  <div>
+                    典型如：上门取件-支付快递费 / 退换货运费险 / 充值基础保证金 / 消费者赔付
+                    等纯支出项。
+                  </div>
+                </div>
+              </li>
 
-                {/* 六、余额对账 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>六、余额对账表（顶部汇总表）字段</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      <strong>本期收款</strong> = 订单净收入合计（同一口径：小额打款取首层 value、
-                      纯收支分类取收入金额（入账）、其余取 details 原值）。
-                    </div>
-                    <div>
-                      <strong>本期费用</strong> = 平台服务费 + 佣金 + 服务商佣金 + 招商服务费 +
-                      站外推广费（五列的合计，保留负号）+ 除 小额打款 / 提现 / 评价有礼活动资金回退
-                      外各「纯收支」分类的支出金额（出账） + 分类为 平台费用 / 推广费用 的各行
-                      的收入金额（入账，冲减）。
-                    </div>
-                    <div>
-                      <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）；
-                      <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）。
-                    </div>
-                    <div>
-                      <strong>提现</strong> = 「提现」分类行的支出金额（出账）；
-                      <strong>结息</strong>：默认 0。
-                    </div>
+              {/* 六、余额对账 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>六、余额对账表（顶部汇总表）字段</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    <strong>本期收款</strong> = 订单净收入合计（同一口径：小额打款取首层 value、
+                    纯收支分类取收入金额（入账）、其余取 details 原值）。
                   </div>
-                </li>
+                  <div>
+                    <strong>本期费用</strong> = 平台服务费 + 佣金 + 服务商佣金 + 招商服务费 +
+                    站外推广费（五列的合计，保留负号）+ 除 小额打款 / 提现 / 评价有礼活动资金回退
+                    外各「纯收支」分类的支出金额（出账） + 分类为 平台费用 / 推广费用 的各行
+                    的收入金额（入账，冲减）。
+                  </div>
+                  <div>
+                    <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）；
+                    <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）。
+                  </div>
+                  <div>
+                    <strong>提现</strong> = 「提现」分类行的支出金额（出账）；
+                    <strong>结息</strong>：默认 0。
+                  </div>
+                </div>
+              </li>
 
-                {/* 七、计算余额 / 校验 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>七、计算余额与校验</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
-                    </div>
-                    <div>
-                      <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
-                      0.00，否则红色实际差异
-                    </div>
+              {/* 七、计算余额 / 校验 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>七、计算余额与校验</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
                   </div>
-                </li>
+                  <div>
+                    <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
+                    0.00，否则红色实际差异
+                  </div>
+                </div>
+              </li>
 
-                {/* 八、汇总费用表 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>八、汇总费用表（平台费用 + 推广费用）</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      仅取 分类 为<strong>平台费用 / 推广费用</strong>
-                      的数据，行分两类来源（行的数据取金额，列的数据取当列总计）：
-                    </div>
-                    <div>
-                      · <strong>首层分类行</strong>（业务描述（分类别）映射后属于平台费用 /
-                      推广费用）：金额 = 该分类首层 value（净额）＝「支出金额（出账）」（为负）
-                      ＋「收入金额（入账）」（为正），即出账与入账一并纳入；
-                    </div>
-                    <div>
-                      · <strong>费用列行</strong>（动态明细列的费用分类属于平台费用 / 推广费用，如
-                      平台服务费 / 佣金 / 服务商佣金 / 招商服务费 / 站外推广费）： 支出金额 =
-                      该列的纵向合计（当列总计）。
-                    </div>
-                    <div>
-                      行序：平台费用 → 推广费用；组内先首层分类行、后费用列行（保持出现顺序）； 相同
-                      分类 / 管报名称 的相邻单元格合并。
-                    </div>
-                    <div>
-                      <strong>合计</strong> = 本表各行金额之和（首层分类行已含「收入金额（入账）」，
-                      只含 平台费用 / 推广费用，不含 提现 等其他分类，
-                      与明细表「支出金额（出账）」列总计不同）。
-                    </div>
+              {/* 八、汇总费用表 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>八、汇总费用表（平台费用 + 推广费用）</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    仅取 分类 为<strong>平台费用 / 推广费用</strong>
+                    的数据，行分两类来源（行的数据取金额，列的数据取当列总计）：
                   </div>
-                </li>
-              </ul>
-            </div>
-          </Collapse.Panel>
-        </Collapse>
+                  <div>
+                    · <strong>首层分类行</strong>（业务描述（分类别）映射后属于平台费用 /
+                    推广费用）：金额 = 该分类首层 value（净额）＝「支出金额（出账）」（为负）
+                    ＋「收入金额（入账）」（为正），即出账与入账一并纳入；
+                  </div>
+                  <div>
+                    · <strong>费用列行</strong>（动态明细列的费用分类属于平台费用 / 推广费用，如
+                    平台服务费 / 佣金 / 服务商佣金 / 招商服务费 / 站外推广费）： 支出金额 =
+                    该列的纵向合计（当列总计）。
+                  </div>
+                  <div>
+                    行序：平台费用 → 推广费用；组内先首层分类行、后费用列行（保持出现顺序）； 相同
+                    分类 / 管报名称 的相邻单元格合并。
+                  </div>
+                  <div>
+                    <strong>合计</strong> = 本表各行金额之和（首层分类行已含「收入金额（入账）」，
+                    只含 平台费用 / 推广费用，不含 提现 等其他分类，
+                    与明细表「支出金额（出账）」列总计不同）。
+                  </div>
+                </div>
+              </li>
+              <PromotionFeeLogicNote promotionName="巨量千川服务费" />
+            </ul>
+          </div>
+        </LogicInfoModal>
 
         {/* 汇总费用：只取 平台费用 / 推广费用；行取金额（首层分类行含收入金额）/ 费用列当列总计，合计 = 本表各行金额之和 */}
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>

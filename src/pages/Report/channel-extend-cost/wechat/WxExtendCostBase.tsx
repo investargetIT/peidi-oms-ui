@@ -1,16 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Tooltip,
-  Button,
-  Collapse,
-  Input,
-  Select,
-  Table,
-  Space,
-  Modal,
-  message,
-  DatePicker,
-} from 'antd';
+import { Tooltip, Button, Input, Select, Table, Space, Modal, message, DatePicker } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import ChannelExtendCostApi, {
@@ -21,6 +10,7 @@ import ChannelExtendCostApi, {
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
+import { LogicInfoModal, ModalTitleWithLogic } from '../shared/LogicInfoModal';
 import { WX_WM_MAPPING_ROWS } from '../common/wxWmCategoryConfig';
 import { buildWxStat } from './batchStatBuilder';
 
@@ -55,6 +45,7 @@ const WxExtendCostBase: React.FC<WxExtendCostBaseProps> = ({
   const [shopsLoading, setShopsLoading] = useState(false);
 
   const [statModalVisible, setStatModalVisible] = useState(false);
+  const [logicVisible, setLogicVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
   const [wxStatData, setWxStatData] = useState<FinanceLedgerSummaryRowVo[]>([]);
@@ -359,9 +350,14 @@ const WxExtendCostBase: React.FC<WxExtendCostBaseProps> = ({
       />
 
       <Modal
-        title={statModalTitle}
+        title={
+          <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
+        }
         open={statModalVisible}
-        onCancel={() => setStatModalVisible(false)}
+        onCancel={() => {
+          setStatModalVisible(false);
+          setLogicVisible(false);
+        }}
         footer={null}
         width={1200}
         destroyOnClose
@@ -538,168 +534,166 @@ const WxExtendCostBase: React.FC<WxExtendCostBaseProps> = ({
         />
 
         {/* 计算逻辑说明 */}
-        <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-          <Collapse.Panel header="计算逻辑说明" key="1">
-            <div
-              style={{
-                background: '#f5f5f5',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                fontSize: 12,
-                lineHeight: 1.8,
-              }}
-            >
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {/* 〇、页面说明 */}
-                <li style={{ marginBottom: 8 }}>
-                  <strong>〇、页面说明</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      本页用于查看微信店铺每月费用与余额，共两张表：<strong>微信余额对账</strong>
-                      （顶部）与<strong>微信费用统计</strong>
-                      （明细）。下方列明各项口径，供对账与核对。
-                    </div>
+        <LogicInfoModal open={logicVisible} onClose={() => setLogicVisible(false)}>
+          <div
+            style={{
+              background: '#f5f5f5',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: 12,
+              lineHeight: 1.8,
+            }}
+          >
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {/* 〇、页面说明 */}
+              <li style={{ marginBottom: 8 }}>
+                <strong>〇、页面说明</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    本页用于查看微信店铺每月费用与余额，共两张表：<strong>微信余额对账</strong>
+                    （顶部）与<strong>微信费用统计</strong>
+                    （明细）。下方列明各项口径，供对账与核对。
                   </div>
-                </li>
+                </div>
+              </li>
 
-                {/* 一、微信费用统计（明细表） */}
-                <li style={{ marginBottom: 8 }}>
-                  <strong>一、微信费用统计（明细表）</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      共 5 列：<strong>费用分类 / 分类 / 业务类型 / 收支类型 / 金额（元）</strong>
-                      ，每行是一笔动账（业务类型 + 收入/支出）。
-                    </div>
-                    <div>
-                      <strong>归集规则</strong>
-                      ：金额与归属分类默认采用系统（后台）返回值；同时支持按「业务类型（动账类型）→
-                      分类 / 费用分类」做自定义归集。 完整映射如下，可搜索 /
-                      按费用分类筛选（如需调整，请维护人员修改公共配置{' '}
-                      <code>common/wxWmCategoryConfig.ts</code>）。
-                    </div>
-                    <div style={{ marginTop: 8 }}>
-                      <Input
-                        placeholder="搜索业务类型/分类/费用分类"
-                        prefix={<SearchOutlined />}
-                        allowClear
-                        size="small"
-                        style={{ width: 260, marginBottom: 8 }}
-                        value={feeTypeMappingSearch}
-                        onChange={(e) => setFeeTypeMappingSearch(e.target.value)}
-                      />
-                      <Table
-                        size="small"
-                        className="stat-table-small"
-                        columns={[
-                          {
-                            title: '费用分类',
-                            dataIndex: 'expenseCategory',
-                            key: 'expenseCategory',
-                            width: 100,
-                            filters: Array.from(
-                              new Set(WX_WM_MAPPING_ROWS.map((it) => it.expenseCategory)),
-                            ).map((v) => ({ text: v, value: v })),
-                            onFilter: (value: React.Key | boolean, record: any) =>
-                              record.expenseCategory === value,
-                          },
-                          {
-                            title: '分类',
-                            dataIndex: 'category',
-                            key: 'category',
-                            width: 100,
-                          },
-                          {
-                            title: '业务类型',
-                            dataIndex: 'businessType',
-                            key: 'businessType',
-                            width: 180,
-                          },
-                        ]}
-                        dataSource={WX_WM_MAPPING_ROWS.filter(
-                          (it) =>
-                            !feeTypeMappingSearch ||
-                            it.businessType.includes(feeTypeMappingSearch) ||
-                            it.category.includes(feeTypeMappingSearch) ||
-                            it.expenseCategory.includes(feeTypeMappingSearch),
-                        )}
-                        pagination={false}
-                        scroll={{ y: 200 }}
-                        style={{ background: '#fff' }}
-                      />
-                    </div>
-                    <div>
-                      <strong>展示上的合并</strong>
-                      ：费用分类相同的行合并展示；「分类」仅在它所处的费用分类内合并，便于一眼看清每个分组。
-                    </div>
+              {/* 一、微信费用统计（明细表） */}
+              <li style={{ marginBottom: 8 }}>
+                <strong>一、微信费用统计（明细表）</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    共 5 列：<strong>费用分类 / 分类 / 业务类型 / 收支类型 / 金额（元）</strong>
+                    ，每行是一笔动账（业务类型 + 收入/支出）。
                   </div>
-                </li>
+                  <div>
+                    <strong>归集规则</strong>
+                    ：金额与归属分类默认采用系统（后台）返回值；同时支持按「业务类型（动账类型）→
+                    分类 / 费用分类」做自定义归集。 完整映射如下，可搜索 /
+                    按费用分类筛选（如需调整，请维护人员修改公共配置{' '}
+                    <code>common/wxWmCategoryConfig.ts</code>）。
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <Input
+                      placeholder="搜索业务类型/分类/费用分类"
+                      prefix={<SearchOutlined />}
+                      allowClear
+                      size="small"
+                      style={{ width: 260, marginBottom: 8 }}
+                      value={feeTypeMappingSearch}
+                      onChange={(e) => setFeeTypeMappingSearch(e.target.value)}
+                    />
+                    <Table
+                      size="small"
+                      className="stat-table-small"
+                      columns={[
+                        {
+                          title: '费用分类',
+                          dataIndex: 'expenseCategory',
+                          key: 'expenseCategory',
+                          width: 100,
+                          filters: Array.from(
+                            new Set(WX_WM_MAPPING_ROWS.map((it) => it.expenseCategory)),
+                          ).map((v) => ({ text: v, value: v })),
+                          onFilter: (value: React.Key | boolean, record: any) =>
+                            record.expenseCategory === value,
+                        },
+                        {
+                          title: '分类',
+                          dataIndex: 'category',
+                          key: 'category',
+                          width: 100,
+                        },
+                        {
+                          title: '业务类型',
+                          dataIndex: 'businessType',
+                          key: 'businessType',
+                          width: 180,
+                        },
+                      ]}
+                      dataSource={WX_WM_MAPPING_ROWS.filter(
+                        (it) =>
+                          !feeTypeMappingSearch ||
+                          it.businessType.includes(feeTypeMappingSearch) ||
+                          it.category.includes(feeTypeMappingSearch) ||
+                          it.expenseCategory.includes(feeTypeMappingSearch),
+                      )}
+                      pagination={false}
+                      scroll={{ y: 200 }}
+                      style={{ background: '#fff' }}
+                    />
+                  </div>
+                  <div>
+                    <strong>展示上的合并</strong>
+                    ：费用分类相同的行合并展示；「分类」仅在它所处的费用分类内合并，便于一眼看清每个分组。
+                  </div>
+                </div>
+              </li>
 
-                {/* 二、金额口径 */}
-                <li style={{ marginBottom: 8 }}>
-                  <strong>二、金额口径</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      金额取系统返回值：<strong>收入为正数</strong>（绿色）、
-                      <strong>支出统一为负数</strong>（红色）。
-                    </div>
+              {/* 二、金额口径 */}
+              <li style={{ marginBottom: 8 }}>
+                <strong>二、金额口径</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    金额取系统返回值：<strong>收入为正数</strong>（绿色）、
+                    <strong>支出统一为负数</strong>（红色）。
                   </div>
-                </li>
+                </div>
+              </li>
 
-                {/* 三、总计行 */}
-                <li style={{ marginBottom: 8 }}>
-                  <strong>三、总计行</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      末行「总计」= 本期收入合计 + 本期支出合计（净额）。支出为负数，因此总计 = 收入
-                      − 支出，带 +/− 符号，正为绿、负为红；用于核对金额列是否加对。
-                    </div>
+              {/* 三、总计行 */}
+              <li style={{ marginBottom: 8 }}>
+                <strong>三、总计行</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    末行「总计」= 本期收入合计 + 本期支出合计（净额）。支出为负数，因此总计 = 收入 −
+                    支出，带 +/− 符号，正为绿、负为红；用于核对金额列是否加对。
                   </div>
-                </li>
+                </div>
+              </li>
 
-                {/* 四、微信余额对账 */}
-                <li style={{ marginBottom: 8 }}>
-                  <strong>四、微信余额对账</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      <strong>期末余额</strong>（本月末）/ <strong>上月余额</strong>
-                      （期初）均取「各渠道月账单」的 endingBalance / beginningBalance；
-                    </div>
-                    <div>
-                      <strong>本期收款</strong> = 明细里 分类=收款
-                      的收入与支出之和（收入为正、支出为负）；
-                    </div>
-                    <div>
-                      <strong>本期费用</strong> = 明细里 分类≠收款 且 分类≠提现
-                      的收入与支出之和（收入为正、支出为负）；
-                    </div>
-                    <div>
-                      <strong>提现</strong> = 明细里 分类=提现
-                      的收入与支出之和（收入为正、支出为负）；
-                    </div>
-                    <div>
-                      <strong>结息</strong>：本期暂不涉及，记为 0。
-                    </div>
+              {/* 四、微信余额对账 */}
+              <li style={{ marginBottom: 8 }}>
+                <strong>四、微信余额对账</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    <strong>期末余额</strong>（本月末）/ <strong>上月余额</strong>
+                    （期初）均取「各渠道月账单」的 endingBalance / beginningBalance；
                   </div>
-                </li>
+                  <div>
+                    <strong>本期收款</strong> = 明细里 分类=收款
+                    的收入与支出之和（收入为正、支出为负）；
+                  </div>
+                  <div>
+                    <strong>本期费用</strong> = 明细里 分类≠收款 且 分类≠提现
+                    的收入与支出之和（收入为正、支出为负）；
+                  </div>
+                  <div>
+                    <strong>提现</strong> = 明细里 分类=提现
+                    的收入与支出之和（收入为正、支出为负）；
+                  </div>
+                  <div>
+                    <strong>结息</strong>：本期暂不涉及，记为 0。
+                  </div>
+                </div>
+              </li>
 
-                {/* 五、计算余额与校验 */}
-                <li style={{ marginBottom: 8 }}>
-                  <strong>五、计算余额与校验</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 +
-                      结息（本期收款/本期费用/提现均已含收入与支出的正负号）。
-                    </div>
-                    <div>
-                      <strong>校验</strong> = 计算余额 − 期末余额：接近 0 表示账目对得上（显示 0.00
-                      绿色），否则红色显示差异，便于发现不平。
-                    </div>
+              {/* 五、计算余额与校验 */}
+              <li style={{ marginBottom: 8 }}>
+                <strong>五、计算余额与校验</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 +
+                    结息（本期收款/本期费用/提现均已含收入与支出的正负号）。
                   </div>
-                </li>
-              </ul>
-            </div>
-          </Collapse.Panel>
-        </Collapse>
+                  <div>
+                    <strong>校验</strong> = 计算余额 − 期末余额：接近 0 表示账目对得上（显示 0.00
+                    绿色），否则红色显示差异，便于发现不平。
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </LogicInfoModal>
 
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
           微信费用统计

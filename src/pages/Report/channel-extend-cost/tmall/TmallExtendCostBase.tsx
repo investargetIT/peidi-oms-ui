@@ -1,16 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Tooltip,
-  Button,
-  Input,
-  Select,
-  Table,
-  Space,
-  Modal,
-  Collapse,
-  message,
-  DatePicker,
-} from 'antd';
+import { Tooltip, Button, Input, Select, Table, Space, Modal, message, DatePicker } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import ChannelExtendCostApi, {
@@ -24,6 +13,8 @@ import { displayShopName } from '../common/shopNameMap';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
 import PromotionFeeBlock from '../shared/PromotionFeeBlock';
 import { usePromotionFee } from '../shared/usePromotionFee';
+import { LogicInfoModal, ModalTitleWithLogic } from '../shared/LogicInfoModal';
+import PromotionFeeLogicNote from '../shared/PromotionFeeLogicNote';
 import {
   remarkToCategory,
   TMALL_REMARK_CATEGORY_MAP,
@@ -83,6 +74,7 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
   const [shopsLoading, setShopsLoading] = useState(false);
 
   const [statModalVisible, setStatModalVisible] = useState(false);
+  const [logicVisible, setLogicVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
   const [statData, setStatData] = useState<FinanceZfbCostStatVo | null>(null);
@@ -562,9 +554,14 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
       />
 
       <Modal
-        title={statModalTitle}
+        title={
+          <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
+        }
         open={statModalVisible}
-        onCancel={() => setStatModalVisible(false)}
+        onCancel={() => {
+          setStatModalVisible(false);
+          setLogicVisible(false);
+        }}
         footer={null}
         width={1200}
         destroyOnClose
@@ -747,155 +744,164 @@ const TmallExtendCostBase: React.FC<TmallExtendCostBaseProps> = ({
         />
 
         {/* 计算逻辑说明 */}
-        <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-          <Collapse.Panel header="计算逻辑说明" key="1">
-            <div
-              style={{
-                background: '#f5f5f5',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                fontSize: 12,
-                margin: -16,
-              }}
-            >
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {/* 一、数据来源 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>一、数据来源（两个接口）</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      ① 明细 / 汇总 = 新接口 <code>POST /bill/zfb/detail-summary</code>（返回
-                      <code>rows</code> / <code>total</code> / <code>startDate</code> /{' '}
-                      <code>endDate</code>）；
-                    </div>
-                    <div>
-                      ② 余额（上月余额 / 期末余额）= 老接口 <code>GET /cost-category-stat</code>
-                      ，只取
-                      <code>PDD_LAST_BALANCE</code>（上月/期初）和 <code>PDD_BALANCE</code>
-                      （本月期末）两条的
-                      <code>totalIncome</code>；接口未返回时回退 <code>queryEndingBalance</code>。
-                    </div>
+        <LogicInfoModal open={logicVisible} onClose={() => setLogicVisible(false)}>
+          <div
+            style={{
+              background: '#f5f5f5',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: 12,
+              margin: 0,
+            }}
+          >
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {/* 一、数据来源 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>一、数据来源（两个接口）</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    ① 明细 / 汇总 = 新接口 <code>POST /bill/zfb/detail-summary</code>（返回
+                    <code>rows</code> / <code>total</code> / <code>startDate</code> /{' '}
+                    <code>endDate</code>）；
                   </div>
-                </li>
+                  <div>
+                    ② 余额（上月余额 / 期末余额）= 老接口 <code>GET /cost-category-stat</code>
+                    ，只取
+                    <code>PDD_LAST_BALANCE</code>（上月/期初）和 <code>PDD_BALANCE</code>
+                    （本月期末）两条的
+                    <code>totalIncome</code>；接口未返回时回退 <code>queryEndingBalance</code>。
+                  </div>
+                </div>
+              </li>
 
-                {/* 二、余额对账表 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>二、余额对账表（顶部汇总表）字段</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      <strong>本期收款</strong> = 「收款」分类的收入金额 + 支出金额（明细汇总 rows
-                      按分类归类）。
-                    </div>
-                    <div>
-                      <strong>提现</strong> = 「提现」分类的收入金额 + 支出金额。
-                    </div>
-                    <div>
-                      <strong>结息</strong> = 「结息」分类的收入金额 + 支出金额。
-                    </div>
-                    <div>
-                      <strong>本期费用</strong> = 移除 收款 / 提现 / 结息 后，其余分类的收入金额 +
-                      支出金额 之和。
-                    </div>
-                    <div>
-                      <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）；
-                      <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）。
-                    </div>
+              {/* 二、余额对账表 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>二、余额对账表（顶部汇总表）字段</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    <strong>本期收款</strong> = 「收款」分类的收入金额 + 支出金额（明细汇总 rows
+                    按分类归类）。
                   </div>
-                </li>
+                  <div>
+                    <strong>提现</strong> = 「提现」分类的收入金额 + 支出金额。
+                  </div>
+                  <div>
+                    <strong>结息</strong> = 「结息」分类的收入金额 + 支出金额。
+                  </div>
+                  <div>
+                    <strong>本期费用</strong> = 移除 收款 / 提现 / 结息 后，其余分类的收入金额 +
+                    支出金额 之和。
+                  </div>
+                  <div>
+                    <strong>上月余额</strong> = 各渠道月账单的期初余额（beginningBalance）；
+                    <strong>期末余额</strong> = 各渠道月账单的期末余额（endingBalance）。
+                  </div>
+                </div>
+              </li>
 
-                {/* 三、计算余额 / 校验 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>三、计算余额与校验</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
-                    </div>
-                    <div>
-                      <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
-                      0.00，否则红色实际差异
-                    </div>
+              {/* 三、计算余额 / 校验 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>三、计算余额与校验</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
                   </div>
-                </li>
+                  <div>
+                    <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
+                    0.00，否则红色实际差异
+                  </div>
+                </div>
+              </li>
 
-                {/* 四、账单明细汇总 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>四、账单明细汇总表（下方明细表）</strong>
-                  <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
-                    <div>
-                      ·
-                      列：费用分类（按固定映射归一）、分类（由备注归一）、备注（接口原样）、对方账号、收入金额、支出金额，来自接口
-                      rows。
-                    </div>
-                    <div>
-                      · 「分类」=
-                      由「备注」按固定映射归一（多数两者同名，仅「收款」下各明细以备注细分）。
-                    </div>
-                    <div>· 「费用分类」与「分类」相同取值分别合并（rowSpan）展示。</div>
-                    <div>· 底部合计行取接口 total（收入 / 支出全量合计）。</div>
-                    <div>· 收入金额 / 支出金额为固定列，横向滚动时保持可见。</div>
+              {/* 四、账单明细汇总 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>四、账单明细汇总表（下方明细表）</strong>
+                <div style={{ marginLeft: 16, lineHeight: 1.8 }}>
+                  <div>
+                    ·
+                    列：费用分类（按固定映射归一）、分类（由备注归一）、备注（接口原样）、对方账号、收入金额、支出金额，来自接口
+                    rows。
                   </div>
-                </li>
+                  <div>
+                    · 「分类」=
+                    由「备注」按固定映射归一（多数两者同名，仅「收款」下各明细以备注细分）。
+                  </div>
+                  <div>· 「费用分类」与「分类」相同取值分别合并（rowSpan）展示。</div>
+                  <div>· 底部合计行取接口 total（收入 / 支出全量合计）。</div>
+                  <div>· 收入金额 / 支出金额为固定列，横向滚动时保持可见。</div>
+                </div>
+              </li>
 
-                {/* 五、费用分类映射 */}
-                <li style={{ marginBottom: 0 }}>
-                  <strong>五、费用分类映射：</strong>
-                  明细表「费用分类 /
-                  分类」均按固定映射由「备注」归一（对应关系由业务提供，重复项已去重）； 明细行按
-                  费用分类（推广费用 → 平台费用 → 其他 →
-                  未映射）分组排序，相同「费用分类」与「分类」的单元格分别合并展示。
-                  完整映射如下，可搜索 / 按费用分类筛选。
-                  <div style={{ marginTop: 4, color: '#999' }}>
-                    兜底：若接口返回了映射之外的分类，会追加到末尾，归类为「空-该分类」。
-                  </div>
-                  <div style={{ marginTop: 8 }}>
-                    <Input
-                      placeholder="搜索备注/分类或费用分类"
-                      prefix={<SearchOutlined />}
-                      allowClear
-                      size="small"
-                      style={{ width: 220, marginBottom: 8 }}
-                      value={feeTypeMappingSearch}
-                      onChange={(e) => setFeeTypeMappingSearch(e.target.value)}
-                    />
-                    <Table
-                      size="small"
-                      className="stat-table-compact"
-                      columns={[
-                        {
-                          title: '费用分类',
-                          dataIndex: 'feeType',
-                          key: 'feeType',
-                          width: 100,
-                          filters: TMALL_FEE_TYPE_GROUPS.map((group) => ({
-                            text: group.feeType,
-                            value: group.feeType,
-                          })),
-                          onFilter: (value: React.Key | boolean, record: any) =>
-                            record.feeType === value,
-                          render: (text: string) => (
-                            <span style={{ fontWeight: 'bold' }}>{text}</span>
-                          ),
-                        },
-                        { title: '分类', dataIndex: 'category', key: 'category' },
-                        { title: '备注', dataIndex: 'remark', key: 'remark' },
-                      ]}
-                      dataSource={TMALL_FEE_TYPE_ROWS.filter(
-                        (it) =>
-                          !feeTypeMappingSearch ||
-                          it.remark.includes(feeTypeMappingSearch) ||
-                          it.category.includes(feeTypeMappingSearch) ||
-                          it.feeType.includes(feeTypeMappingSearch),
-                      )}
-                      pagination={false}
-                      scroll={{ y: 280 }}
-                      style={{ background: '#fff' }}
-                    />
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </Collapse.Panel>
-        </Collapse>
+              {/* 五、费用分类映射 */}
+              <li style={{ marginBottom: 0 }}>
+                <strong>五、费用分类映射：</strong>
+                明细表「费用分类 /
+                分类」均按固定映射由「备注」归一（对应关系由业务提供，重复项已去重）； 明细行按
+                费用分类（推广费用 → 平台费用 → 其他 →
+                未映射）分组排序，相同「费用分类」与「分类」的单元格分别合并展示。
+                完整映射如下，可搜索 / 按费用分类筛选。
+                <div
+                  style={{
+                    marginTop: 6,
+                    color: '#595959',
+                    borderLeft: '3px solid #d9d9d9',
+                    paddingLeft: 8,
+                  }}
+                >
+                  兜底：若接口返回了映射之外的分类，会追加到末尾，归类为「空-该分类」。
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <Input
+                    placeholder="搜索备注/分类或费用分类"
+                    prefix={<SearchOutlined />}
+                    allowClear
+                    size="small"
+                    style={{ width: 220, marginBottom: 8 }}
+                    value={feeTypeMappingSearch}
+                    onChange={(e) => setFeeTypeMappingSearch(e.target.value)}
+                  />
+                  <Table
+                    size="small"
+                    className="stat-table-compact"
+                    columns={[
+                      {
+                        title: '费用分类',
+                        dataIndex: 'feeType',
+                        key: 'feeType',
+                        width: 100,
+                        filters: TMALL_FEE_TYPE_GROUPS.map((group) => ({
+                          text: group.feeType,
+                          value: group.feeType,
+                        })),
+                        onFilter: (value: React.Key | boolean, record: any) =>
+                          record.feeType === value,
+                        render: (text: string) => (
+                          <span style={{ fontWeight: 'bold' }}>{text}</span>
+                        ),
+                      },
+                      { title: '分类', dataIndex: 'category', key: 'category' },
+                      { title: '备注', dataIndex: 'remark', key: 'remark' },
+                    ]}
+                    dataSource={TMALL_FEE_TYPE_ROWS.filter(
+                      (it) =>
+                        !feeTypeMappingSearch ||
+                        it.remark.includes(feeTypeMappingSearch) ||
+                        it.category.includes(feeTypeMappingSearch) ||
+                        it.feeType.includes(feeTypeMappingSearch),
+                    )}
+                    pagination={false}
+                    scroll={{ y: 280 }}
+                    style={{ background: '#fff' }}
+                  />
+                </div>
+              </li>
+              <PromotionFeeLogicNote
+                promotionName="接口返回的 accountName（如 万相台无界 / 品销宝-品牌专区），不强匹配"
+                extra="天猫多账户按 accountName 分行展示；推广费走支付宝账单（channel=支付宝）查询。"
+              />
+            </ul>
+          </div>
+        </LogicInfoModal>
 
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>账单明细汇总</div>
         <Table

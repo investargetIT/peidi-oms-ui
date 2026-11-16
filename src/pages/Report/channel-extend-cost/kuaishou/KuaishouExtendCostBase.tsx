@@ -1,16 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  Tooltip,
-  Button,
-  Collapse,
-  Input,
-  Select,
-  Table,
-  Space,
-  Modal,
-  message,
-  DatePicker,
-} from 'antd';
+import { Tooltip, Button, Input, Select, Table, Space, Modal, message, DatePicker } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import ChannelExtendCostApi, {
@@ -21,6 +10,7 @@ import ChannelExtendCostApi, {
 } from '@/services/channelExtendCostApi';
 import { displayShopName } from '../common/shopNameMap';
 import { fetchBillBalances } from '../shared/billBalanceFetcher';
+import { LogicInfoModal, ModalTitleWithLogic } from '../shared/LogicInfoModal';
 import { buildKuaishouStat } from './batchStatBuilder';
 
 export interface KuaishouExtendCostBaseProps {
@@ -52,6 +42,7 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
   const [shopsLoading, setShopsLoading] = useState(false);
 
   const [statModalVisible, setStatModalVisible] = useState(false);
+  const [logicVisible, setLogicVisible] = useState(false);
   const [statModalTitle, setStatModalTitle] = useState('');
   const [statLoading, setStatLoading] = useState(false);
   const [kuaishouStatData, setKuaishouStatData] = useState<FinanceKuaishouCostStatItemVo[]>([]);
@@ -353,9 +344,14 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
       />
 
       <Modal
-        title={statModalTitle}
+        title={
+          <ModalTitleWithLogic title={statModalTitle} onOpenLogic={() => setLogicVisible(true)} />
+        }
         open={statModalVisible}
-        onCancel={() => setStatModalVisible(false)}
+        onCancel={() => {
+          setStatModalVisible(false);
+          setLogicVisible(false);
+        }}
         footer={null}
         width={1200}
         destroyOnClose
@@ -532,137 +528,135 @@ const KuaishouExtendCostBase: React.FC<KuaishouExtendCostBaseProps> = ({
         />
 
         {/* 计算逻辑说明 */}
-        <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-          <Collapse.Panel header="计算逻辑说明" key="1">
-            <div
-              style={{
-                background: '#f5f5f5',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                fontSize: 12,
-                lineHeight: 1.8,
-              }}
-            >
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {/* 一、数据来源 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>一、数据来源（两个接口）</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      ① 费用明细 = 新接口 <code>GET /kuaishou-cost-stat</code>（按 business_desc
-                      分类， 返回 <code>name / type / value</code>，金额含正负号）；
-                    </div>
-                    <div>
-                      ② 余额（上月余额 / 期末余额）= 各渠道月账单{' '}
-                      <code>POST /finance/zfb-bill/page</code> 的<code>beginningBalance</code>
-                      （上月/期初）和 <code>endingBalance</code>（本月期末）； 账单未生成 /
-                      未填余额时显示空值。
-                    </div>
+        <LogicInfoModal open={logicVisible} onClose={() => setLogicVisible(false)}>
+          <div
+            style={{
+              background: '#f5f5f5',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: 12,
+              lineHeight: 1.8,
+            }}
+          >
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {/* 一、数据来源 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>一、数据来源（两个接口）</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    ① 费用明细 = 新接口 <code>GET /kuaishou-cost-stat</code>（按 business_desc
+                    分类， 返回 <code>name / type / value</code>，金额含正负号）；
                   </div>
-                </li>
+                  <div>
+                    ② 余额（上月余额 / 期末余额）= 各渠道月账单{' '}
+                    <code>POST /finance/zfb-bill/page</code> 的<code>beginningBalance</code>
+                    （上月/期初）和 <code>endingBalance</code>（本月期末）； 账单未生成 /
+                    未填余额时显示空值。
+                  </div>
+                </div>
+              </li>
 
-                {/* 二、明细表列结构 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>二、费用统计表列结构</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      固定 4 列：<strong>分类</strong> / <strong>管报名称</strong> /{' '}
-                      <strong>收入</strong> / <strong>支出</strong>。
-                    </div>
-                    <div>
-                      固定行模板，分类三种：<strong>其他</strong> / <strong>平台费用</strong> /{' '}
-                      <strong>推广费用</strong>； 按后端返回的 <code>name</code> 匹配取数，
-                      <strong>后端未返回该 name 的行不展示</strong>（只展示有数据的行）。
-                    </div>
+              {/* 二、明细表列结构 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>二、费用统计表列结构</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    固定 4 列：<strong>分类</strong> / <strong>管报名称</strong> /{' '}
+                    <strong>收入</strong> / <strong>支出</strong>。
                   </div>
-                </li>
+                  <div>
+                    固定行模板，分类三种：<strong>其他</strong> / <strong>平台费用</strong> /{' '}
+                    <strong>推广费用</strong>； 按后端返回的 <code>name</code> 匹配取数，
+                    <strong>后端未返回该 name 的行不展示</strong>（只展示有数据的行）。
+                  </div>
+                </div>
+              </li>
 
-                {/* 三、分类归属 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>三、分类归属规则</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      · <strong>其他</strong>：其他（净收入）= <code>合计收入</code> -{' '}
-                      <code>订单退款</code>；
-                    </div>
-                    <div>
-                      · <strong>平台费用</strong>：赔付 / 技术服务费 / 商城分销信息服务费 / 其他收费
-                      / 运费险（后端 运费险类）；
-                    </div>
-                    <div>
-                      · <strong>推广费用</strong>：达人佣金 / 团长佣金 / 服务商佣金。
-                    </div>
+              {/* 三、分类归属 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>三、分类归属规则</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    · <strong>其他</strong>：其他（净收入）= <code>合计收入</code> -{' '}
+                    <code>订单退款</code>；
                   </div>
-                </li>
+                  <div>
+                    · <strong>平台费用</strong>：赔付 / 技术服务费 / 商城分销信息服务费 / 其他收费 /
+                    运费险（后端 运费险类）；
+                  </div>
+                  <div>
+                    · <strong>推广费用</strong>：达人佣金 / 团长佣金 / 服务商佣金。
+                  </div>
+                </div>
+              </li>
 
-                {/* 四、收入 / 支出列取值 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>四、收入 / 支出列取值</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      以模板行为准：净收入按「合计收入 - 订单退款」结果为正填{' '}
-                      <strong>收入列</strong>、为负填 <strong>支出列</strong>；
-                    </div>
-                    <div>
-                      直出行（赔付 / 技术服务费 / 商城分销信息服务费 / 其他收费 / 运费险 /
-                      各佣金）按后端 <code>type</code>{' '}
-                      判断——「收入」填收入列（正数）、「支出」填支出列（负数，保留负号）。
-                    </div>
+              {/* 四、收入 / 支出列取值 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>四、收入 / 支出列取值</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    以模板行为准：净收入按「合计收入 - 订单退款」结果为正填 <strong>收入列</strong>
+                    、为负填 <strong>支出列</strong>；
                   </div>
-                </li>
+                  <div>
+                    直出行（赔付 / 技术服务费 / 商城分销信息服务费 / 其他收费 / 运费险 /
+                    各佣金）按后端 <code>type</code>{' '}
+                    判断——「收入」填收入列（正数）、「支出」填支出列（负数，保留负号）。
+                  </div>
+                </div>
+              </li>
 
-                {/* 五、合计行 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>五、合计行</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      · <strong>收入合计</strong> = 收入列所有值之和（净收入）；
-                    </div>
-                    <div>
-                      · <strong>支出合计</strong> = 支出列所有值之和（赔付 + 技术服务费 +
-                      商城分销信息服务费 + 其他收费 + 运费险 + 各佣金，保留负号）。
-                    </div>
+              {/* 五、合计行 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>五、合计行</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    · <strong>收入合计</strong> = 收入列所有值之和（净收入）；
                   </div>
-                </li>
+                  <div>
+                    · <strong>支出合计</strong> = 支出列所有值之和（赔付 + 技术服务费 +
+                    商城分销信息服务费 + 其他收费 + 运费险 + 各佣金，保留负号）。
+                  </div>
+                </div>
+              </li>
 
-                {/* 六、余额对账 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>六、余额对账表字段</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      <strong>期末余额 / 上月余额</strong> = 各渠道月账单（
-                      <code>/finance/zfb-bill/page</code>）的
-                      <code>endingBalance</code> / <code>beginningBalance</code>；
-                    </div>
-                    <div>
-                      <strong>本期收款</strong> = 收入列之和；
-                    </div>
-                    <div>
-                      <strong>本期费用</strong> = 支出列之和（保留负号）；
-                    </div>
-                    <div>
-                      <strong>提现</strong> / <strong>结息</strong>：当前默认 0。
-                    </div>
+              {/* 六、余额对账 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>六、余额对账表字段</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    <strong>期末余额 / 上月余额</strong> = 各渠道月账单（
+                    <code>/finance/zfb-bill/page</code>）的
+                    <code>endingBalance</code> / <code>beginningBalance</code>；
                   </div>
-                </li>
+                  <div>
+                    <strong>本期收款</strong> = 收入列之和；
+                  </div>
+                  <div>
+                    <strong>本期费用</strong> = 支出列之和（保留负号）；
+                  </div>
+                  <div>
+                    <strong>提现</strong> / <strong>结息</strong>：当前默认 0。
+                  </div>
+                </div>
+              </li>
 
-                {/* 七、计算余额 / 校验 */}
-                <li style={{ marginBottom: 6 }}>
-                  <strong>七、计算余额与校验</strong>
-                  <div style={{ marginLeft: 16 }}>
-                    <div>
-                      <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
-                    </div>
-                    <div>
-                      <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
-                      0.00，否则红色实际差异。
-                    </div>
+              {/* 七、计算余额 / 校验 */}
+              <li style={{ marginBottom: 6 }}>
+                <strong>七、计算余额与校验</strong>
+                <div style={{ marginLeft: 16 }}>
+                  <div>
+                    <strong>计算余额</strong> = 上月余额 + 本期收款 + 本期费用 + 提现 + 结息
                   </div>
-                </li>
-              </ul>
-            </div>
-          </Collapse.Panel>
-        </Collapse>
+                  <div>
+                    <strong>校验</strong> = 计算余额 - 期末余额；|值| &lt; 0.001 显示绿色
+                    0.00，否则红色实际差异。
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </LogicInfoModal>
 
         <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
           快手费用统计
