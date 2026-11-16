@@ -8,6 +8,7 @@ import {
   Select,
   Space,
   Table,
+  Tag,
   Upload,
   message,
 } from 'antd';
@@ -19,12 +20,29 @@ import ManagementReportApi, {
   type FinanceZfbBillInfoPageReq,
   type FinanceZfbBillInfoVo,
   type IPageFinanceZfbBillInfoVo,
-  type FinanceZfbBillGenerateReq,
+  type FinanceZfbBillGenerateVo,
+  type FinanceZfbBillGenerateAccountVo,
   type FinanceChannelExtendCostImportVo,
 } from '@/services/managementReportApi';
 import { channelBillColumns } from '../columns';
 import { useUploadTasks } from '../common/uploadTaskStore';
 import ExportAllBillsButton from '../common/ExportAllBillsButton';
+
+/** 账单生成状态展示 */
+const GENERATE_STATUS_META: Record<number, { color: string; text: string }> = {
+  0: { color: 'default', text: '待生成' },
+  1: { color: 'processing', text: '生成中' },
+  2: { color: 'success', text: '生成成功' },
+  3: { color: 'error', text: '生成失败' },
+  5: { color: 'warning', text: '无业务数据' },
+  6: { color: 'error', text: '未知错误' },
+};
+
+const renderGenerateStatus = (status?: number | null) => {
+  if (status === null || status === undefined) return <Tag>未生成</Tag>;
+  const meta = GENERATE_STATUS_META[status];
+  return meta ? <Tag color={meta.color}>{meta.text}</Tag> : <Tag>{status}</Tag>;
+};
 
 const ZfbBillPanel: React.FC = () => {
   const { addTask, updateTask } = useUploadTasks();
@@ -40,6 +58,13 @@ const ZfbBillPanel: React.FC = () => {
   const [generateLoading, setGenerateLoading] = useState(false);
   const [generateCooldown, setGenerateCooldown] = useState<number>(0);
   const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 生成账单：账户选择弹窗 + 触发状态
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountList, setAccountList] = useState<FinanceZfbBillGenerateAccountVo[]>([]);
+  const [selectedConfigIds, setSelectedConfigIds] = useState<number[]>([]);
+  const [generateInfo, setGenerateInfo] = useState<FinanceZfbBillGenerateVo | null>(null);
+  const [triggerLoading, setTriggerLoading] = useState(false);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [selectedRows, setSelectedRows] = useState<FinanceZfbBillInfoVo[]>([]);
   const [batchExportLoading, setBatchExportLoading] = useState(false);
@@ -67,12 +92,20 @@ const ZfbBillPanel: React.FC = () => {
         platform: '支付宝',
         ...params,
       };
-      const res: { code: number; data?: IPageFinanceZfbBillInfoVo; msg?: string; success?: boolean } =
-        await ManagementReportApi.getZfbBillPage(searchParams);
+      const res: {
+        code: number;
+        data?: IPageFinanceZfbBillInfoVo;
+        msg?: string;
+        success?: boolean;
+      } = await ManagementReportApi.getZfbBillPage(searchParams);
       if (res.code === 200) {
         const data = res.data || ({} as IPageFinanceZfbBillInfoVo);
         setBillData(data.records || []);
-        setBillPagination({ current: data.current || 1, pageSize: data.size || 10, total: data.total || 0 });
+        setBillPagination({
+          current: data.current || 1,
+          pageSize: data.size || 10,
+          total: data.total || 0,
+        });
       } else if (res.code === 500) {
         message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
       } else {
@@ -104,9 +137,11 @@ const ZfbBillPanel: React.FC = () => {
     fetchBill({ pageNum: 1 });
   };
 
-  const startGenerateCooldown = () => {
+  const startGenerateCooldown = (seconds: number) => {
     if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
-    setGenerateCooldown(60);
+    const safe = Math.max(0, Math.floor(seconds || 0));
+    setGenerateCooldown(safe);
+    if (safe <= 0) return;
     cooldownTimerRef.current = setInterval(() => {
       setGenerateCooldown((prev) => {
         if (prev <= 1) {
@@ -121,53 +156,137 @@ const ZfbBillPanel: React.FC = () => {
     }, 1000);
   };
 
+  const formatCooldown = (seconds: number) =>
+    `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+
+  const stopGeneratePolling = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  };
+
+  // 触发后每 30 秒刷新一次，直到没有「生成中」的账号（最多轮询 30 分钟）
+  const startGeneratePolling = () => {
+    stopGeneratePolling();
+    const yearMonth = billDate ? billDate.format('YYYY-MM') : '';
+    if (!yearMonth) return;
+    let ticks = 0;
+    pollTimerRef.current = setInterval(async () => {
+      ticks += 1;
+      try {
+        // 刷新当前可见列表
+        fetchBill({ pageNum: billPagination.current });
+        // 用不带筛选条件的全量查询判断是否还有「生成中」
+        const res = await ManagementReportApi.getZfbBillPage({
+          pageNum: 1,
+          pageSize: 500,
+          billDate: yearMonth,
+          platform: '支付宝',
+        });
+        const records = res.data?.records || [];
+        const stillGenerating = records.some((r) => r.generateStatus === 1);
+        // 刚触发时记录可能还没落库，至少轮询 2 次再判断结束
+        if ((!stillGenerating && ticks >= 2) || ticks >= 60) stopGeneratePolling();
+      } catch (error) {
+        console.warn('轮询支付宝账单生成状态失败', error);
+      }
+    }, 30000);
+  };
+
   useEffect(() => {
     return () => {
       if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
   }, []);
 
+  const applyGenerateInfo = (data: FinanceZfbBillGenerateVo) => {
+    setGenerateInfo(data);
+    startGenerateCooldown(data.cooldownRemainingSeconds || 0);
+  };
+
+  // 默认勾选：已配置 token 且该月未成功（null / 3 / 5 / 6）的账号
+  const pickDefaultConfigIds = (accounts: FinanceZfbBillGenerateAccountVo[]) =>
+    accounts
+      .filter(
+        (a) =>
+          a.tokenConfigured !== false &&
+          (a.generateStatus === null ||
+            a.generateStatus === undefined ||
+            [3, 5, 6].includes(a.generateStatus)),
+      )
+      .map((a) => a.configId);
+
+  // 第一步：列表模式（只传 billDate），拉取可选账户
   const handleGenerate = async () => {
-    if (generateCooldown > 0) {
-      message.warning(`操作过于频繁，请 ${generateCooldown} 秒后再试`);
-      return;
-    }
     if (!billDate) {
       message.error('请先选择账单日期');
       return;
     }
-    const params: FinanceZfbBillGenerateReq = { billDate: billDate.format('YYYY-MM') };
-    Modal.confirm({
-      title: '生成支付宝月账单',
-      content: `确定要生成 ${params.billDate} 的支付宝月账单吗？`,
-      okText: '确认生成',
-      cancelText: '取消',
-      okButtonProps: {
-        className: 'grayblue-btn',
-        style: { background: '#2f54eb', borderColor: '#2f54eb' },
-      },
-      onOk: async () => {
-        // 只有用户点了"确认生成"才启动 60 秒倒计时，避免取消后仍然处于冷却
-        startGenerateCooldown();
-        setGenerateLoading(true);
-        try {
-          const res = await ManagementReportApi.generateZfbBill(params);
-          if (res.code === 200 || res.success) {
-            message.success('生成任务已提交，请稍后刷新查看');
-            fetchBill({ pageNum: 1 });
-          } else if (res.code === 500) {
-            message.error(typeof res.data === 'string' ? res.data : res.msg || '生成失败');
-          } else {
-            message.error(res.msg || '生成失败');
-          }
-        } catch (error) {
-          console.error('生成支付宝账单失败:', error);
-          message.error('生成支付宝账单失败');
-        } finally {
-          setGenerateLoading(false);
-        }
-      },
-    });
+    setGenerateLoading(true);
+    try {
+      const res = await ManagementReportApi.generateZfbBill({
+        billDate: billDate.format('YYYY-MM'),
+      });
+      if (res.code !== 200 || !res.data) {
+        message.error(res.msg || (typeof res.data === 'string' ? res.data : '获取账户列表失败'));
+        return;
+      }
+      const data = res.data;
+      applyGenerateInfo(data);
+      const accounts = data.accounts || [];
+      setAccountList(accounts);
+      setSelectedConfigIds(pickDefaultConfigIds(accounts));
+      setAccountModalOpen(true);
+    } catch (error) {
+      console.error('获取支付宝账户列表失败:', error);
+      message.error('获取支付宝账户列表失败');
+    } finally {
+      setGenerateLoading(false);
+    }
+  };
+
+  // 第二步：触发模式（billDate + configIds）
+  const handleTriggerGenerate = async () => {
+    if (!billDate) {
+      message.error('请先选择账单日期');
+      return;
+    }
+    if (!generateInfo?.canTrigger) {
+      message.warning(generateInfo?.message || '当前不可触发生成');
+      return;
+    }
+    if (selectedConfigIds.length === 0) {
+      message.warning('请至少选择一个账户');
+      return;
+    }
+    setTriggerLoading(true);
+    try {
+      const res = await ManagementReportApi.generateZfbBill({
+        billDate: billDate.format('YYYY-MM'),
+        configIds: selectedConfigIds,
+      });
+      if (res.code !== 200 || !res.data) {
+        message.error(res.msg || (typeof res.data === 'string' ? res.data : '生成失败'));
+        return;
+      }
+      const data = res.data;
+      applyGenerateInfo(data);
+      if (data.triggered) {
+        message.success(data.message || '生成任务已提交，请稍后刷新查看');
+        setAccountModalOpen(false);
+        startGeneratePolling();
+        fetchBill({ pageNum: 1 });
+      } else {
+        message.warning(data.message || '当前不可触发生成');
+      }
+    } catch (error) {
+      console.error('触发生成支付宝账单失败:', error);
+      message.error('触发生成支付宝账单失败');
+    } finally {
+      setTriggerLoading(false);
+    }
   };
 
   const clearSelection = () => {
@@ -235,13 +354,17 @@ const ZfbBillPanel: React.FC = () => {
   const fetchStockoutList = async (dateStr: string) => {
     setStockoutLoading(true);
     try {
-      const res: { code: number; data?: IPageFinanceZfbBillInfoVo; msg?: string; success?: boolean } =
-        await ManagementReportApi.getZfbBillPage({
-          pageNum: 1,
-          pageSize: 9999,
-          platform: '支付宝',
-          billDate: dateStr,
-        });
+      const res: {
+        code: number;
+        data?: IPageFinanceZfbBillInfoVo;
+        msg?: string;
+        success?: boolean;
+      } = await ManagementReportApi.getZfbBillPage({
+        pageNum: 1,
+        pageSize: 9999,
+        platform: '支付宝',
+        billDate: dateStr,
+      });
       if (res.code === 200) {
         setStockoutList(res.data?.records || []);
       } else {
@@ -342,7 +465,9 @@ const ZfbBillPanel: React.FC = () => {
           const success = result.successCount ?? 0;
           const total = result.totalCount ?? 0;
           message.success(
-            `【${shopName} / ${billDateStr}】上传完成：共 ${total} 条，成功 ${success} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`,
+            `【${shopName} / ${billDateStr}】上传完成：共 ${total} 条，成功 ${success} 条${
+              fail > 0 ? `，失败 ${fail} 条` : ''
+            }`,
           );
         } else {
           updateTask(taskId, {
@@ -355,8 +480,7 @@ const ZfbBillPanel: React.FC = () => {
       })
       .catch((error) => {
         console.error('上传缺货赔付账单失败:', error);
-        const errMsg =
-          (error && (error.msg || error.message)) || '上传失败，请稍后重试';
+        const errMsg = (error && (error.msg || error.message)) || '上传失败，请稍后重试';
         updateTask(taskId, {
           status: 'failed',
           finishedAt: Date.now(),
@@ -387,13 +511,40 @@ const ZfbBillPanel: React.FC = () => {
         description={
           <div style={{ fontSize: 13, lineHeight: 1.8 }}>
             <div>
-              1. 使用 <a href="mailto:peidizhichuang2001@163.com" onClick={(e) => e.stopPropagation()}>peidizhichuang2001@163.com</a> 登陆 <a href="https://auth.alipay.com/login/index.htm?goto=https%3A%2F%2Fopen.alipay.com%2Fdevelop%2Fmanage" target="_blank" rel="noopener noreferrer">https://auth.alipay.com/login/index.htm?goto=https%3A%2F%2Fopen.alipay.com%2Fdevelop%2Fmanage</a>
+              1. 使用{' '}
+              <a href="mailto:peidizhichuang2001@163.com" onClick={(e) => e.stopPropagation()}>
+                peidizhichuang2001@163.com
+              </a>{' '}
+              登陆{' '}
+              <a
+                href="https://auth.alipay.com/login/index.htm?goto=https%3A%2F%2Fopen.alipay.com%2Fdevelop%2Fmanage"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                https://auth.alipay.com/login/index.htm?goto=https%3A%2F%2Fopen.alipay.com%2Fdevelop%2Fmanage
+              </a>
             </div>
             <div>
-              2. 控制台点击 "接囗测试模板应用" -&gt; 点击商家授权 -&gt; 授权后返回到上一页面获取 token（参考文档：<a href="https://opendocs.alipay.com/isv/0ie70v?pathHash=1b160ce4" target="_blank" rel="noopener noreferrer">https://opendocs.alipay.com/isv/0ie70v?pathHash=1b160ce4</a>）
+              2. 控制台点击 "接囗测试模板应用" -&gt; 点击商家授权 -&gt; 授权后返回到上一页面获取
+              token（参考文档：
+              <a
+                href="https://opendocs.alipay.com/isv/0ie70v?pathHash=1b160ce4"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                https://opendocs.alipay.com/isv/0ie70v?pathHash=1b160ce4
+              </a>
+              ）
             </div>
             <div>
-              3. <strong>生成账单提醒：</strong>月账单格式为 yyyy-MM，最早可下载近 6 年的月账单。不支持下载当月账单，只能下载上一月账单数据，当月账单一般在次月 3 日生成，特殊情况可能延迟。
+              3. <strong>生成账单提醒：</strong>月账单格式为 yyyy-MM，最早可下载近 6
+              年的月账单。不支持下载当月账单，只能下载上一月账单数据，当月账单一般在次月 3
+              日生成，特殊情况可能延迟。
+            </div>
+            <div>
+              4. <strong>生成方式：</strong>
+              先选择要生成账单的支付宝账户（可单选/全选），多账户会串行生成、每个成功后间隔 60
+              秒；生成接口每 20 分钟只能触发一次。
             </div>
           </div>
         }
@@ -414,19 +565,43 @@ const ZfbBillPanel: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>公司名称</span>
-            <Input style={{ width: 180 }} value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="模糊匹配" allowClear />
+            <Input
+              style={{ width: 180 }}
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="模糊匹配"
+              allowClear
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>店铺名称</span>
-            <Input style={{ width: 180 }} value={shopName} onChange={(e) => setShopName(e.target.value)} placeholder="模糊匹配" allowClear />
+            <Input
+              style={{ width: 180 }}
+              value={shopName}
+              onChange={(e) => setShopName(e.target.value)}
+              placeholder="模糊匹配"
+              allowClear
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>授权商家名称</span>
-            <Input style={{ width: 180 }} value={merchantName} onChange={(e) => setMerchantName(e.target.value)} placeholder="模糊匹配" allowClear />
+            <Input
+              style={{ width: 180 }}
+              value={merchantName}
+              onChange={(e) => setMerchantName(e.target.value)}
+              placeholder="模糊匹配"
+              allowClear
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>支付宝商户号</span>
-            <Input style={{ width: 180 }} value={alipayMerchantNo} onChange={(e) => setAlipayMerchantNo(e.target.value)} placeholder="模糊匹配" allowClear />
+            <Input
+              style={{ width: 180 }}
+              value={alipayMerchantNo}
+              onChange={(e) => setAlipayMerchantNo(e.target.value)}
+              placeholder="模糊匹配"
+              allowClear
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: '#666' }}>生成状态</span>
@@ -449,7 +624,14 @@ const ZfbBillPanel: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: 'transparent' }}>操作</span>
             <Space>
-              <Button type="primary" onClick={handleSearch} icon={<SearchOutlined />} loading={billLoading}>搜索</Button>
+              <Button
+                type="primary"
+                onClick={handleSearch}
+                icon={<SearchOutlined />}
+                loading={billLoading}
+              >
+                搜索
+              </Button>
               <Button onClick={handleReset}>重置</Button>
               <Button
                 type="primary"
@@ -458,9 +640,9 @@ const ZfbBillPanel: React.FC = () => {
                 icon={<FileTextOutlined />}
                 onClick={handleGenerate}
                 loading={generateLoading}
-                disabled={generateCooldown > 0}
+                disabled={generateLoading}
               >
-                {generateCooldown > 0 ? `生成账单 (${generateCooldown}s)` : '生成账单'}
+                生成账单
               </Button>
               <Button
                 type="primary"
@@ -560,6 +742,96 @@ const ZfbBillPanel: React.FC = () => {
         }}
       />
 
+      {/* 选择支付宝账户生成账单 */}
+      <Modal
+        title={`选择要生成账单的支付宝账户${billDate ? `（${billDate.format('YYYY-MM')}）` : ''}`}
+        open={accountModalOpen}
+        onCancel={() => setAccountModalOpen(false)}
+        onOk={handleTriggerGenerate}
+        okText="确认生成"
+        cancelText="取消"
+        width={1100}
+        destroyOnClose
+        confirmLoading={triggerLoading}
+        okButtonProps={{
+          disabled: !generateInfo?.canTrigger || selectedConfigIds.length === 0,
+          className: 'grayblue-btn',
+          style: { background: '#2f54eb', borderColor: '#2f54eb' },
+          title: generateInfo?.nextTriggerTime
+            ? `${generateInfo.nextTriggerTime} 后可再次生成`
+            : undefined,
+        }}
+      >
+        {generateInfo && (
+          <Alert
+            type={generateInfo.canTrigger ? 'info' : 'warning'}
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={
+              generateInfo.canTrigger
+                ? `已选择 ${selectedConfigIds.length} 个账户；多账户会串行生成，每个成功后间隔 60 秒`
+                : generateInfo.message || '当前不可触发生成'
+            }
+            description={
+              !generateInfo.canTrigger
+                ? [
+                    generateCooldown > 0 ? `冷却剩余 ${formatCooldown(generateCooldown)}` : '',
+                    generateInfo.nextTriggerTime
+                      ? `下次可触发时间：${generateInfo.nextTriggerTime}`
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join('；') || null
+                : null
+            }
+          />
+        )}
+        <Table
+          rowKey="configId"
+          dataSource={accountList}
+          size="small"
+          pagination={false}
+          scroll={{ x: 1000, y: 360 }}
+          rowSelection={{
+            selectedRowKeys: selectedConfigIds,
+            onChange: (keys) => setSelectedConfigIds(keys as number[]),
+            getCheckboxProps: (record) => ({ disabled: record.tokenConfigured === false }),
+            selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE],
+          }}
+          columns={[
+            { title: '店铺名称', dataIndex: 'shopName', width: 180, render: (v) => v || '-' },
+            {
+              title: '授权商家名称',
+              dataIndex: 'merchantName',
+              width: 150,
+              render: (v) => v || '-',
+            },
+            { title: '公司名称', dataIndex: 'companyName', width: 220, render: (v) => v || '-' },
+            {
+              title: '支付宝商户号',
+              dataIndex: 'alipayMerchantNo',
+              width: 160,
+              render: (v) => v || '-',
+            },
+            { title: '账户名', dataIndex: 'accountName', width: 140, render: (v) => v || '-' },
+            { title: '别名', dataIndex: 'alisa', width: 120, render: (v) => v || '-' },
+            {
+              title: '该月状态',
+              dataIndex: 'generateStatus',
+              width: 100,
+              render: (v) => renderGenerateStatus(v),
+            },
+            {
+              title: 'Token',
+              dataIndex: 'tokenConfigured',
+              width: 90,
+              render: (v) =>
+                v === false ? <Tag color="error">未配置</Tag> : <Tag color="success">已配置</Tag>,
+            },
+          ]}
+        />
+      </Modal>
+
       {/* 上传缺货赔付账单弹窗 */}
       <Modal
         title="上传缺货赔付账单"
@@ -581,8 +853,10 @@ const ZfbBillPanel: React.FC = () => {
           message="上传说明"
           description={
             <div style={{ fontSize: 12, lineHeight: 1.7 }}>
-              1. 支持 .zip / .csv / .xlsx / .xls 格式（zip 会递归解压）<br />
-              2. 账单日期格式：yyyy-MM（如 2026-07），不可清空，切换月份会自动刷新店铺列表<br />
+              1. 支持 .zip / .csv / .xlsx / .xls 格式（zip 会递归解压）
+              <br />
+              2. 账单日期格式：yyyy-MM（如 2026-07），不可清空，切换月份会自动刷新店铺列表
+              <br />
               3. 关联账单配置ID 取自下方列表所选店铺对应的记录 financeBillConfigId
             </div>
           }
@@ -618,7 +892,9 @@ const ZfbBillPanel: React.FC = () => {
               showSearch
               optionFilterProp="label"
               options={stockoutList
-                .filter((s) => s.financeBillConfigId !== undefined && s.financeBillConfigId !== null)
+                .filter(
+                  (s) => s.financeBillConfigId !== undefined && s.financeBillConfigId !== null,
+                )
                 .map((s) => ({
                   label: `${s.shopName || '-'}${s.billDate ? `（${s.billDate}）` : ''}`,
                   value: s.financeBillConfigId as number,

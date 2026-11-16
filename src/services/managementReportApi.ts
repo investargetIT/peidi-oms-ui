@@ -746,12 +746,68 @@ export interface IPageFinanceZfbBillInfoVo {
 
 /**
  * 生成支付宝月账单请求
+ *
+ * 列表模式：只传 billDate（不生成、不消耗 20 分钟冷却）
+ * 触发模式：传 billDate + configIds（按顺序串行生成，成功后间隔 60 秒）
  */
 export interface FinanceZfbBillGenerateReq {
   /**
    * 账单日期，格式：yyyy-MM
    */
   billDate: string;
+  /**
+   * 要生成账单的支付宝账户配置 ID（取自 accounts[].configId）
+   * 不传或空数组 = 列表模式，只返回列表不生成
+   */
+  configIds?: number[];
+  [property: string]: any;
+}
+
+/**
+ * 生成支付宝月账单 - 可选账户
+ */
+export interface FinanceZfbBillGenerateAccountVo {
+  /** 账单配置 ID，触发时放进 configIds */
+  configId: number;
+  /** 授权商家名称 */
+  merchantName?: string;
+  /** 支付宝商户号 */
+  alipayMerchantNo?: string;
+  /** 对应店铺名称 */
+  shopName?: string;
+  /** 公司名称 */
+  companyName?: string;
+  /** 账户名 */
+  accountName?: string;
+  /** 别名（可能为 null） */
+  alisa?: string | null;
+  /** 是否已配置访问令牌；false 的账号无法生成，前端置灰不可选 */
+  tokenConfigured?: boolean;
+  /** 该账单月份已存在的账单状态；null 表示尚未生成 */
+  generateStatus?: number | null;
+  [property: string]: any;
+}
+
+/**
+ * 生成支付宝月账单 - 返回结构
+ */
+export interface FinanceZfbBillGenerateVo {
+  /** 本次调用是否已成功触发后台生成（列表模式、冷却中、生成中均为 false） */
+  triggered: boolean;
+  /** 当前是否允许触发；前端按钮可用性以此为准 */
+  canTrigger: boolean;
+  /** 是否有生成任务正在后台执行 */
+  generating: boolean;
+  /** 下次可触发时间，格式 yyyy-MM-dd HH:mm:ss；可立即触发时为 null */
+  nextTriggerTime: string | null;
+  /** 冷却剩余秒数，可直接做倒计时；0 表示可触发 */
+  cooldownRemainingSeconds: number;
+  /** 本次提交生成的账号数（未触发为 0） */
+  submittedCount: number;
+  /** 提示文案，可直接 toast 展示 */
+  message: string;
+  /** 可选账号列表，仅列表模式返回（触发模式为 null） */
+  accounts: FinanceZfbBillGenerateAccountVo[] | null;
   [property: string]: any;
 }
 
@@ -1392,7 +1448,9 @@ export class ManagementReportApi {
    * 各渠道月账单 - 生成
    * 统一调用 /zfb-bill/generate 接口，通过 platform 参数区分渠道
    */
-  static async generateZfbBill(params: FinanceZfbBillGenerateReq): Promise<ResponseData<any>> {
+  static async generateZfbBill(
+    params: FinanceZfbBillGenerateReq,
+  ): Promise<ResponseData<FinanceZfbBillGenerateVo>> {
     // 本地测试
     return billRequest.post('/finance/zfb-bill/generate', params);
   }
