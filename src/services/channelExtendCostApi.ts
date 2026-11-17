@@ -614,15 +614,19 @@ export class ChannelExtendCostApi {
         '本月收入:充值金额',
         '本期充值',
         '充值金额',
+        '推广费-充值金额',
         '本月支出:推广费合计',
+        '本月支出:消耗金额',
         '本期消耗',
         '推广费合计',
+        '推广费-非赠款消耗',
         '期末余额',
       ];
       const promoCount = rows.filter((it: any) => {
         const infoName = it?.infoName;
         if (infoName !== null && infoName !== undefined && infoName !== '') return true;
-        const code = typeof it?.businessCode === 'string' ? it.businessCode.replace(/：/g, ':') : '';
+        const code =
+          typeof it?.businessCode === 'string' ? it.businessCode.replace(/：/g, ':') : '';
         return promoFieldNames.includes(code);
       }).length;
       // eslint-disable-next-line no-console

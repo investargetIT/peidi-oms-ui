@@ -13,6 +13,9 @@ import type { FinanceCostCategoryStatVo } from '@/services/channelExtendCostApi'
  *
  * 标准字段（各平台缺项就不展示该列）：
  *   上月余额 → 期末余额 → 本月收入:充值金额 → 本月支出:推广费合计
+ * 展示列名按「平台 + 站内推广费用名称」取 CSV《推广费用字段展示》H / I 列：
+ *   拼多多/京东 本月支出：消耗金额、天猫 本期充值/本期消耗、
+ *   抖音 推广费-充值金额/推广费-非赠款消耗（见 getPromotionFieldLabel）
  * 兼容后端尚未统一的别名（实测京东仍返回 期初余额 / 本期充值 / 本期消耗）。
  *
  * 天猫多账户店通过 accountName 区分账户；accountName 为 null 视为单账户。
@@ -32,11 +35,19 @@ export const PROMOTION_FIELD_DEFS: PromotionFieldDef[] = [
   { name: '期末余额', aliases: ['期末余额'] },
   {
     name: '本月收入:充值金额',
-    aliases: ['本月收入:充值金额', '本期充值', '充值金额'],
+    aliases: ['本月收入:充值金额', '本期充值', '充值金额', '推广费-充值金额'],
   },
   {
     name: '本月支出:推广费合计',
-    aliases: ['本月支出:推广费合计', '本期消耗', '推广费合计'],
+    aliases: [
+      '本月支出:推广费合计',
+      // 拼多多 / 京东：本月支出：消耗金额（全角冒号由 normalizeName 归一）
+      '本月支出:消耗金额',
+      '本期消耗',
+      '推广费合计',
+      // 抖音：推广费-非赠款消耗
+      '推广费-非赠款消耗',
+    ],
   },
 ];
 
@@ -232,4 +243,35 @@ export function computePromotionBalance(values: Record<string, number>): Promoti
     calculatedBalance,
     checkDiff: typeof ending === 'number' ? calculatedBalance - ending : null,
   };
+}
+
+/**
+ * 「本月收入 / 本月支出」的列名口径（CSV《推广费用字段展示》H、I 列）。
+ *
+ * 按「平台 + 站内推广费用名称」匹配 CSV 行后取 H / I 列名：
+ *   - 拼多多（推广费）：本月收入:充值金额 / 本月支出：消耗金额
+ *   - 天猫（万相台无界、品销宝-明星店铺 / 品牌首推 / 品牌专区）：本期充值 / 本期消耗
+ *   - 抖音（巨量千川服务费）：推广费-充值金额 / 推广费-非赠款消耗
+ *   - 京东（京准通）：本月收入:充值金额 / 本月支出：消耗金额
+ * 天猫 4 个账户的 H / I 列名一致，故按平台匹配即可。
+ *
+ * 只影响表头展示；取值仍按标准字段名归一（见 PROMOTION_FIELD_DEFS 别名）。
+ */
+export const PROMOTION_INCOME_EXPENSE_LABELS: Record<string, { income: string; expense: string }> =
+  {
+    拼多多: { income: '本月收入:充值金额', expense: '本月支出：消耗金额' },
+    天猫: { income: '本期充值', expense: '本期消耗' },
+    抖音: { income: '推广费-充值金额', expense: '推广费-非赠款消耗' },
+    京东: { income: '本月收入:充值金额', expense: '本月支出：消耗金额' },
+  };
+
+/**
+ * 取列名：本月收入 / 本月支出按平台映射到 CSV 口径，其它字段原样返回。
+ */
+export function getPromotionFieldLabel(field: string, platform?: string | null): string {
+  const labels = platform ? PROMOTION_INCOME_EXPENSE_LABELS[platform] : undefined;
+  if (!labels) return field;
+  if (field === PROMOTION_BALANCE_FIELDS.income) return labels.income;
+  if (field === PROMOTION_BALANCE_FIELDS.expense) return labels.expense;
+  return field;
 }

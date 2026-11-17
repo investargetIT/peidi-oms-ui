@@ -4,6 +4,7 @@ import {
   PROMOTION_FIELD_ORDER,
   computePromotionBalance,
   getPromotionDisplayName,
+  getPromotionFieldLabel,
   getPromotionFieldNames,
   hasPromotionData,
   type PromotionFeeGroup,
@@ -47,6 +48,9 @@ function formatAmount(value: number | undefined): string {
  *   账号名称仅天猫/天猫支付宝展示，取店铺名称；其它平台没有该列。
  * - 列按 infoName 动态生成，不假设固定条数：统一字段按固定顺序在前，
  *   未知字段按首次出现顺序追加；无数据时展示统一字段的表头。
+ * - 「本月收入 / 本月支出」列名按平台口径展示（CSV《推广费用字段展示》H / I 列）：
+ *   拼多多/京东 = 本月收入:充值金额 / 本月支出：消耗金额；天猫 = 本期充值 / 本期消耗；
+ *   抖音 = 推广费-充值金额 / 推广费-非赠款消耗。取值仍按标准字段名归一。
  * - 末尾固定追加「计算余额 / 校验」两列：
  *   计算余额 = 上月余额 + 本月收入:充值金额 - 本月支出:推广费合计；
  *   校验 = 计算余额 - 期末余额，|差异| < 0.001 显示绿色 0.00，否则红色。
@@ -105,7 +109,8 @@ const PromotionFeeBlock: React.FC<PromotionFeeBlockProps> = ({
         ]
       : []),
     ...fields.map((field) => ({
-      title: field,
+      // 本月收入 / 本月支出列名按平台口径展示（CSV H / I 列），取值仍用标准字段 key
+      title: getPromotionFieldLabel(field, platform),
       key: field,
       width: 160,
       align: 'left' as const,

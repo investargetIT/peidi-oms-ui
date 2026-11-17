@@ -32,10 +32,11 @@ const PromotionFeeLogicNote: React.FC<PromotionFeeLogicNoteProps> = ({ promotion
           <code>上月余额</code> ← 上月余额 / 期初余额
         </li>
         <li>
-          <code>本月收入:充值金额</code> ← 本月收入:充值金额 / 本期充值 / 充值金额
+          <code>本月收入:充值金额</code> ← 本月收入:充值金额 / 本期充值 / 充值金额 / 推广费-充值金额
         </li>
         <li>
-          <code>本月支出:推广费合计</code> ← 本月支出:推广费合计 / 本期消耗 / 推广费合计
+          <code>本月支出:推广费合计</code> ← 本月支出:推广费合计 / 本月支出:消耗金额 / 本期消耗 /
+          推广费合计 / 推广费-非赠款消耗
         </li>
         <li>
           <code>期末余额</code> ← 期末余额
@@ -47,7 +48,9 @@ const PromotionFeeLogicNote: React.FC<PromotionFeeLogicNoteProps> = ({ promotion
         同样是「期末余额」，不能用 businessDesc 或这两行判定推广费。
       </div>
       <div>
-        · 列顺序：上月余额 → 期末余额 → 本月收入:充值金额 → 本月支出:推广费合计 → 计算余额 → 校验。
+        · 列顺序：上月余额 → 期末余额 → 本月收入 → 本月支出 → 计算余额 → 校验；「本月收入 /
+        本月支出」列名按平台口径展示：拼多多/京东 = 本月收入:充值金额 / 本月支出：消耗金额，天猫 =
+        本期充值 / 本期消耗，抖音 = 推广费-充值金额 / 推广费-非赠款消耗。
       </div>
       <div>
         · 计算余额 = 上月余额 + 本月收入:充值金额 - 本月支出:推广费合计；校验 = 计算余额 -

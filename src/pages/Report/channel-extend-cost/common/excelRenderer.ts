@@ -3,6 +3,7 @@ import type { StatResult, DetailRow } from './statBuilder';
 import {
   computePromotionBalance,
   getPromotionDisplayName,
+  getPromotionFieldLabel,
   getPromotionFieldNames,
   hasPromotionData,
   type PromotionFeeGroup,
@@ -273,7 +274,12 @@ export function appendPromotionSheet(workbook: ExcelJS.Workbook, data: Promotion
     { header: '平台', key: 'platform', width: 10 },
     { header: '站内推广费用名称', key: 'promotionName', width: 20 },
     ...(showAccountName ? [{ header: '账号名称', key: 'accountName', width: 20 }] : []),
-    ...fields.map((field) => ({ header: field, key: field, width: 18 })),
+    ...fields.map((field) => ({
+      // 本月收入 / 本月支出列名按平台口径（CSV H / I 列），key 仍用标准字段名取值
+      header: getPromotionFieldLabel(field, platform),
+      key: field,
+      width: 18,
+    })),
     { header: '计算余额', key: 'calculatedBalance', width: 16 },
     { header: '校验', key: 'checkDiff', width: 12 },
   ];
