@@ -9,6 +9,7 @@ import JdBillPanel from './jd';
 import KsBillPanel from './kuaishou';
 import WechatBillPanel from './wechat';
 import WeimobBillPanel from './weimob';
+import ExportAllChannelBillsButton from './common/ExportAllChannelBillsButton';
 
 const SUB_TAB_KEY = 'channel_bills_sub_tab';
 
@@ -61,6 +62,10 @@ const ChannelBillsTab: React.FC = () => {
 
   return (
     <>
+      {/* TAB 栏上方右侧：一键导出所有渠道（所有 TAB）该月的账单文件 */}
+      <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
+        <ExportAllChannelBillsButton />
+      </div>
       <Tabs
         activeKey={billSubTab}
         onChange={setBillSubTab}
