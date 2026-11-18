@@ -332,7 +332,6 @@ const XhsBillPanel: React.FC = () => {
         rowKey="id"
         loading={billLoading}
         size="small"
-        scroll={{ x: 2400 }}
         pagination={{
           ...billPagination,
           showSizeChanger: true,

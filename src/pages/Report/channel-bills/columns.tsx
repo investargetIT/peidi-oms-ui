@@ -15,7 +15,14 @@ const renderBillFiles = (record: {
   const names = record?.fileNames;
   if (Array.isArray(urls) && urls.length > 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          wordBreak: 'break-all',
+        }}
+      >
         {urls.map((url, idx) => {
           if (!url) return null;
           const displayName =
@@ -48,62 +55,40 @@ export const channelBillColumns = [
     title: '账单日期',
     dataIndex: 'billDate',
     key: 'billDate',
-    width: 110,
-    fixed: 'left' as const,
   },
   {
     title: '店铺名称',
     dataIndex: 'shopName',
     key: 'shopName',
-    width: 180,
   },
   {
     title: '期初余额',
     dataIndex: 'beginningBalance',
     key: 'beginningBalance',
-    width: 120,
     render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
   },
   {
     title: '期末余额',
     dataIndex: 'endingBalance',
     key: 'endingBalance',
-    width: 120,
-    render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
-  },
-  {
-    title: '财务收入',
-    dataIndex: 'financeIncome',
-    key: 'financeIncome',
-    width: 120,
-    render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
-  },
-  {
-    title: '财务支出',
-    dataIndex: 'financeExpense',
-    key: 'financeExpense',
-    width: 120,
     render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
   },
   {
     title: '店铺收入',
     dataIndex: 'shopIncome',
     key: 'shopIncome',
-    width: 120,
     render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
   },
   {
     title: '店铺退款',
     dataIndex: 'shopRefund',
     key: 'shopRefund',
-    width: 120,
     render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
   },
   {
     title: '生成状态',
     dataIndex: 'generateStatus',
     key: 'generateStatus',
-    width: 110,
     render: (v?: number) => {
       const map: Record<number, { text: string; color: string }> = {
         0: { text: '待生成', color: 'default' },
@@ -121,19 +106,16 @@ export const channelBillColumns = [
     title: '账单文件',
     dataIndex: 'fileUrls',
     key: 'fileUrls',
-    width: 280,
     render: (_: unknown, record: any) => renderBillFiles(record),
   },
   {
     title: '创建时间',
     dataIndex: 'createdAt',
     key: 'createdAt',
-    width: 160,
   },
   {
     title: '更新时间',
     dataIndex: 'updatedAt',
     key: 'updatedAt',
-    width: 160,
   },
 ];
