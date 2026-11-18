@@ -336,7 +336,6 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
       render: (value: number | null, record) => (
         <InputNumber
           value={value}
-          precision={2}
           style={{ width: '100%' }}
           placeholder="未税金额"
           onChange={(next) => updateFeeItem(record.key, { amount: next })}
@@ -362,7 +361,6 @@ const JdExtraActions: React.FC<JdExtraActionsProps> = ({ reportType, month, onCh
       render: (value: number | null, record) => (
         <InputNumber
           value={value}
-          precision={2}
           style={{ width: '100%' }}
           placeholder="价税合计"
           onChange={(next) => updateFeeItem(record.key, { total: next })}

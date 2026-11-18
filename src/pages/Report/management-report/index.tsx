@@ -17,6 +17,13 @@ import ManagementReportApi, {
 } from '@/services/managementReportApi';
 import JdExtraActions from './JdExtraActions';
 import WalmartExtraActions from './WalmartExtraActions';
+import {
+  toRawText,
+  toRawTextOr,
+  toTaxRateMixedText,
+  toTaxRatePercentText,
+  type RawNumber,
+} from '../utils/numberText';
 
 // 京东自营费用分组：与「京东自营9月份数据.xlsx」表头保持一致
 const JD_FEE_GROUPS = [
@@ -42,31 +49,35 @@ const JD_FEE_GROUPS = [
   },
 ] as const;
 
+// 金额展示：一律原样输出字符串（后端返回几位就展示几位，前端不做四舍五入/补零）
+const formatMoneyDash = (v?: RawNumber) => toRawTextOr(v, '-');
 // 金额格式化：空值展示空字符串（京东自营表销售/费用分开展示，避免满屏 '-'）
-const formatJdMoney = (v?: number | null) =>
-  v === null || v === undefined ? '' : Number(v).toFixed(2);
-
-// 金额格式化：空值展示 '-'
-const formatMoneyDash = (v?: number | null) =>
-  v === null || v === undefined ? '-' : Number(v).toFixed(2);
+const formatJdMoney = (v?: RawNumber) => toRawTextOr(v, '');
 
 // 税率格式化：type=6/7/8 的税率是数字（0.09 表示 9%），按百分比展示；未匹配到税率（null）展示 '-'
-const formatTaxRatePercent = (v?: number | null) => {
-  if (v === null || v === undefined || Number.isNaN(Number(v))) return '-';
-  const percent = Number(v) * 100;
-  return `${Number.isInteger(percent) ? percent : Number(percent.toFixed(2))}%`;
-};
+const formatTaxRatePercent = (v?: RawNumber) => toTaxRatePercentText(v);
 
 // 税率格式化（京东系表格共用）：
 // type=4/9/10 为字符串（"0.09" 表示 9%），原样展示；type=7/8 为数字（0.09），转百分比展示
-const formatTaxRateMixed = (v?: number | string | null) => {
-  if (v === null || v === undefined || v === '') return '-';
-  if (typeof v === 'number') return formatTaxRatePercent(v);
-  return String(v);
-};
+const formatTaxRateMixed = (v?: RawNumber) => toTaxRateMixedText(v);
 
 // 自有/外采：空值表示文件里该行未填，展示为 '-'
 const formatOwn = (v?: string | null) => (v ? v : '-');
+
+/**
+ * 导出单元格取值：复用列的 render，与页面表格同一份文本（数字都是原样字符串）。
+ * 空值占位 '-' 在 Excel 里写成空单元格，便于后续处理。
+ */
+const toExportCellText = (col: any, record: any): string => {
+  if (typeof col.render === 'function') {
+    const rendered = col.render(record[col.dataIndex], record, 0);
+    if (typeof rendered === 'string' || typeof rendered === 'number') {
+      const text = toRawText(rendered as RawNumber);
+      return text === '-' ? '' : text;
+    }
+  }
+  return toRawText(record[col.dataIndex] as RawNumber);
+};
 
 // 数据类型 -> 展示名（下载文件名等场景使用）
 const MR_TYPE_LABELS: Record<number, string> = {
@@ -276,68 +287,70 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'quantity',
       key: 'quantity',
       width: 80,
+      render: formatMoneyDash,
     },
     {
       title: '单价',
       dataIndex: 'unitPrice',
       key: 'unitPrice',
       width: 100,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '退款金额',
       dataIndex: 'refundAmount',
       key: 'refundAmount',
       width: 100,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '价税合计',
       dataIndex: 'totalWithTax',
       key: 'totalWithTax',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '税率',
       dataIndex: 'taxRate',
       key: 'taxRate',
       width: 80,
+      render: formatMoneyDash,
     },
     {
       title: '不含税金额',
       dataIndex: 'amountWithoutTax',
       key: 'amountWithoutTax',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '财务单位成本',
       dataIndex: 'financeUnitCost',
       key: 'financeUnitCost',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '财务总成本',
       dataIndex: 'financeTotalCost',
       key: 'financeTotalCost',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '内部转移单价',
       dataIndex: 'internalTransferUnitPrice',
       key: 'internalTransferUnitPrice',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '内部转移总价',
       dataIndex: 'internalTransferTotalPrice',
       key: 'internalTransferTotalPrice',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '成本匹配来源',
@@ -403,61 +416,63 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'quantity',
       key: 'quantity',
       width: 80,
+      render: formatMoneyDash,
     },
     {
       title: '单价',
       dataIndex: 'unitPrice',
       key: 'unitPrice',
       width: 100,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '价税合计',
       dataIndex: 'totalWithTax',
       key: 'totalWithTax',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '税率',
       dataIndex: 'taxRate',
       key: 'taxRate',
       width: 80,
+      render: formatMoneyDash,
     },
     {
       title: '不含税金额',
       dataIndex: 'amountWithoutTax',
       key: 'amountWithoutTax',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '财务单位成本',
       dataIndex: 'financeUnitCost',
       key: 'financeUnitCost',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '财务总成本',
       dataIndex: 'financeTotalCost',
       key: 'financeTotalCost',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '内部转移单价',
       dataIndex: 'internalTransferUnitPrice',
       key: 'internalTransferUnitPrice',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '内部转移总价',
       dataIndex: 'internalTransferTotalPrice',
       key: 'internalTransferTotalPrice',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '店铺名称',
@@ -529,33 +544,35 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'quantity',
       key: 'quantity',
       width: 80,
+      render: formatMoneyDash,
     },
     {
       title: '单价',
       dataIndex: 'unitPrice',
       key: 'unitPrice',
       width: 100,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '价税合计',
       dataIndex: 'totalWithTax',
       key: 'totalWithTax',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '税率',
       dataIndex: 'taxRate',
       key: 'taxRate',
       width: 80,
+      render: formatMoneyDash,
     },
     {
       title: '不含税金额',
       dataIndex: 'amountWithoutTax',
       key: 'amountWithoutTax',
       width: 120,
-      render: (v?: number) => (v !== undefined && v !== null ? v.toFixed(2) : '-'),
+      render: formatMoneyDash,
     },
     {
       title: '返利率',
@@ -624,6 +641,7 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'quantity',
       key: 'quantity',
       width: 80,
+      render: formatMoneyDash,
     },
     {
       title: '单价',
@@ -779,6 +797,7 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'quantity',
       key: 'quantity',
       width: 90,
+      render: formatMoneyDash,
     },
     {
       title: '单价',
@@ -799,6 +818,7 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'taxRate',
       key: 'taxRate',
       width: 80,
+      render: formatMoneyDash,
     },
     {
       title: '不含税金额',
@@ -903,6 +923,7 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'quantity',
       key: 'quantity',
       width: 90,
+      render: formatMoneyDash,
     },
     {
       title: '单价',
@@ -1247,20 +1268,21 @@ const ManagementReportTab: React.FC = () => {
       dataIndex: 'amount',
       key: 'amount',
       width: 140,
-      render: (v?: number) => (v === null || v === undefined ? '-' : Number(v).toFixed(2)),
+      render: formatMoneyDash,
     },
     {
       title: '税率',
       dataIndex: 'taxRate',
       key: 'taxRate',
       width: 100,
+      render: formatMoneyDash,
     },
     {
       title: '价税合计',
       dataIndex: 'total',
       key: 'total',
       width: 140,
-      render: (v?: number) => (v === null || v === undefined ? '-' : Number(v).toFixed(2)),
+      render: formatMoneyDash,
     },
   ];
 
@@ -1288,31 +1310,12 @@ const ManagementReportTab: React.FC = () => {
         detailSheet.addRow(detailHeaders);
         detailSheet.getRow(1).font = { bold: true };
         const u9ColIndex = mrWalmartDetailColumns.findIndex((col) => col.dataIndex === 'u9');
-        // 数字列格式：金额 2 位小数，税率按百分比
-        const detailNumFmt: Record<string, string> = {
-          quantity: '0.00',
-          unitPrice: '0.00',
-          taxRate: '0.00%',
-          revenueWithTax: '0.00',
-          revenueWithoutTax: '0.00',
-          costAmount: '0.00',
-        };
 
         mrWalmartDetailList.forEach((record) => {
+          // 数字一律按后端返回的文本原样写入（与页面同一份文本，不设小数位格式）
           const row = detailSheet.addRow(
-            mrWalmartDetailColumns.map((col) => {
-              const value = record[col.dataIndex as keyof WalmartDetailVo];
-              if (value === null || value === undefined) return '';
-              return value;
-            }),
+            mrWalmartDetailColumns.map((col) => toExportCellText(col, record)),
           );
-          mrWalmartDetailColumns.forEach((col, idx) => {
-            const value = record[col.dataIndex as keyof WalmartDetailVo];
-            const cell = row.getCell(idx + 1);
-            if (typeof value === 'number' && detailNumFmt[col.dataIndex]) {
-              cell.numFmt = detailNumFmt[col.dataIndex];
-            }
-          });
           // 料号强制文本，避免前导 0 / 后置 0 被 Excel 当数字处理而丢失
           if (u9ColIndex >= 0) {
             const cell = row.getCell(u9ColIndex + 1);
@@ -1331,24 +1334,12 @@ const ManagementReportTab: React.FC = () => {
         const profitHeaders = mrWalmartProfitColumns.map((col) => col.title);
         profitSheet.addRow(profitHeaders);
         profitSheet.getRow(1).font = { bold: true };
-        const profitPercentFields = ['grossMargin', 'netMargin'];
 
         mrWalmartProfitList.forEach((record) => {
-          const row = profitSheet.addRow(
-            mrWalmartProfitColumns.map((col) => {
-              const value = record[col.dataIndex as keyof WalmartProfitVo];
-              if (value === null || value === undefined) return '';
-              return value;
-            }),
+          // 同上：与页面展示同一份文本（毛利率 / 净利率按页面同样的百分比文本）
+          profitSheet.addRow(
+            mrWalmartProfitColumns.map((col) => toExportCellText(col, record)),
           );
-          mrWalmartProfitColumns.forEach((col, idx) => {
-            const value = record[col.dataIndex as keyof WalmartProfitVo];
-            if (typeof value === 'number') {
-              row.getCell(idx + 1).numFmt = profitPercentFields.includes(col.dataIndex)
-                ? '0.00%'
-                : '#,##0.00';
-            }
-          });
         });
         profitSheet.columns = profitHeaders.map((h, idx) => ({
           width: Math.max(12, String(h).length * 2 + 4),
@@ -1431,13 +1422,8 @@ const ManagementReportTab: React.FC = () => {
 
       // 数据（原封不动，仅取列对应的 dataIndex 字段）
       dataList.forEach((record) => {
-        const rowValues = columns.map((col) => {
-          // 若列有 render，用 render 的展示值；否则直接用原始字段值
-          if (typeof col.render === 'function') {
-            return col.render(record[col.dataIndex], record, 0);
-          }
-          return record[col.dataIndex] ?? '';
-        });
+        // 数字列：与表格展示同一份文本（后端几位就几位）
+        const rowValues = columns.map((col) => toExportCellText(col, record));
         const row = sheet.addRow(rowValues);
 
         // 料号：参考财务「销售单文件上传 - 处理后文件导出」中的料号逻辑，

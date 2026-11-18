@@ -22,6 +22,7 @@ import FinanceUnitCostApi, {
   type FinanceUnitCostPageReq,
   type FinanceUnitCostUpdateReq,
 } from '@/services/financeUnitCostApi';
+import { toRawText, type RawNumber } from '../utils/numberText';
 
 // Excel 单元格细边框（导出用）
 function thinBorder(): Partial<ExcelJS.Borders> {
@@ -221,9 +222,9 @@ const CostTab: React.FC = () => {
         cell.border = thinBorder();
       });
 
-      // 数据行
+      // 数据行（数字一律按后端返回的文本原样写入，不设小数位格式，避免 Excel 二次截断）
       records.forEach((r: FinanceUnitCostVo) => {
-        const values: (string | number | undefined)[] = [
+        const values: string[] = [
           r.group || '',
           r.brandName || '',
           r.spu || '',
@@ -231,8 +232,8 @@ const CostTab: React.FC = () => {
           r.merchantCode || '',
           r.productNo || '',
           r.goodsName || '',
-          r.financeCost,
-          r.internalPrice,
+          toRawText(r.financeCost as RawNumber),
+          toRawText(r.internalPrice as RawNumber),
           r.remark || '',
           r.own || '',
           r.isNewProduct === '1' ? '是' : r.isNewProduct === '0' ? '否' : r.isNewProduct || '',
@@ -245,15 +246,9 @@ const CostTab: React.FC = () => {
             horizontal: (HEADERS[colIndex - 1]?.align || 'left') as 'left' | 'right',
             vertical: 'middle',
           };
-          // 金额列保留 2 位小数
-          const key = HEADERS[colIndex - 1]?.name;
-          if (key === '财务单位成本' || key === '内部转移单价') {
-            if (typeof cell.value === 'number') {
-              cell.numFmt = '0.00';
-            }
-          }
           // 料号：参考财务「销售单文件上传 - 处理后文件导出」中的料号逻辑，
           // 直接以文本写入并设置 numFmt='@'，确保后置0不被 Excel 当数字取消掉
+          const key = HEADERS[colIndex - 1]?.name;
           if (key === '料号') {
             cell.value =
               r.u9No === null || r.u9No === undefined ? '' : String(r.u9No).trim();
@@ -444,14 +439,16 @@ const CostTab: React.FC = () => {
       dataIndex: 'financeCost',
       key: 'financeCost',
       width: 120,
-      render: (value: number) => (value !== undefined ? value.toFixed(2) : '-'),
+      // 数字一律按后端返回原样展示（后端几位小数就几位，不四舍五入）
+      render: (value: RawNumber) => toRawText(value as RawNumber) || '-',
     },
     {
       title: '内部转移单价',
       dataIndex: 'internalPrice',
       key: 'internalPrice',
       width: 120,
-      render: (value: number) => (value !== undefined ? value.toFixed(2) : '-'),
+      // 数字一律按后端返回原样展示（后端几位小数就几位，不四舍五入）
+      render: (value: RawNumber) => toRawText(value as RawNumber) || '-',
     },
     {
       title: '备注',
@@ -711,7 +708,6 @@ const CostTab: React.FC = () => {
               <InputNumber
                 style={{ width: '100%' }}
                 placeholder="请输入财务单位成本"
-                precision={2}
                 min={0}
               />
             </Form.Item>
@@ -723,7 +719,6 @@ const CostTab: React.FC = () => {
               <InputNumber
                 style={{ width: '100%' }}
                 placeholder="请输入内部转移单价"
-                precision={2}
                 min={0}
               />
             </Form.Item>

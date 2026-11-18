@@ -30,6 +30,7 @@ import {
 import type { TableColumnsType, UploadProps } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import ManagementReportApi, { type WalmartCostVo } from '@/services/managementReportApi';
+import { toRawTextOr, type RawNumber } from '../utils/numberText';
 
 const CHANNEL_OPTIONS = [
   { label: '山姆', value: '山姆' },
@@ -41,8 +42,8 @@ const KIND_OPTIONS = [
   { label: '物流费', value: '物流费' },
 ];
 
-const formatMoney = (v?: number | null) =>
-  v === null || v === undefined ? '-' : Number(v).toFixed(2);
+// 金额展示：原样输出字符串（后端返回几位小数就展示几位，前端不做四舍五入）
+const formatMoney = (v?: RawNumber) => toRawTextOr(v, '-');
 
 interface WalmartExtraActionsProps {
   /** 主页面当前选择的销售月份，用于默认月份 */
@@ -803,7 +804,6 @@ const WalmartExtraActions: React.FC<WalmartExtraActionsProps> = ({ month, onChan
               <span style={{ fontSize: 12, color: '#666' }}>山姆物流费（含税）</span>
               <InputNumber
                 style={{ width: '100%' }}
-                precision={2}
                 value={samLogistics}
                 placeholder="0.00"
                 onChange={(value) => setSamLogistics(value)}
@@ -813,7 +813,6 @@ const WalmartExtraActions: React.FC<WalmartExtraActionsProps> = ({ month, onChan
               <span style={{ fontSize: 12, color: '#666' }}>沃尔玛物流费（含税）</span>
               <InputNumber
                 style={{ width: '100%' }}
-                precision={2}
                 value={walmartLogistics}
                 placeholder="0.00"
                 onChange={(value) => setWalmartLogistics(value)}
@@ -938,7 +937,7 @@ const WalmartExtraActions: React.FC<WalmartExtraActionsProps> = ({ month, onChan
             label={formKind === '物流费' ? '当月物流费（含税）' : '成本单价（2026 成品单价）'}
             rules={[{ required: true, message: '请输入金额' }]}
           >
-            <InputNumber style={{ width: '100%' }} precision={4} placeholder="0.0000" />
+            <InputNumber style={{ width: '100%' }} placeholder="请输入金额" />
           </Form.Item>
         </Form>
       </Modal>
