@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Button,
   Input,
   Select,
@@ -10,9 +11,10 @@ import {
   InputNumber,
   DatePicker,
   Upload,
+  Tag,
   message,
 } from 'antd';
-import { SearchOutlined, EditOutlined, UploadOutlined, FileTextOutlined, DownloadOutlined } from '@ant-design/icons';
+import { SearchOutlined, EditOutlined, UploadOutlined, FileTextOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -21,6 +23,7 @@ import FinanceUnitCostApi, {
   type FinanceUnitCostVo,
   type FinanceUnitCostPageReq,
   type FinanceUnitCostUpdateReq,
+  type FinanceUnitCostTempReq,
 } from '@/services/financeUnitCostApi';
 import { toRawText, type RawNumber } from '../utils/numberText';
 
@@ -34,7 +37,20 @@ function thinBorder(): Partial<ExcelJS.Borders> {
   };
 }
 
-const CostTab: React.FC = () => {
+/**
+ * 成本核算页
+ *
+ * initialMerchantCode：外部系统跳转时带的商家编码（如 BI 周报「缺失成本 → 补录成本」），
+ * 进入页面后自动按该编码搜索，并打开「临时成本录入」弹窗预填该编码。
+ * 该值只消费一次，消费后通过 onMerchantCodeConsumed 通知父级清空，
+ * 避免在 tab 之间来回切换时反复弹窗。
+ */
+interface CostTabProps {
+  initialMerchantCode?: string;
+  onMerchantCodeConsumed?: () => void;
+}
+
+const CostTab: React.FC<CostTabProps> = ({ initialMerchantCode, onMerchantCodeConsumed }) => {
   const [loading, setLoading] = useState(false);
   const [dataSource, setDataSource] = useState<FinanceUnitCostVo[]>([]);
   const [pagination, setPagination] = useState({
@@ -57,8 +73,17 @@ const CostTab: React.FC = () => {
     addCount: number;
     updateCount: number;
     skipCount: number;
+    /** 本次导入时后端清除的该月临时成本条数（文档 §2：正式表导入会物理删除该月 isTemp=1） */
+    clearedTempCount: number;
     skippedLines: string[];
   } | null>(null);
+
+  /* ---- 临时成本录入（周报缺失成本时补录） ---- */
+  const [tempModalVisible, setTempModalVisible] = useState(false);
+  const [tempForm] = Form.useForm();
+  const [tempSubmitting, setTempSubmitting] = useState(false);
+  // 临时成本筛选：all = 不过滤，temp = 只看临时成本（后端暂不支持按 isTemp 查询，这里只过滤当前页）
+  const [tempFilter, setTempFilter] = useState<'all' | 'temp'>('all');
 
   const parseImportResult = (raw: unknown) => {
     const text = typeof raw === 'string' ? raw : '';
@@ -69,6 +94,9 @@ const CostTab: React.FC = () => {
     const addCount = summary ? Number(summary[1]) : 0;
     const updateCount = summary ? Number(summary[2]) : 0;
     const skipCount = summary ? Number(summary[3]) : 0;
+    // 正式成本表导入后，后端会在结果串末尾追加「; 已清除该月临时成本 N 条」
+    const cleared = text.match(/已清除该月临时成本\s*(\d+)\s*条/);
+    const clearedTempCount = cleared ? Number(cleared[1]) : 0;
     const detailIndex = text.indexOf('跳过详情');
     const skippedLines =
       detailIndex >= 0
@@ -78,7 +106,7 @@ const CostTab: React.FC = () => {
             .map((s) => s.trim())
             .filter((s) => /^第\d+行/.test(s))
         : [];
-    return { addCount, updateCount, skipCount, skippedLines };
+    return { addCount, updateCount, skipCount, clearedTempCount, skippedLines };
   };
 
   const [searchBrandName, setSearchBrandName] = useState<string>('');
@@ -140,6 +168,17 @@ const CostTab: React.FC = () => {
   };
 
   useEffect(() => {
+    if (initialMerchantCode) {
+      // 外部跳转带了商家编码：按该编码筛选并自动打开「临时成本录入」预填，
+      // 省去用户在列表里再找一遍（BI 周报「缺失成本 → 补录成本」链路）
+      setSearchMerchantCode(initialMerchantCode);
+      setPagination((prev) => ({ ...prev, current: 1 }));
+      fetchData({ pageNum: 1, merchantCode: initialMerchantCode });
+      setTempModalVisible(true);
+      // 只消费一次：通知父级清空，避免切换 tab 回来时重复弹窗
+      onMerchantCodeConsumed?.();
+      return;
+    }
     fetchData();
   }, []);
 
@@ -152,6 +191,7 @@ const CostTab: React.FC = () => {
     setSearchIsNewProduct(undefined);
     setSearchMonth(null);
     setSearchGroup('');
+    setTempFilter('all');
     setPagination((prev) => ({ ...prev, current: 1 }));
   };
 
@@ -199,6 +239,7 @@ const CostTab: React.FC = () => {
         { name: '备注', align: 'left' },
         { name: '自有/外采', align: 'left' },
         { name: '是否新品', align: 'left' },
+        { name: '成本类型', align: 'left' },
       ];
 
       const workbook = new ExcelJS.Workbook();
@@ -207,7 +248,7 @@ const CostTab: React.FC = () => {
       const ws = workbook.addWorksheet('成本核算');
 
       // 列宽（索引对齐 HEADERS）
-      const COL_WIDTHS = [12, 16, 14, 12, 16, 16, 28, 14, 14, 16, 12, 12];
+      const COL_WIDTHS = [12, 16, 14, 12, 16, 16, 28, 14, 14, 16, 12, 12, 12];
       ws.columns = HEADERS.map((h, i) => ({
         header: h.name,
         key: `c${i}`,
@@ -237,6 +278,8 @@ const CostTab: React.FC = () => {
           r.remark || '',
           r.own || '',
           r.isNewProduct === '1' ? '是' : r.isNewProduct === '0' ? '否' : r.isNewProduct || '',
+          // 老版本后端不返回 isTemp：留空，不要写成「正式」误导财务
+          r.isTemp === 1 ? '临时' : r.isTemp === 0 ? '正式' : '',
         ];
         const row = ws.addRow(values);
         row.eachCell((cell, colIndex) => {
@@ -306,11 +349,15 @@ const CostTab: React.FC = () => {
       });
       if (res.code === 200 || res.success) {
         const result = parseImportResult(res.data);
+        // 临时成本被清除时一并告知（文档 §2：导入该月正式表会清掉该月全部 isTemp=1）
+        const clearedText =
+          result.clearedTempCount > 0 ? `，已清除该月临时成本 ${result.clearedTempCount} 条` : '';
 
         // 全部成功（无跳过）→ 顶部简短提示
         if (result.skipCount === 0) {
           message.success(
-            `导入成功：新增 ${result.addCount} 条，更新 ${result.updateCount} 条`,
+            `导入成功：新增 ${result.addCount} 条，更新 ${result.updateCount} 条${clearedText}`,
+            clearedText ? 6 : 3,
           );
           setImportModalVisible(false);
           setSelectedFile(null);
@@ -332,6 +379,98 @@ const CostTab: React.FC = () => {
       message.error('导入失败');
     } finally {
       setImporting(false);
+    }
+  };
+
+  /* ---- 临时成本录入 ---- */
+  const openTempModal = () => {
+    setTempModalVisible(true);
+  };
+
+  // 弹窗打开后再回填默认值：Modal 默认懒渲染，弹窗未打开时 Form 还没挂载，
+  // 提前 setFieldsValue 会告警「Instance created by useForm is not connected」
+  useEffect(() => {
+    if (!tempModalVisible) return;
+    tempForm.resetFields();
+    tempForm.setFieldsValue({
+      // 默认取当前搜索的月份，没有就取上个月（周报一般查上周，落在上个月或本月）
+      month: searchMonth || dayjs().subtract(1, 'month'),
+      own: '外采',
+      // 带过来 / 正在筛选的商家编码直接预填，减少手输
+      merchantCode: searchMerchantCode || undefined,
+    });
+  }, [tempModalVisible]);
+
+  const handleSubmitTemp = async () => {
+    let values: any;
+    try {
+      values = await tempForm.validateFields();
+    } catch (error) {
+      // 表单校验失败，antd 已在字段下方给出提示
+      return;
+    }
+
+    const merchantCode = String(values.merchantCode ?? '').trim();
+    // 文档 §5：后端参数校验失败统一返回 500 Internal server error，所以这里先自查
+    if (!merchantCode) {
+      message.error('请填写商家编码');
+      return;
+    }
+    if (!values.month || !dayjs.isDayjs(values.month)) {
+      message.error('请选择成本所属月份');
+      return;
+    }
+    if (values.matchedCost === undefined || values.matchedCost === null) {
+      message.error('请填写匹配成本单价');
+      return;
+    }
+
+    const params: FinanceUnitCostTempReq = {
+      merchantCode,
+      month: values.month.format('YYYY-MM'),
+      matchedCost: Number(values.matchedCost),
+      financeCost:
+        values.financeCost === undefined || values.financeCost === null
+          ? undefined
+          : Number(values.financeCost),
+      internalPrice:
+        values.internalPrice === undefined || values.internalPrice === null
+          ? undefined
+          : Number(values.internalPrice),
+      productNo: values.productNo?.trim() || undefined,
+      u9: values.u9?.trim() || undefined,
+      brandName: values.brandName?.trim() || undefined,
+      remark: values.remark?.trim() || undefined,
+      own: values.own || undefined,
+      // group 不传：后端默认智创，报表按智创取数（文档 §2）
+    };
+
+    setTempSubmitting(true);
+    try {
+      const res = await FinanceUnitCostApi.createTemp(params);
+      if (res.code === 200 && res.success !== false) {
+        const isTemp = res.data?.isTemp;
+        message.success(
+          isTemp === 1
+            ? `临时成本已录入：${merchantCode}（${params.month}）`
+            : `成本已保存：${merchantCode}（${params.month}）`,
+          6,
+        );
+        setTempModalVisible(false);
+        tempForm.resetFields();
+        // 回到第一页刷新，确保新录入的记录可见（按条码搜索时尤为需要）
+        setPagination((prev) => ({ ...prev, current: 1 }));
+        fetchData({ pageNum: 1 });
+      } else if (res.code === 500) {
+        message.error(typeof res.data === 'string' ? res.data : res.msg || '录入失败');
+      } else {
+        message.error(res.msg || '录入失败');
+      }
+    } catch (error) {
+      console.error('录入临时成本失败:', error);
+      message.error('录入临时成本失败');
+    } finally {
+      setTempSubmitting(false);
     }
   };
 
@@ -474,6 +613,20 @@ const CostTab: React.FC = () => {
       },
     },
     {
+      // 临时成本（手工录入，用于周报缺失成本时补录）；财务正式成本表导入该月后会被清掉
+      // 注意：判断用 isTemp 字段，不要用备注文本匹配（备注用户可以自己改）
+      title: '成本类型',
+      dataIndex: 'isTemp',
+      key: 'isTemp',
+      width: 100,
+      render: (value: number | null | undefined) => {
+        if (value === 1) return <Tag color="orange">临时</Tag>;
+        if (value === 0) return <Tag color="default">正式</Tag>;
+        // 老版本后端未返回 isTemp 字段时展示 '-'，不要臆断成正式成本
+        return '-';
+      },
+    },
+    {
       title: '操作',
       key: 'action',
       width: 80,
@@ -488,6 +641,13 @@ const CostTab: React.FC = () => {
       ),
     },
   ];
+
+  // 临时成本筛选：后端 /page 暂不支持 isTemp 查询条件，只能在当前页内过滤
+  // （文档 §3 建议的「只看临时成本」筛选，等后端支持后再改成服务端筛选）
+  const tableData = useMemo(() => {
+    if (tempFilter !== 'temp') return dataSource;
+    return dataSource.filter((item) => item.isTemp === 1);
+  }, [dataSource, tempFilter]);
 
   return (
     <>
@@ -614,6 +774,20 @@ const CostTab: React.FC = () => {
                 ]}
               />
             </div>
+
+            {/* 成本类型：后端暂不支持按 isTemp 查询，这里只过滤当前页 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span style={{ fontSize: 12, color: '#666' }}>成本类型</span>
+              <Select
+                style={{ width: 150 }}
+                value={tempFilter}
+                onChange={(value) => setTempFilter(value)}
+                options={[
+                  { label: '全部', value: 'all' },
+                  { label: '只看临时成本', value: 'temp' },
+                ]}
+              />
+            </div>
     
             {/* 操作按钮 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -640,6 +814,15 @@ const CostTab: React.FC = () => {
               type="primary"
               className="grayblue-btn"
               style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
+              icon={<PlusOutlined />}
+              onClick={openTempModal}
+            >
+              临时成本录入
+            </Button>
+            <Button
+              type="primary"
+              className="grayblue-btn"
+              style={{ background: '#2f54eb', borderColor: '#2f54eb' }}
               icon={<UploadOutlined />}
               onClick={() => setImportModalVisible(true)}
             >
@@ -647,11 +830,11 @@ const CostTab: React.FC = () => {
             </Button>
           </div>
         </div>
-    
+
         {/* 表格 */}
         <Table
           columns={costColumns}
-          dataSource={dataSource}
+          dataSource={tableData}
           rowKey="id"
           loading={loading}
           size="small"
@@ -750,6 +933,117 @@ const CostTab: React.FC = () => {
           </Form>
         </Modal>
     
+        {/* 临时成本录入（周报缺失成本时补录；财务正式成本表导入该月后会被清掉） */}
+        <Modal
+          title="临时成本录入"
+          open={tempModalVisible}
+          onOk={handleSubmitTemp}
+          onCancel={() => setTempModalVisible(false)}
+          confirmLoading={tempSubmitting}
+          okText="保存"
+          cancelText="取消"
+          width={680}
+          styles={{ body: { padding: '16px' } }}
+          destroyOnClose
+        >
+          <Alert
+            type="warning"
+            showIcon
+            message="临时成本用于补周报缺失的成本，财务正式成本表导入该月后会被自动清除"
+            description={
+              <div style={{ fontSize: 12, lineHeight: 1.7 }}>
+                1. 「商家编码 + 月份」唯一：重复录入会更新同一条，不会产生重复行
+                <br />
+                2. 保存后报表缓存自动失效，重新生成周报即可用上这笔成本
+                <br />
+                3. 财务正式成本表导入该月时，该月全部临时成本被删除（正式值优先）
+              </div>
+            }
+            style={{ marginBottom: 16 }}
+          />
+          <Form form={tempForm} layout="vertical">
+            <div style={{ display: 'flex', gap: 16 }}>
+              <Form.Item
+                label="成本所属月份"
+                name="month"
+                style={{ flex: 1 }}
+                rules={[{ required: true, message: '请选择成本所属月份' }]}
+              >
+                <DatePicker.MonthPicker
+                  style={{ width: '100%' }}
+                  format="YYYY-MM"
+                  placeholder="请选择月份"
+                />
+              </Form.Item>
+              <Form.Item
+                label="商家编码"
+                name="merchantCode"
+                style={{ flex: 1 }}
+                rules={[{ required: true, message: '请填写商家编码（成本匹配键）' }]}
+              >
+                <Input placeholder="请输入商家编码，如：6820261104001" allowClear />
+              </Form.Item>
+            </div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <Form.Item
+                label="匹配成本单价"
+                name="matchedCost"
+                style={{ flex: 1 }}
+                rules={[{ required: true, message: '请填写匹配成本单价' }]}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  placeholder="必填，如 0.05"
+                  min={0}
+                  step={0.01}
+                />
+              </Form.Item>
+              <Form.Item
+                label="财务成本（不填同匹配成本）"
+                name="financeCost"
+                style={{ flex: 1 }}
+                rules={[{ type: 'number', min: 0, message: '请输入有效数字' }]}
+              >
+                <InputNumber style={{ width: '100%' }} placeholder="选填" min={0} step={0.01} />
+              </Form.Item>
+              <Form.Item
+                label="内结价（不填为 0）"
+                name="internalPrice"
+                style={{ flex: 1 }}
+                rules={[{ type: 'number', min: 0, message: '请输入有效数字' }]}
+              >
+                <InputNumber style={{ width: '100%' }} placeholder="选填" min={0} step={0.01} />
+              </Form.Item>
+            </div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <Form.Item label="货品编码" name="productNo" style={{ flex: 1 }}>
+                <Input placeholder="选填" allowClear />
+              </Form.Item>
+              <Form.Item label="料号" name="u9" style={{ flex: 1 }}>
+                <Input placeholder="选填" allowClear />
+              </Form.Item>
+              <Form.Item label="品牌" name="brandName" style={{ flex: 1 }}>
+                <Input placeholder="选填，不存在会自动新建品牌档案" allowClear />
+              </Form.Item>
+            </div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <Form.Item label="自有/外采" name="own" style={{ flex: 1 }}>
+                <Select
+                  placeholder="选填"
+                  allowClear
+                  options={[
+                    { label: '自有', value: '自有' },
+                    { label: '外采', value: '外采' },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item label="备注" name="remark" style={{ flex: 2 }}>
+                <Input placeholder="选填，默认「临时成本(手工录入)」" allowClear />
+              </Form.Item>
+            </div>
+          </Form>
+        </Modal>
+
         {/* 导入弹窗 */}
         <Modal
           title="导入成本数据"
@@ -839,6 +1133,15 @@ const CostTab: React.FC = () => {
                     </span>{' '}
                     条
                   </span>
+                  {importResult.clearedTempCount > 0 && (
+                    <span>
+                      已清除该月临时成本{' '}
+                      <span style={{ color: '#fa8c16', fontWeight: 600 }}>
+                        {importResult.clearedTempCount}
+                      </span>{' '}
+                      条
+                    </span>
+                  )}
                 </Space>
               </div>
     

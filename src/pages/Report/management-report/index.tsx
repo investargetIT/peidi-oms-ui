@@ -64,6 +64,44 @@ const formatTaxRateMixed = (v?: RawNumber) => toTaxRateMixedText(v);
 // 自有/外采：空值表示文件里该行未填，展示为 '-'
 const formatOwn = (v?: string | null) => (v ? v : '-');
 
+// 文本类字段（商家编码 / 业务员 / 渠道）：后端返回 null 时展示 '-'，不要展示 0 或空串
+const formatDashText = (v?: string | null) => (v ? v : '-');
+
+// 商家编码列（U9「商家编码」列，即条码）：type=4/9/10/12 共用（文档 §四）
+// 京东自营 / 天猫国际 / 亚马逊 / 线下(U9) 的表和导出都带这一列
+// 旧数据（重传应收单之前）后端返回 null，此时展示 '-'
+const MERCHANT_SKU_COLUMN = {
+  title: '商家编码',
+  dataIndex: 'merchantSku',
+  key: 'merchantSku',
+  width: 150,
+  render: formatDashText,
+};
+
+// 业务员 / 渠道：仅线下(U9) 有值（来自业务员渠道表），业务员表没匹配到该客户时为 '-'
+const SALESMAN_COLUMN = {
+  title: '业务员',
+  dataIndex: 'salesman',
+  key: 'salesman',
+  width: 100,
+  render: formatDashText,
+};
+
+const SALES_CHANNEL_COLUMN = {
+  title: '渠道',
+  dataIndex: 'channel',
+  key: 'channel',
+  width: 110,
+  render: formatDashText,
+};
+
+/** 在「料号」列后插入商家编码列（保持导出顺序与接口字段顺序一致） */
+const withMerchantSkuColumn = (columns: { dataIndex?: string }[]): any[] => {
+  const u9Index = columns.findIndex((col) => col.dataIndex === 'u9');
+  if (u9Index < 0) return [...columns, MERCHANT_SKU_COLUMN];
+  return [...columns.slice(0, u9Index + 1), MERCHANT_SKU_COLUMN, ...columns.slice(u9Index + 1)];
+};
+
 /**
  * 导出单元格取值：复用列的 render，与页面表格同一份文本（数字都是原样字符串）。
  * 空值占位 '-' 在 Excel 里写成空单元格，便于后续处理。
@@ -80,9 +118,10 @@ const toExportCellText = (col: any, record: any): string => {
 };
 
 // 数据类型 -> 展示名（下载文件名等场景使用）
+// type=2 与 type=12 都是「线下」但数据源不同：2=销售出库明细（旧口径），12=U9 应收单
 const MR_TYPE_LABELS: Record<number, string> = {
   1: '线上',
-  2: '线下',
+  2: '线下(出库)',
   3: '沃尔玛',
   4: '京东自营',
   5: '天猫超市',
@@ -92,6 +131,7 @@ const MR_TYPE_LABELS: Record<number, string> = {
   9: '天猫国际',
   10: '亚马逊',
   11: '沃尔玛山姆',
+  12: '线下(U9)',
 };
 
 const ManagementReportTab: React.FC = () => {
@@ -119,9 +159,27 @@ const ManagementReportTab: React.FC = () => {
   // 沃尔玛山姆（type=11）：明细表 + 利润表
   const [mrWalmartDetailList, setMrWalmartDetailList] = useState<WalmartDetailVo[]>([]);
   const [mrWalmartProfitList, setMrWalmartProfitList] = useState<WalmartProfitVo[]>([]);
+  // 线下（type=12，U9 应收单）：智创 + 瑞驰合并返回
+  const [mrOfflineU9List, setMrOfflineU9List] = useState<JdSalesCostVo[]>([]);
   // 明细表筛选：渠道 / 单据类型
   const [walmartChannelFilter, setWalmartChannelFilter] = useState<string | undefined>(undefined);
   const [walmartDocTypeFilter, setWalmartDocTypeFilter] = useState<string | undefined>(undefined);
+  // 线下(type=12) 明细筛选：核算组织（智创 / 瑞驰 合在一张表里，老数据 org 为 null 视为智创）
+  const [offlineU9OrgFilter, setOfflineU9OrgFilter] = useState<string | undefined>(undefined);
+
+  // 线下(type=12)：全量数据，老数据（org 为 null）归入智创
+  const mrOfflineU9Full = useMemo(
+    () => mrOfflineU9List.map((item) => ({ ...item, org: item.org || '智创' })),
+    [mrOfflineU9List],
+  );
+  // 线下(type=12)：按核算组织前端筛选后的表格数据
+  const mrOfflineU9Data = useMemo(
+    () =>
+      offlineU9OrgFilter
+        ? mrOfflineU9Full.filter((item) => item.org === offlineU9OrgFilter)
+        : mrOfflineU9Full,
+    [mrOfflineU9Full, offlineU9OrgFilter],
+  );
 
   // 沃尔玛山姆（type=11）：两张表
   const isWalmartSamType = mrType === 11;
@@ -138,8 +196,9 @@ const ManagementReportTab: React.FC = () => {
   // 京东自营 / 天猫超市：是否展示费用相关区域
   const isFeeType = mrType === 4 || mrType === 5;
   const feeTypeLabel = mrType === 5 ? '天猫超市' : '京东自营';
-  // U9 应收单相关类型（4-京东自营 9-天猫国际 10-亚马逊）：展示上传按钮
-  const isU9Type = mrType === 4 || mrType === 9 || mrType === 10;
+  // U9 应收单相关类型（4-京东自营 9-天猫国际 10-亚马逊 12-线下U9）：展示上传按钮
+  // 上传接口已改为按「组织」上传，一次上传会自动拆成各渠道，所以这几个类型下都能进入同一个上传弹窗
+  const isU9Type = mrType === 4 || mrType === 9 || mrType === 10 || mrType === 12;
 
   // 京东自营表格数据：
   // 与「京东自营9月份数据.xlsx」保持一致——费用子类不再单独占行，
@@ -205,6 +264,8 @@ const ManagementReportTab: React.FC = () => {
         // 沃尔玛山姆（type=11）：明细表 + 利润表
         setMrWalmartDetailList(data.walmartDetailList || []);
         setMrWalmartProfitList(data.walmartProfitList || []);
+        // 线下（type=12，U9 应收单）
+        setMrOfflineU9List(data.offlineU9List || []);
         message.success('查询成功');
       } else if (res.code === 500) {
         message.error(typeof res.data === 'string' ? res.data : res.msg || '查询失败');
@@ -236,6 +297,7 @@ const ManagementReportTab: React.FC = () => {
     setMrNingboList([]);
     setMrWalmartDetailList([]);
     setMrWalmartProfitList([]);
+    setMrOfflineU9List([]);
     fetchManagementReport({
       type: mrType,
       startMonth: defaultMonth,
@@ -702,9 +764,34 @@ const ManagementReportTab: React.FC = () => {
     },
   ];
 
-  // 管报数据查询 - 京东自营表格列（type=4）：销售列 + 费用 4 组 × 4 列
+  // 管报数据查询 - 京东系销售列（type=4 京东自营 / 9 天猫国际 / 10 亚马逊 共用）
+  // 在 mrJdBaseColumns 基础上补「商家编码」列（后端这几个渠道都返回 merchantSku，重传后才有值）
+  // 注意：salesman / channel 在这几个渠道恒为 null（文档 §4.1），不展示这两个空列
+  const mrJdSaleColumns = withMerchantSkuColumn(mrJdBaseColumns);
+
+  // 管报数据查询 - 线下(U9)表格列（type=12）
+  // 字段与京东系销售列一致（含商家编码），差异：
+  // 1) 「订货客户」后插入核算组织（智创/瑞驰合表，需区分），再插入业务员 / 渠道（仅线下有值）
+  // 2) 业务员 / 渠道来自「业务员渠道表」，匹配不到的客户为 null -> 显示 '-'
+  const mrOfflineU9Columns = [
+    ...mrJdSaleColumns.slice(0, 2),
+    {
+      title: '核算组织',
+      dataIndex: 'org',
+      key: 'org',
+      width: 100,
+      fixed: 'left' as const,
+      // 老数据无 org，按后端口径视为智创
+      render: (v?: string | null) => v || '智创',
+    },
+    SALESMAN_COLUMN,
+    SALES_CHANNEL_COLUMN,
+    ...mrJdSaleColumns.slice(2),
+  ];
+
+  // 管报数据查询 - 京东自营表格列（type=4）：销售列（含商家编码）+ 费用 4 组 × 4 列
   const mrJdColumns = [
-    ...mrJdBaseColumns,
+    ...mrJdSaleColumns,
     // 费用 4 组：类别、未税金额、税率、价税合计
     ...JD_FEE_GROUPS.flatMap((group, index) => {
       const suffix = index + 1;
@@ -1337,9 +1424,7 @@ const ManagementReportTab: React.FC = () => {
 
         mrWalmartProfitList.forEach((record) => {
           // 同上：与页面展示同一份文本（毛利率 / 净利率按页面同样的百分比文本）
-          profitSheet.addRow(
-            mrWalmartProfitColumns.map((col) => toExportCellText(col, record)),
-          );
+          profitSheet.addRow(mrWalmartProfitColumns.map((col) => toExportCellText(col, record)));
         });
         profitSheet.columns = profitHeaders.map((h, idx) => ({
           width: Math.max(12, String(h).length * 2 + 4),
@@ -1390,13 +1475,17 @@ const ManagementReportTab: React.FC = () => {
       dataList = mrNingboList;
       columns = mrJdBaseColumns;
     } else if (mrType === 9) {
-      // 天猫国际：列与京东自营一致，接口不返回费用，导出时不带费用列
+      // 天猫国际：列与京东自营一致（含商家编码），接口不返回费用，导出时不带费用列
       dataList = mrJdList;
-      columns = mrJdBaseColumns;
+      columns = mrJdSaleColumns;
     } else if (mrType === 10) {
       // 亚马逊：同天猫国际
       dataList = mrJdList;
-      columns = mrJdBaseColumns;
+      columns = mrJdSaleColumns;
+    } else if (mrType === 12) {
+      // 线下（U9 应收单）：导出当月全量（不套用页面上的组织筛选），列带核算组织 / 业务员 / 渠道 / 商家编码
+      dataList = mrOfflineU9Full;
+      columns = mrOfflineU9Columns;
     }
 
     if (!dataList.length) {
@@ -1419,6 +1508,9 @@ const ManagementReportTab: React.FC = () => {
 
       // 料号列索引：需强制按文本导出，避免前导0/尾数(后置0)被 Excel 当数字处理而丢失
       const u9ColIndex = columns.findIndex((col) => col.dataIndex === 'u9');
+      // 商家编码列索引：条码是长数字串（13 位，如 6971758276402），Excel 默认转成科学计数法会丢精度，
+      // 与料号同样强制文本
+      const merchantSkuColIndex = columns.findIndex((col) => col.dataIndex === 'merchantSku');
 
       // 数据（原封不动，仅取列对应的 dataIndex 字段）
       dataList.forEach((record) => {
@@ -1431,6 +1523,14 @@ const ManagementReportTab: React.FC = () => {
         if (u9ColIndex >= 0) {
           const cell = row.getCell(u9ColIndex + 1);
           const v = record[columns[u9ColIndex].dataIndex];
+          cell.value = v === null || v === undefined ? '' : String(v).trim();
+          cell.numFmt = '@';
+        }
+
+        // 商家编码：同上，按文本写入，避免 13 位条码变科学计数法
+        if (merchantSkuColIndex >= 0) {
+          const cell = row.getCell(merchantSkuColIndex + 1);
+          const v = record[columns[merchantSkuColIndex].dataIndex];
           cell.value = v === null || v === undefined ? '' : String(v).trim();
           cell.numFmt = '@';
         }
@@ -1488,7 +1588,7 @@ const ManagementReportTab: React.FC = () => {
               onChange={(value) => setMrType(value)}
               options={[
                 { label: '线上', value: 1 },
-                { label: '线下', value: 2 },
+                { label: '线下(出库)', value: 2 },
                 { label: '沃尔玛', value: 3 },
                 { label: '京东自营', value: 4 },
                 { label: '天猫超市', value: 5 },
@@ -1498,6 +1598,7 @@ const ManagementReportTab: React.FC = () => {
                 { label: '天猫国际', value: 9 },
                 { label: '亚马逊', value: 10 },
                 { label: '沃尔玛山姆', value: 11 },
+                { label: '线下(U9)', value: 12 },
               ]}
             />
           </div>
@@ -1635,7 +1736,7 @@ const ManagementReportTab: React.FC = () => {
           rowKey={(record) => record.__key}
           loading={mrLoading}
           size="small"
-          scroll={{ x: 4000 }}
+          scroll={{ x: 4150 }}
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,
@@ -1696,12 +1797,12 @@ const ManagementReportTab: React.FC = () => {
       {/* 天猫国际 / 亚马逊：复用京东自营表格（jdList），接口不返回 feeList，不展示费用列 */}
       {(mrType === 9 || mrType === 10) && (
         <Table
-          columns={mrJdBaseColumns}
+          columns={mrJdSaleColumns}
           dataSource={mrJdTableData}
           rowKey={(record) => record.__key}
           loading={mrLoading}
           size="small"
-          scroll={{ x: 2000 }}
+          scroll={{ x: 2200 }}
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,
@@ -1709,6 +1810,55 @@ const ManagementReportTab: React.FC = () => {
             showTotal: (total) => `共 ${total} 条记录`,
           }}
         />
+      )}
+
+      {/* 线下（type=12，U9 应收单）：智创 + 瑞驰合在一张表，字段同京东系，可按核算组织筛选 */}
+      {mrType === 12 && (
+        <div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>
+              线下（U9 应收单，共 {mrOfflineU9Data.length} 行）
+            </span>
+            <Space>
+              <span style={{ fontSize: 12, color: '#666' }}>核算组织</span>
+              <Select
+                style={{ width: 120 }}
+                allowClear
+                placeholder="全部"
+                value={offlineU9OrgFilter}
+                onChange={(value) => setOfflineU9OrgFilter(value)}
+                options={[
+                  { label: '智创', value: '智创' },
+                  { label: '瑞驰', value: '瑞驰' },
+                ]}
+              />
+            </Space>
+          </div>
+          <Table
+            columns={mrOfflineU9Columns}
+            dataSource={mrOfflineU9Data}
+            rowKey={(_record, index) => `offline-u9-${index ?? 0}`}
+            loading={mrLoading}
+            size="small"
+            scroll={{ x: 2560 }}
+            pagination={{
+              showSizeChanger: true,
+              showQuickJumper: true,
+              pageSizeOptions: [10, 20, 50, 100],
+              showTotal: (total) => `共 ${total} 条记录`,
+            }}
+            locale={{ emptyText: '先点击查询' }}
+          />
+        </div>
       )}
 
       {/* 沃尔玛山姆（type=11）：利润表 + 明细表 */}

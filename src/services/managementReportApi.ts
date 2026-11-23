@@ -44,10 +44,11 @@ export interface ManagementReportQueryReq {
   startMonth?: string;
   /**
    * 数据类型：1-线上 2-线下 3-沃尔玛 4-京东自营 5-天猫超市 6-天猫闪购
-   * 7-招行内购 8-宁波银行 9-天猫国际 10-亚马逊 11-沃尔玛山姆
+   * 7-招行内购 8-宁波银行 9-天猫国际 10-亚马逊 11-沃尔玛山姆 12-线下(U9 应收单)
    * 注：type=6 必须整月查询（startDate 为当月 1 号、endDate 为当月最后一天）；
    * type=9/10 复用 jdList（不返回 feeList），type=7/8 返回 zhaohangList / ningboList；
-   * type=11 返回 walmartDetailList（明细表）+ walmartProfitList（利润表）
+   * type=11 返回 walmartDetailList（明细表）+ walmartProfitList（利润表）；
+   * type=12 返回 offlineU9List（智创 + 瑞驰合并，按立账日期过滤），与 type=2 线下是两套数据源
    */
   type?: number;
   [property: string]: any;
@@ -75,6 +76,18 @@ export interface SalesOutDetailsCostVo {
   totalWithTax?: number;
   u9?: string;
   unitPrice?: number;
+  /**
+   * 商家编码（U9「商家编码」列，即条码）；后端已返回该字段，但旧数据可能全为 null
+   */
+  merchantSku?: string | null;
+  /**
+   * 业务员（仅线下有值，业务员渠道表未匹配到为 null）
+   */
+  salesman?: string | null;
+  /**
+   * 渠道：销售一组 / 销售二组 / 销售三组（仅线下有值）
+   */
+  channel?: string | null;
   [property: string]: any;
 }
 
@@ -133,6 +146,7 @@ export interface WalmartRebateQueryVo {
 
 /**
  * 京东自营销售+成本返回对象（type=4）
+ * type=9 天猫国际 / type=10 亚马逊 / type=12 线下(U9) 字段与之一致，另外 type=12 会返回 org
  */
 export interface JdSalesCostVo {
   amountWithoutTax?: number;
@@ -157,6 +171,22 @@ export interface JdSalesCostVo {
   totalWithTax?: number;
   u9?: string;
   unitPrice?: number;
+  /**
+   * 核算组织：智创 / 瑞驰（type=12 线下返回；老数据为 null，视为智创）
+   */
+  org?: string | null;
+  /**
+   * 商家编码（U9「商家编码」列，即条码）—— 京东自营 / 天猫国际 / 亚马逊 / 线下(U9) 都会返回
+   */
+  merchantSku?: string | null;
+  /**
+   * 业务员 —— 仅线下(U9) 有值（业务员渠道表匹配不到为 null），其余渠道恒为 null
+   */
+  salesman?: string | null;
+  /**
+   * 渠道：销售一组 / 销售二组 / 销售三组 —— 仅线下(U9) 有值，其余渠道恒为 null
+   */
+  channel?: string | null;
   [property: string]: any;
 }
 
@@ -293,25 +323,85 @@ export interface JdFeeVo {
 }
 
 /**
- * 上传 U9 应收单请求（京东自营 / 天猫国际 / 亚马逊 共用）
+ * 上传 U9 应收单请求（按核算组织上传）
+ *
+ * 后端按「组织」接收后自动拆分渠道（京东自营 / 天猫国际 / 亚马逊 / 线下各入各的表），
+ * 前端不再传 type，只传 org。
  */
 export interface U9ReceivableUploadReq {
   /**
-   * 数据类型：京东自营（默认）/ 天猫国际 / 亚马逊
+   * 核算组织：智创 / 瑞驰（默认智创）
+   * 注意：必须走 query 参数（URL 编码），不能放 multipart 表单字段，否则中文会按 GBK 编码变乱码报 400
    */
-  type?: U9ReceivableType;
+  org?: U9ReceivableOrg;
   /**
-   * U9 应收单导出文件（xlsx / xls）
+   * 归属月份 yyyy-MM，建议必传。
+   * 传了之后文件里任何一行的立账日期不在该月都会返回 400（一行都不删不插）
+   */
+  month?: string;
+  /**
+   * U9 应收单（ARBillHead 导出）文件（xlsx / xls）
    */
   file: File;
 }
 
 /**
- * U9 应收单支持的数据类型（中文，按 UTF-8 传）
- * 对应管报 type：京东自营=4、天猫国际=9、亚马逊=10
+ * U9 应收单的核算组织（中文，按 UTF-8 走 query）
+ * 管报 type=12 会把智创 + 瑞驰的线下数据合并返回
  */
-export const U9_RECEIVABLE_TYPES = ['京东自营', '天猫国际', '亚马逊'] as const;
-export type U9ReceivableType = (typeof U9_RECEIVABLE_TYPES)[number];
+export const U9_RECEIVABLE_ORGS = ['智创', '瑞驰'] as const;
+export type U9ReceivableOrg = (typeof U9_RECEIVABLE_ORGS)[number];
+
+/**
+ * 上传 U9 应收单返回：各渠道入库行数统计
+ * 只包含本次文件里实际出现的渠道，如 { "京东自营": 127, "亚马逊": 35, "线下": 2705 }
+ */
+export type U9ReceivableUploadResult = Record<string, number>;
+
+/**
+ * 上传业务员渠道表请求（线下专用，和应收单分开上传）
+ */
+export interface SalesmanChannelUploadReq {
+  /**
+   * 业务员渠道表（.xlsx / .xls）：表头 日期 / 客户名称 / 业务员 / 渠道
+   */
+  file: File;
+  /**
+   * 归属月份 yyyy-MM，**一般不传**。
+   * 不传：后端按文件里的「日期」列自动归月，处理文件内出现的所有月份（推荐，一次传整月表即可）。
+   * 传了：只处理该月份的记录，文件里其它月份的记录会被忽略。
+   */
+  month?: string;
+}
+
+/**
+ * 上传业务员渠道表返回：按月统计
+ *
+ * ⚠️ 覆盖粒度是「月份」：某个月份出现在文件里时，该月旧记录会按「日期 + 客户名称」全量对齐，
+ * 文件里没有的客户在该月会被删除（deleted 即此数量），所以必须上传整月完整数据。
+ */
+export interface SalesmanChannelMonthStat {
+  /** 月份 yyyy-MM */
+  month?: string;
+  /** 该月文件行数 */
+  rows?: number;
+  inserted?: number;
+  updated?: number;
+  /** 该月被删除的行数（文件里没有再出现的「日期+客户名称」） */
+  deleted?: number;
+}
+
+export interface SalesmanChannelUploadResult {
+  /** 文件总行数 */
+  rows?: number;
+  inserted?: number;
+  updated?: number;
+  deleted?: number;
+  /** 原始行数 */
+  sourceRows?: number;
+  /** 按月统计 */
+  months?: SalesmanChannelMonthStat[];
+}
 
 /**
  * 京东自营费用保存明细项
@@ -641,6 +731,10 @@ export interface ManagementReportQueryVo {
    * 沃尔玛山姆（type=11）利润表：山姆 / 沃尔玛 / 合计 三行利润
    */
   walmartProfitList?: WalmartProfitVo[];
+  /**
+   * 线下（type=12，U9 应收单）：智创 + 瑞驰合并返回，字段同 jdList，可用每行 org 区分组织
+   */
+  offlineU9List?: JdSalesCostVo[];
   [property: string]: any;
 }
 
@@ -1247,24 +1341,28 @@ export class ManagementReportApi {
     return omsRequest.post('/management-report/query', params);
   }
 
-  /* ---- U9 应收单（京东自营 / 天猫国际 / 亚马逊） ---- */
+  /* ---- U9 应收单（按核算组织上传：智创 / 瑞驰） ---- */
   /**
-   * 上传 U9 应收单原始数据
-   * POST /oms/finance/u9-receivable/upload（multipart/form-data）
-   * type 支持：京东自营（默认）/ 天猫国际 / 亚马逊，中文按 UTF-8 传
-   * 上传后服务端会重新富化该月份数据（同月份会覆盖旧数据）
+   * 上传 U9 应收单原始数据（按组织）
+   * POST /oms/finance/u9-receivable/upload?org=智创&month=yyyy-MM（multipart/form-data）
+   *
+   * - org / month 走 **query**（axios params 会自动 URL 编码），file 走 multipart body。
+   *   ⚠️ org 不要放表单字段：中文按 multipart 提交时会被部分客户端按 GBK 编码，后端收到乱码直接 400。
+   * - 后端按组织接收后自动拆渠道（京东自营 / 亚马逊 / 天猫国际 / 线下），每个渠道按「组织 + 渠道 + 月份」整月覆盖。
+   * - 返回各渠道入库行数统计，如 { "京东自营": 127, "线下": 2705 }（不再是列表）。
    */
   static async uploadU9Receivable(
     data: U9ReceivableUploadReq,
-  ): Promise<ResponseData<JdSalesCostVo[]>> {
+  ): Promise<ResponseData<U9ReceivableUploadResult>> {
     const formData = new FormData();
-    if (data.type) {
-      formData.append('type', data.type);
-    }
     formData.append('file', data.file);
     return omsRequest.post('/finance/u9-receivable/upload', formData, {
+      params: {
+        org: data.org,
+        month: data.month,
+      },
       headers: { 'Content-Type': 'multipart/form-data' },
-      // 解析 + 成本匹配可能较慢，单独放宽超时
+      // 解析 + 成本匹配可能较慢（600KB / 5000+ 行），单独放宽超时
       timeout: 1000 * 60 * 30,
       showLoading: false,
     });
@@ -1276,6 +1374,32 @@ export class ManagementReportApi {
    */
   static async getU9ReceivableTypes(): Promise<ResponseData<string[]>> {
     return omsRequest.post('/finance/u9-receivable/types');
+  }
+
+  /**
+   * 上传业务员渠道表（线下专用，与应收单分开上传）
+   * POST /oms/finance/u9-receivable/salesman/upload?month=yyyy-MM（multipart/form-data）
+   *
+   * - 表格固定样式：日期 / 客户名称 / 业务员 / 渠道（表头可在前 10 行内，按列名识别）
+   * - 必需列：日期、客户名称；业务员 / 渠道至少有一列
+   * - month 走 query（可选）：不传则处理文件里所有月份
+   * - 覆盖索引是「日期 + 客户名称」，命中只改业务员与渠道；
+   *   同日期同客户出现不同组合会整批 400
+   */
+  static async uploadSalesmanChannel(
+    data: SalesmanChannelUploadReq,
+  ): Promise<ResponseData<SalesmanChannelUploadResult>> {
+    const formData = new FormData();
+    formData.append('file', data.file);
+    return omsRequest.post('/finance/u9-receivable/salesman/upload', formData, {
+      // month 一般不传：后端按文件里的「日期」列自动归月，一次处理文件内所有月份。
+      // 只有需要「只处理某一个月」时才传，传了会忽略文件里其它月份的行。
+      params: data.month ? { month: data.month } : undefined,
+      headers: { 'Content-Type': 'multipart/form-data' },
+      // 大文件解析可能较慢，单独放宽超时
+      timeout: 1000 * 60 * 10,
+      showLoading: false,
+    });
   }
 
   /**
