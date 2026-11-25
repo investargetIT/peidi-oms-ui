@@ -12,6 +12,7 @@ import {
   Divider,
   Flex,
   message,
+  notification,
   Progress,
   Radio,
   Row,
@@ -31,6 +32,7 @@ import {
   handleAntdTableData,
   handleCompressBlobs,
   exportObaDataTemplateExcel,
+  type ObaRedRowInfo,
 } from '@/pages/FinanceUtils/utils/excel';
 import dayjs from 'dayjs';
 import { financeObaPage } from '@/services/ant-design-pro/api';
@@ -236,8 +238,7 @@ const ReprocessForShop = () => {
       // 修复：原来正则 `[-_]${org}[-_]` 要求组织名后面必须是 - 或 _，
       // 导致类似 `2026.07.22-U9订单-Amazon美国4-智创.xlsx` 这种以 -${org}.xlsx 结尾的文件无法被归类
       // 这里把结尾规则放宽为：- / _ / . / 字符串结尾 之一
-      const orgPattern = (org: string) =>
-        new RegExp(`[-_]${org}(?:[-_.]|$)`);
+      const orgPattern = (org: string) => new RegExp(`[-_]${org}(?:[-_.]|$)`);
       let targetOrg: any = dataTemplate.find((item) => orgPattern(item.org).test(url));
       // console.log('targetOrg', targetOrg);
 
@@ -331,6 +332,42 @@ const ReprocessForShop = () => {
   //#endregion
 
   //#region 导出文件逻辑
+  // 税组合为空（红行）提示窗：页面右侧弹出，最多列出前 8 行，其余折叠为数量提示
+  const showRedRowsNotification = (redRows: ObaRedRowInfo[]) => {
+    const MAX_SHOW = 8;
+    const shown = redRows.slice(0, MAX_SHOW);
+    const restCount = redRows.length - shown.length;
+
+    notification.warning({
+      key: 'oba-red-rows', // 同 key 覆盖，避免多次导出堆叠
+      placement: 'topRight',
+      message: `导出完成，有 ${redRows.length} 行「税组合」为空已标红`,
+      duration: 0, // 不自动关闭，由用户确认
+      description: (
+        <div style={{ maxHeight: 320, overflowY: 'auto', fontSize: 12, lineHeight: 1.8 }}>
+          {shown.map((row, idx) => (
+            <div key={`${row.fileName}-${row.excelRowNumber}-${idx}`}>
+              <span style={{ color: '#CF1322' }}>{row.fileName}.xlsx</span>
+              {' 第 '}
+              {row.excelRowNumber}
+              {' 行'}
+              {row.shopName || row.shopId ? ` · ${row.shopName || row.shopId}` : ''}
+              {row.u9No ? ` · 料品 ${row.u9No}` : ''}
+              {row.invoiceNum !== null && row.invoiceNum !== undefined
+                ? ` · 数量 ${row.invoiceNum}`
+                : ''}
+            </div>
+          ))}
+          {restCount > 0 && (
+            <div style={{ color: '#8c8c8c', marginTop: 4 }}>
+              …… 另有 {restCount} 行，详见导出文件
+            </div>
+          )}
+        </div>
+      ),
+    });
+  };
+
   const fetchListPage = async (isBeginYear?: boolean) => {
     try {
       setExcelLoading(true);
@@ -377,6 +414,8 @@ const ReprocessForShop = () => {
 
             // 用来存需要压缩的文件的blob, 默认放一个模板Excel文件进去
             const blobLists = [];
+            // 收集所有税组合为空（导出后标红）的行，导出完成后在页面右侧提示
+            const redRows: ObaRedRowInfo[] = [];
             //放一份模板文件在最前面
             blobLists.push(await exportObaDataTemplateExcel(org));
 
@@ -388,6 +427,10 @@ const ReprocessForShop = () => {
                 `${org}-${dayjs().format('YYYY-MM')}`,
                 isBeginYear,
               );
+              // 收集红行信息
+              if (blobData.redRows?.length) {
+                redRows.push(...blobData.redRows);
+              }
               // 调用exportObaDataTemplateExcel 导出OBA数据模板Excel文件
               //   blobLists.push(await exportObaDataTemplateExcel(org));
               blobLists.push(blobData);
@@ -399,10 +442,16 @@ const ReprocessForShop = () => {
             // });
 
             console.log('blobLists', blobLists);
+            console.log('税组合为空的红行', redRows);
 
             // 压缩blobLists 并导出
             await handleCompressBlobs(blobLists, `OBA数据-${dayjs().format('YYYY-MM')}`);
             setExcelLoading(false);
+
+            // 存在红行时，在页面右侧弹出提示窗
+            if (redRows.length > 0) {
+              showRedRowsNotification(redRows);
+            }
           } catch (error) {
             console.log(error);
             message.error('导出失败');

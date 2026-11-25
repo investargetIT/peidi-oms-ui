@@ -230,12 +230,25 @@ const handleFormData = async (tableData: any[], fileName?: string) => {
   exportExcel(workbook, fileName);
 };
 
+// 红行（税组合为空）信息，供页面提示使用
+export interface ObaRedRowInfo {
+  /** 导出的文件名（不含扩展名），通常带组织名，如「智创-2025-10」 */
+  fileName?: string;
+  /** 在导出 Excel 中的行号（表头占第 1 行） */
+  excelRowNumber: number;
+  lineNumber?: string | number | null;
+  u9No?: string | null;
+  shopId?: string | null;
+  shopName?: string | null;
+  invoiceNum?: string | number | null;
+}
+
 // 业务逻辑 -传入antd table数据 导出excel
 const handleAntdTableData = async (
   tableData: any[],
   fileName?: string,
   isBeginYear?: boolean, // 是否是年初，年初开票固定日期YYYY（去年）-12-31
-) => {
+): Promise<{ name: string; blob: Blob; redRows: ObaRedRowInfo[] }> => {
   console.log('开始处理Table数据');
 
   // 创建空的Excel工作簿
@@ -260,18 +273,30 @@ const handleAntdTableData = async (
   // 插入逻辑
   let typeStatus = false; // 单据类型状态 是否需要插入Insert
   let idTemp = -1; // id编号
+  // 记录税组合为空（导出后标红）的行，导出完成后用于页面提示
+  const redRows: ObaRedRowInfo[] = [];
 
   // 遍历tableData 按dataIndexList的顺序 把数据存在sheet的对应行里
   tableData.forEach((item, index) => {
     const row = sheet.getRow(index + 2); // 第一行是title 所以从第二行开始
 
-    // 如果taxRate是空值，排除0，则设置行背景色为红色
-    if (item.taxRate === null || item.taxRate === undefined) {
+    // taxRate是空值时整行填充淡红色背景（antd red-1 提示色），避免纯红底刺眼、看不清文字
+    const isTaxRateEmpty = item.taxRate === null || item.taxRate === undefined;
+    if (isTaxRateEmpty) {
       row.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FFFF0000' },
+        fgColor: { argb: 'FFFFF1F0' },
       };
+      redRows.push({
+        fileName,
+        excelRowNumber: index + 2,
+        lineNumber: item.lineNumber,
+        u9No: item.u9No,
+        shopId: item.shopId,
+        shopName: item.shopName,
+        invoiceNum: item.invoiceNum,
+      });
     }
 
     // 先记录有没有单据类型
@@ -323,6 +348,15 @@ const handleAntdTableData = async (
         } else {
           row.getCell(colIndex + 1).value = item[dataIndex];
         }
+      }
+      // 税组合：为空时单独用深红加粗标出，配合整行淡红底，既能一眼定位又不刺眼
+      else if (dataIndex === 'taxRate') {
+        const cell = row.getCell(colIndex + 1);
+        cell.value = item[dataIndex];
+        if (isTaxRateEmpty) {
+          // 合并原有字体样式，避免覆盖字体名/字号
+          cell.font = { ...(cell.font || {}), bold: true, color: { argb: 'FFCF1322' } };
+        }
       } else {
         row.getCell(colIndex + 1).value = item[dataIndex];
       }
@@ -331,7 +365,8 @@ const handleAntdTableData = async (
   // 导出工作簿
   // exportExcel(workbook, fileName);
   // 导出工作簿 blob
-  return exportExcelReturnBlob(workbook, fileName);
+  const exportResult = await exportExcelReturnBlob(workbook, fileName);
+  return { ...exportResult, redRows };
 };
 
 // 业务逻辑 -压缩多个blob文件并导出
