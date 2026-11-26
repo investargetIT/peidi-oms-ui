@@ -312,9 +312,7 @@ const App: React.FC = () => {
                     uploadFileNames.map((fileName, index) => (
                       <li key={index}>
                         <a
-                          href={`${getFinanceBaseUrl()}/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
-                            'token',
-                          )}`}
+                          href={`${getFinanceBaseUrl()}/finance/download?objectName=${fileName}&authorization=${getAuthToken()}`}
                         >
                           {fileName} - 点击下载
                         </a>
@@ -340,9 +338,7 @@ const App: React.FC = () => {
                     executeFileNames.map((fileName, index) => (
                       <li key={index}>
                         <a
-                          href={`${getFinanceBaseUrl()}/finance/download?objectName=${fileName}&authorization=${localStorage.getItem(
-                            'token',
-                          )}`}
+                          href={`${getFinanceBaseUrl()}/finance/download?objectName=${fileName}&authorization=${getAuthToken()}`}
                         >
                           {fileName} - 点击下载
                         </a>

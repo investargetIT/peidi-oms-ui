@@ -2,6 +2,7 @@ import { history, request } from '@umijs/max';
 import React, { useEffect, useState } from 'react';
 import { initDingH5RemoteDebug } from "dingtalk-h5-remote-debug";
 import * as dd from 'dingtalk-jsapi';
+import { writeAuthToken } from '@/utils/auth';
 
 const DDLoginFree: React.FC = () => {
 
@@ -70,7 +71,7 @@ const DDLoginFree: React.FC = () => {
         }).then(res => {
           if (res) {
             if (res.success) {
-              localStorage.setItem('token', res.data);
+              writeAuthToken(res.data);
               // 登录成功，跳转到指定页面
               const urlParams = new URL(window.location.href).searchParams;
               window.location.href = urlParams.get('redirect') || '/';
