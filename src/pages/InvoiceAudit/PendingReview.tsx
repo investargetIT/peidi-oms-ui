@@ -296,6 +296,8 @@ const PendingReview: React.FC = () => {
   //#region 筛选逻辑
   // Input搜索使用通用防抖钩子
   const [searchAppNoText, showSearchAppNoText, handleSearchAppNoText] = useDebounceSearch('');
+  const [searchDocumentNumberText, showSearchDocumentNumberText, handleSearchDocumentNumberText] =
+    useDebounceSearch('');
   const [searchCustomerCodeText, showSearchCustomerCodeText, handleSearchCustomerCodeText] =
     useDebounceSearch('');
   const [searchAppUserText, showSearchAppUserText, handleSearchAppUserText] = useDebounceSearch('');
@@ -315,6 +317,13 @@ const PendingReview: React.FC = () => {
         searchName: 'appNo',
         searchType: 'like',
         searchValue: searchAppNoText,
+      });
+    }
+    if (searchDocumentNumberText) {
+      searchParams.push({
+        searchName: 'documentNumber',
+        searchType: 'like',
+        searchValue: searchDocumentNumberText,
       });
     }
     if (searchCustomerCodeText) {
@@ -347,7 +356,13 @@ const PendingReview: React.FC = () => {
   // 筛选触发时查询
   useEffect(() => {
     refreshPagination();
-  }, [searchAppNoText, searchCustomerCodeText, searchAppUserText, searchOrganizationText]);
+  }, [
+    searchAppNoText,
+    searchDocumentNumberText,
+    searchCustomerCodeText,
+    searchAppUserText,
+    searchOrganizationText,
+  ]);
   // 分页获取开票审核
   const getInvoiceAppPage = async (params: PageParams) => {
     setLoading(true);
@@ -414,6 +429,12 @@ const PendingReview: React.FC = () => {
           value={showSearchAppNoText}
           onChange={(e) => handleSearchAppNoText(e.target.value)}
           placeholder="搜索申请编号..."
+          prefix={<SearchOutlined style={{ color: '#737373' }} />}
+        />
+        <Input
+          value={showSearchDocumentNumberText}
+          onChange={(e) => handleSearchDocumentNumberText(e.target.value)}
+          placeholder="搜索单据编号..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
         />
         <Input

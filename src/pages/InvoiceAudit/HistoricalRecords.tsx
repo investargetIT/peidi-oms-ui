@@ -24,11 +24,22 @@ const HistoricalRecords: React.FC = () => {
     // console.log('dateRange', value);
     setDateRange(value);
   };
+  // 生成时间范围查询值
+  // 后端 appTime 是 datetime，若只传 YYYY-MM-DD，结束日会被当作当天 00:00:00
+  // 导致"11-19 ~ 11-19"查不到 19 号当天数据，这里补全时分秒
+  const getDateRangeSearchValue = () => {
+    const start = dayjs(dateRange?.[0]).startOf('day').format('YYYY-MM-DD HH:mm:ss');
+    // 结束取当天最后一毫秒，避免漏掉 23:59:59 之后的数据
+    const end = dayjs(dateRange?.[1]).endOf('day').format('YYYY-MM-DD HH:mm:ss.SSS');
+    return `${start},${end}`;
+  };
   //#endregion
 
   //#region 筛选逻辑
   // Input搜索使用通用防抖钩子
   const [searchAppNoText, showSearchAppNoText, handleSearchAppNoText] = useDebounceSearch('');
+  const [searchDocumentNumberText, showSearchDocumentNumberText, handleSearchDocumentNumberText] =
+    useDebounceSearch('');
   const [searchCustomerCodeText, showSearchCustomerCodeText, handleSearchCustomerCodeText] =
     useDebounceSearch('');
   const [searchAppUserText, showSearchAppUserText, handleSearchAppUserText] = useDebounceSearch('');
@@ -41,7 +52,7 @@ const HistoricalRecords: React.FC = () => {
       {
         searchName: 'appTime',
         searchType: 'betweenStr',
-        searchValue: dateRange.map((item: dayjs.Dayjs) => item.format('YYYY-MM-DD')).join(','),
+        searchValue: getDateRangeSearchValue(),
       },
     ];
     searchParams.push({
@@ -54,6 +65,13 @@ const HistoricalRecords: React.FC = () => {
         searchName: 'appNo',
         searchType: 'like',
         searchValue: searchAppNoText,
+      });
+    }
+    if (searchDocumentNumberText) {
+      searchParams.push({
+        searchName: 'documentNumber',
+        searchType: 'like',
+        searchValue: searchDocumentNumberText,
       });
     }
     if (searchCustomerCodeText) {
@@ -103,6 +121,7 @@ const HistoricalRecords: React.FC = () => {
     refreshPagination();
   }, [
     searchAppNoText,
+    searchDocumentNumberText,
     searchCustomerCodeText,
     searchAppUserText,
     searchOrganizationText,
@@ -167,6 +186,12 @@ const HistoricalRecords: React.FC = () => {
           value={showSearchAppNoText}
           onChange={(e) => handleSearchAppNoText(e.target.value)}
           placeholder="搜索申请编号..."
+          prefix={<SearchOutlined style={{ color: '#737373' }} />}
+        />
+        <Input
+          value={showSearchDocumentNumberText}
+          onChange={(e) => handleSearchDocumentNumberText(e.target.value)}
+          placeholder="搜索单据编号..."
           prefix={<SearchOutlined style={{ color: '#737373' }} />}
         />
         <Input
